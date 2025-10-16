@@ -257,6 +257,15 @@ export class BoardTabsView extends ItemView {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (!(file instanceof TFile)) return;
         try {
+          // If the task already has this status, do nothing (no move, no date changes)
+          const cache = this.app.metadataCache.getFileCache(file);
+          const currentStatus = String(cache?.frontmatter?.['status'] ?? '');
+          if (currentStatus === status) {
+            // clear highlight and return without updating
+            setHighlight(false);
+            return;
+          }
+
           // Preserve horizontal scroll position while we update
           const scroller = board; // .kb-kanban is the horizontal scroller
           const scrollLeft = scroller.scrollLeft;

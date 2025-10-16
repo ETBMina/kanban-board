@@ -68,6 +68,11 @@
       "type": "text"
     },
     {
+      "key": "emailSubject",
+      "label": "Email Subject",
+      "type": "text"
+    },
+    {
       "key": "solutionDesign",
       "label": "Solution design link",
       "type": "url"

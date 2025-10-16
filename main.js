@@ -32,7 +32,7 @@ var DEFAULT_SETTINGS = {
   templateFields: [
     { key: "title", label: "Title", type: "text" },
     { key: "status", label: "Status", type: "status" },
-    { key: "priority", label: "Priority", type: "text" },
+    { key: "priority", label: "Priority", type: "status" },
     { key: "assignee", label: "Assignee", type: "people" },
     { key: "startDate", label: "Start Date", type: "date" },
     { key: "endDate", label: "End Date", type: "date" },
@@ -49,6 +49,7 @@ var DEFAULT_SETTINGS = {
   crTemplateFields: [
     { key: "number", label: "CR Number", type: "text" },
     { key: "title", label: "Title", type: "text" },
+    { key: "emailSubject", label: "Email Subject", type: "text" },
     { key: "solutionDesign", label: "Solution design link", type: "url" },
     { key: "description", label: "Description", type: "text" }
   ]
@@ -139,7 +140,7 @@ async function readAllTasks(app, settings) {
   }
   return results;
 }
-async function updateTaskFrontmatter2(app, file, patch) {
+async function updateTaskFrontmatter(app, file, patch) {
   var _a, _b, _c, _d, _e, _f, _g;
   const content = await app.vault.read(file);
   const cache = app.metadataCache.getFileCache(file);
@@ -422,7 +423,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           for (const t of tasksInCol) {
             const f = this.app.vault.getAbstractFileByPath(t.filePath);
             if (f instanceof import_obsidian3.TFile) {
-              updates.push(updateTaskFrontmatter2(this.app, f, { status: newName }));
+              updates.push(updateTaskFrontmatter(this.app, f, { status: newName }));
             }
           }
           try {
@@ -482,13 +483,19 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         setHighlight(false);
       };
       body.ondrop = async (e) => {
-        var _a3, _b3;
+        var _a3, _b3, _c2, _d2;
         if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
         const path = (_b3 = e.dataTransfer) == null ? void 0 : _b3.getData("text/plain");
         if (!path) return;
         const file = this.app.vault.getAbstractFileByPath(path);
         if (!(file instanceof import_obsidian3.TFile)) return;
         try {
+          const cache = this.app.metadataCache.getFileCache(file);
+          const currentStatus = String((_d2 = (_c2 = cache == null ? void 0 : cache.frontmatter) == null ? void 0 : _c2["status"]) != null ? _d2 : "");
+          if (currentStatus === status) {
+            setHighlight(false);
+            return;
+          }
           const scroller = board;
           const scrollLeft = scroller.scrollLeft;
           const isCompleted = /^(completed|done)$/i.test(status);
@@ -496,7 +503,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           const patch = { status };
           if (isCompleted) patch["endDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           if (isInProgress) patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-          await updateTaskFrontmatter2(this.app, file, patch);
+          await updateTaskFrontmatter(this.app, file, patch);
           new import_obsidian3.Notice("Moved to " + status);
           setHighlight(false);
           await this.reload();
@@ -700,6 +707,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
     const fields = (_a = this.settings.crTemplateFields) != null ? _a : [
       { key: "number", label: "CR Number", type: "text" },
       { key: "title", label: "Title", type: "text" },
+      { key: "emailSubject", label: "Email Subject", type: "text" },
       { key: "solutionDesign", label: "Solution design link", type: "url" },
       { key: "description", label: "Description", type: "text" }
     ];
@@ -743,7 +751,7 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
     this.onSubmit = onSubmit;
   }
   onOpen() {
-    var _a;
+    var _a, _b;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("kb-container");
@@ -787,13 +795,25 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
       const row = contentEl.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
-      const input = control.createEl("input");
-      input.addClass("kb-input");
-      input.placeholder = field.label;
-      if (field.type === "date") input.type = "date";
-      else if (field.type === "number") input.type = "number";
-      else input.type = "text";
-      this.inputs.set(field.key, input);
+      if (field.type === "status" || field.key === "priority") {
+        const select = control.createEl("select");
+        select.addClass("kb-input");
+        const options = field.key === "status" ? this.statuses : ["Urgent", "High", "Medium", "Low"];
+        for (const o of options) {
+          const opt = select.createEl("option", { text: o });
+          opt.value = o;
+        }
+        select.value = field.key === "status" ? (_b = this.statuses[0]) != null ? _b : "" : "Medium";
+        this.inputs.set(field.key, select);
+      } else {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.placeholder = field.label;
+        if (field.type === "date") input.type = "date";
+        else if (field.type === "number") input.type = "number";
+        else input.type = "text";
+        this.inputs.set(field.key, input);
+      }
     }
     const footer = contentEl.createDiv({ cls: "modal-button-container" });
     const cancel = footer.createEl("button", { text: "Cancel" });
@@ -809,6 +829,7 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         data[key] = val;
       }
       if (!data["status"]) data["status"] = (_a2 = this.statuses[0]) != null ? _a2 : "Backlog";
+      data["priority"] = data["priority"] || "Medium";
       await this.onSubmit(data);
       this.close();
     };
@@ -852,6 +873,7 @@ var CrTemplateModal = class extends import_obsidian4.Modal {
         data[key] = val;
       }
       if (!data["title"]) data["title"] = "Untitled CR";
+      if (!data["priority"]) data["priority"] = "Medium";
       await this.onSubmit(data);
       this.close();
     };

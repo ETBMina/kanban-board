@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   templateFields: [
     { key: 'title', label: 'Title', type: 'text' },
     { key: 'status', label: 'Status', type: 'status' },
-    { key: 'priority', label: 'Priority', type: 'text' },
+    { key: 'priority', label: 'Priority', type: 'status' },
     { key: 'assignee', label: 'Assignee', type: 'people' },
     { key: 'startDate', label: 'Start Date', type: 'date' },
     { key: 'endDate', label: 'End Date', type: 'date' },
@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   crTemplateFields: [
     { key: 'number', label: 'CR Number', type: 'text' },
     { key: 'title', label: 'Title', type: 'text' },
+    { key: 'emailSubject', label: 'Email Subject', type: 'text' },
     { key: 'solutionDesign', label: 'Solution design link', type: 'url' },
     { key: 'description', label: 'Description', type: 'text' }
   ]

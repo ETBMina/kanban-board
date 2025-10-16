@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings, TaskFieldDefinition } from './models';
 import { KanbanSettingTab } from './settings';
-import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink } from './utils';
+import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter} from './utils';
 import { BoardTabsView, BOARD_TABS_VIEW_TYPE } from './views/boardTabsView';
 
 export default class KanbanPlugin extends Plugin {
@@ -166,6 +166,7 @@ export default class KanbanPlugin extends Plugin {
     const fields = this.settings.crTemplateFields ?? [
       { key: 'number', label: 'CR Number', type: 'text' },
       { key: 'title', label: 'Title', type: 'text' },
+      { key: 'emailSubject', label: 'Email Subject', type: 'text' },
       { key: 'solutionDesign', label: 'Solution design link', type: 'url' },
       { key: 'description', label: 'Description', type: 'text' }
     ];
@@ -256,19 +257,34 @@ class TaskTemplateModal extends Modal {
     svcInput.type = 'text';
     this.inputs.set('service', svcInput);
 
-    for (const field of this.fields) {
-      // Skip fields handled specially or deprecated for task creation
-      if (field.key === 'status' || field.key === 'title' || field.key === 'due' || field.key === 'crNumber' || field.key === 'taskNumber' || field.key === 'service') continue;
-      const row = contentEl.createDiv({ cls: 'setting-item' });
-      row.createDiv({ cls: 'setting-item-name', text: field.label });
-      const control = row.createDiv({ cls: 'setting-item-control' });
-      const input = control.createEl('input');
-      input.addClass('kb-input');
-      input.placeholder = field.label;
-      if (field.type === 'date') input.type = 'date';
-      else if (field.type === 'number') input.type = 'number';
-      else input.type = 'text';
-      this.inputs.set(field.key, input);
+      for (const field of this.fields) {
+        // Skip fields handled specially or deprecated for task creation
+        if (field.key === 'status' || field.key === 'title' || field.key === 'due' || field.key === 'crNumber' || field.key === 'taskNumber' || field.key === 'service') continue;
+        const row = contentEl.createDiv({ cls: 'setting-item' });
+        row.createDiv({ cls: 'setting-item-name', text: field.label });
+        const control = row.createDiv({ cls: 'setting-item-control' });
+        // Render selects for true status fields or for the special 'priority' key
+        if (field.type === 'status' || field.key === 'priority') {
+          const select = control.createEl('select');
+          select.addClass('kb-input');
+          // Use different options list based on whether this is the status field or the priority field
+          const options = field.key === 'status' ? this.statuses : ['Urgent', 'High', 'Medium', 'Low'];
+          for (const o of options) {
+            const opt = select.createEl('option', { text: o });
+            opt.value = o;
+          }
+          // Default to first status for status field, Medium for priority
+          select.value = field.key === 'status' ? (this.statuses[0] ?? '') : 'Medium';
+          this.inputs.set(field.key, select);
+        } else {
+          const input = control.createEl('input');
+          input.addClass('kb-input');
+          input.placeholder = field.label;
+          if (field.type === 'date') input.type = 'date';
+          else if (field.type === 'number') input.type = 'number';
+          else input.type = 'text';
+          this.inputs.set(field.key, input);
+        }
     }
 
     const footer = contentEl.createDiv({ cls: 'modal-button-container' });
@@ -284,6 +300,8 @@ class TaskTemplateModal extends Modal {
         data[key] = val;
       }
       if (!data['status']) data['status'] = this.statuses[0] ?? 'Backlog';
+      // Always ensure we have a priority value
+      data['priority'] = data['priority'] || 'Medium';
       // Title is derived from CR and inputs; no manual title
       await this.onSubmit(data);
       this.close();
@@ -312,14 +330,14 @@ class CrTemplateModal extends Modal {
       const row = contentEl.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
-      const input = control.createEl('input');
-      input.addClass('kb-input');
-      input.placeholder = field.label;
-      if (field.type === 'date') input.type = 'date';
-      else if (field.type === 'number') input.type = 'number';
-      else if (field.type === 'url') input.type = 'url';
-      else input.type = 'text';
-      this.inputs.set(field.key, input);
+        const input = control.createEl('input');
+        input.addClass('kb-input');
+        input.placeholder = field.label;
+        if (field.type === 'date') input.type = 'date';
+        else if (field.type === 'number') input.type = 'number';
+        else if (field.type === 'url') input.type = 'url';
+        else input.type = 'text';
+        this.inputs.set(field.key, input);
     }
 
     const footer = contentEl.createDiv({ cls: 'modal-button-container' });
@@ -335,6 +353,7 @@ class CrTemplateModal extends Modal {
         data[key] = val;
       }
       if (!data['title']) data['title'] = 'Untitled CR';
+      if (!data['priority']) data['priority'] = 'Medium';
       await this.onSubmit(data);
       this.close();
     };
