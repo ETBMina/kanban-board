@@ -152,6 +152,17 @@ export class BoardTabsView extends ItemView {
       const status = (t.frontmatter['status'] ?? this.settings.statuses[0]) as string;
       (byStatus.get(status) ?? byStatus.get(this.settings.statuses[0])!)!.push(t);
     }
+    // Sort tasks in each column by explicit 'order' frontmatter if present, falling back to createdAt
+    for (const [k, arr] of Array.from(byStatus.entries())) {
+      arr.sort((a, b) => {
+        const oa = Number(a.frontmatter['order'] ?? NaN);
+        const ob = Number(b.frontmatter['order'] ?? NaN);
+        if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
+        const ca = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
+        const cb = b.frontmatter['createdAt'] ? new Date(String(b.frontmatter['createdAt'])).getTime() : 0;
+        return ca - cb;
+      });
+    }
 
     const handleColumnDrag = {
       dragIndex: -1,
@@ -248,41 +259,146 @@ export class BoardTabsView extends ItemView {
       };
 
       const body = col.createDiv({ cls: 'kb-column-body kb-dropzone' });
-      const setHighlight = (on: boolean) => { body.classList.toggle('kb-dropzone-hover', on); };
+      // Drop indicator element shown between cards while dragging
+      const dropIndicator = document.createElement('div');
+      dropIndicator.className = 'kb-drop-indicator';
+
+      const removeIndicator = () => { if (dropIndicator.parentElement) dropIndicator.parentElement.removeChild(dropIndicator); };
+
+      const setHighlight = (on: boolean) => { body.classList.toggle('kb-dropzone-hover', on); if (!on) removeIndicator(); };
       const allowDrop = (e: DragEvent) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; };
-      body.ondragenter = (e) => {
-        // Only react to card drags, not column reorders
-        if (!e.dataTransfer?.types.includes('application/x-kb-col')) { allowDrop(e); setHighlight(true); }
+
+      const updateIndicatorPosition = (e: DragEvent) => {
+        // Only for card drags
+        if (e.dataTransfer?.types.includes('application/x-kb-col')) return;
+        allowDrop(e);
+        // children are current cards (do not include indicator)
+        const children = Array.from(body.querySelectorAll('.kb-card')) as HTMLElement[];
+        // find insert index by comparing Y coordinate to midpoint of each card
+        let insertIndex = children.length;
+        const y = (e as DragEvent).clientY;
+        for (let i = 0; i < children.length; i++) {
+          const rect = children[i].getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (y < midY) { insertIndex = i; break; }
+        }
+        // place indicator before the child at insertIndex, or append if at end or empty
+        removeIndicator();
+        if (children.length === 0) {
+          body.appendChild(dropIndicator);
+        } else if (insertIndex >= children.length) {
+          body.appendChild(dropIndicator);
+        } else {
+          body.insertBefore(dropIndicator, children[insertIndex]);
+        }
+        setHighlight(true);
       };
-      body.ondragover = (e) => { if (!e.dataTransfer?.types.includes('application/x-kb-col')) { allowDrop(e); } };
-      body.ondragleave = () => { setHighlight(false); };
+
+      body.ondragenter = (e) => {
+        if (!e.dataTransfer?.types.includes('application/x-kb-col')) updateIndicatorPosition(e as DragEvent);
+      };
+      body.ondragover = (e) => { if (!e.dataTransfer?.types.includes('application/x-kb-col')) updateIndicatorPosition(e as DragEvent); };
+      body.ondragleave = (e) => {
+        // If the pointer leaves the column entirely, clear indicator
+        const related = (e as DragEvent).relatedTarget as Node | null;
+        if (!related || !body.contains(related)) setHighlight(false);
+      };
       body.ondrop = async (e) => {
         // Ignore drops from column drags
         if (e.dataTransfer?.types.includes('application/x-kb-col')) return;
-        const path = e.dataTransfer?.getData('text/plain');
-        if (!path) return;
-        const file = this.app.vault.getAbstractFileByPath(path);
-        if (!(file instanceof TFile)) return;
-        try {
-          // If the task already has this status, do nothing (no move, no date changes)
-          const cache = this.app.metadataCache.getFileCache(file);
-          const currentStatus = String(cache?.frontmatter?.['status'] ?? '');
-          if (currentStatus === status) {
-            // clear highlight and return without updating
-            setHighlight(false);
-            return;
-          }
 
+        // Handle card drags (we set application/x-kb-card) or legacy text/plain payload
+        const isCardDrag = e.dataTransfer?.types.includes('application/x-kb-card');
+        const payloadStr = isCardDrag ? e.dataTransfer?.getData('application/x-kb-card') : e.dataTransfer?.getData('text/plain');
+        if (!payloadStr) return;
+
+        let payload: { path: string; fromStatus?: string } | null = null;
+        try { payload = JSON.parse(payloadStr); } catch { payload = { path: payloadStr }; }
+        if (!payload || !payload.path) return;
+        const file = this.app.vault.getAbstractFileByPath(payload.path);
+        if (!(file instanceof TFile)) return;
+
+        try {
           // Preserve horizontal scroll position while we update
           const scroller = board; // .kb-kanban is the horizontal scroller
           const scrollLeft = scroller.scrollLeft;
+
+          // Build current ordered list of tasks for this column
+          const tasksInCol = byStatus.get(status) ?? [];
+
+          // Determine source column list as well
+          const fromStatus = payload.fromStatus ?? String(this.app.metadataCache.getFileCache(file)?.frontmatter?.['status'] ?? '');
+          const tasksInFromCol = byStatus.get(fromStatus) ?? [];
+
+          // Compute insertion index based on drop Y position relative to children
+          const children = Array.from(body.querySelectorAll('.kb-card')) as HTMLElement[];
+          let insertIndex = children.length; // append by default
+          const dropY = (e as DragEvent).clientY;
+          for (let i = 0; i < children.length; i++) {
+            const rect = children[i].getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (dropY < midY) { insertIndex = i; break; }
+          }
+
+          // Find and remove dragged task from source list if present
+          const draggedIndexInSource = tasksInFromCol.findIndex(t => t.filePath === payload!.path);
+          if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
+
+          // If moving within same column, we need to adjust target index if removed earlier in same list
+          if (fromStatus === status && draggedIndexInSource !== -1) {
+            // When removing an earlier index the insertIndex should be adjusted
+            if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
+          }
+
+          // Insert into target list at insertIndex
+          // If the dragged task isn't already present in target list, create a placeholder entry from file metadata
+          let draggedTask = tasksInCol.find(t => t.filePath === payload.path);
+          if (!draggedTask) {
+            const cache = this.app.metadataCache.getFileCache(file);
+            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: cache?.frontmatter ?? {} };
+          }
+          tasksInCol.splice(insertIndex, 0, draggedTask);
+
+          // If status changed, we will patch status and potentially dates
           const isCompleted = /^(completed|done)$/i.test(status);
           const isInProgress = /in\s*progress/i.test(status);
-          const patch: Record<string, any> = { status };
-          if (isCompleted) patch['endDate'] = new Date().toISOString().slice(0, 10);
-          if (isInProgress) patch['startDate'] = new Date().toISOString().slice(0, 10);
-          await updateTaskFrontmatter(this.app, file, patch);
-          new Notice('Moved to ' + status);
+
+          // Now write new 'order' for every task in this column and update status for dragged task
+          const updates: Promise<void>[] = [];
+          for (let i = 0; i < tasksInCol.length; i++) {
+            const t = tasksInCol[i];
+            const f = this.app.vault.getAbstractFileByPath(t.filePath);
+            if (!(f instanceof TFile)) continue;
+            const patch: Record<string, any> = { order: i };
+            // If this is the dragged task and status changed, set status and dates
+            if (t.filePath === payload.path) {
+              if (String(t.frontmatter['status'] ?? '') !== status) {
+                patch['status'] = status;
+                if (isCompleted) patch['endDate'] = new Date().toISOString().slice(0, 10);
+                if (isInProgress) patch['startDate'] = new Date().toISOString().slice(0, 10);
+              }
+            }
+            updates.push(updateTaskFrontmatter(this.app, f, patch));
+          }
+
+          // Also re-write order for remaining tasks in the source column if different from target
+          if (fromStatus !== status) {
+            for (let i = 0; i < tasksInFromCol.length; i++) {
+              const t = tasksInFromCol[i];
+              const f = this.app.vault.getAbstractFileByPath(t.filePath);
+              if (!(f instanceof TFile)) continue;
+              const patch: Record<string, any> = { order: i };
+              updates.push(updateTaskFrontmatter(this.app, f, patch));
+            }
+          }
+
+          try {
+            await Promise.all(updates);
+            new Notice('Moved');
+          } catch (err) {
+            new Notice('Failed to move: ' + (err as Error).message);
+          }
+
           setHighlight(false);
           await this.reload();
           // Restore scroll after reload
@@ -297,7 +413,14 @@ export class BoardTabsView extends ItemView {
         // Skip archived tasks in kanban view
         if (Boolean(task.frontmatter['archived'])) continue;
         const card = body.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
-        card.ondragstart = (e) => { e.stopPropagation(); e.dataTransfer?.setData('text/plain', task.filePath); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; };
+        card.ondragstart = (e) => {
+          e.stopPropagation();
+          const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
+          // set both custom mime and a plain fallback
+          e.dataTransfer?.setData('application/x-kb-card', payload);
+          e.dataTransfer?.setData('text/plain', payload);
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        };
         card.createDiv({ cls: 'kb-card-title', text: task.frontmatter['title'] ?? task.fileName });
         const meta = card.createDiv();
         meta.createSpan({ cls: 'kb-chip', text: task.frontmatter['priority'] ?? '' });

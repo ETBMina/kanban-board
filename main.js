@@ -358,6 +358,17 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       const status = (_a = t.frontmatter["status"]) != null ? _a : this.settings.statuses[0];
       ((_b = byStatus.get(status)) != null ? _b : byStatus.get(this.settings.statuses[0])).push(t);
     }
+    for (const [k, arr] of Array.from(byStatus.entries())) {
+      arr.sort((a, b) => {
+        var _a2, _b2;
+        const oa = Number((_a2 = a.frontmatter["order"]) != null ? _a2 : NaN);
+        const ob = Number((_b2 = b.frontmatter["order"]) != null ? _b2 : NaN);
+        if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
+        const ca = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
+        const cb = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
+        return ca - cb;
+      });
+    }
     const handleColumnDrag = {
       dragIndex: -1,
       onDragStart: (idx, e) => {
@@ -464,52 +475,131 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         menu.showAtPosition({ x: e.clientX, y: e.clientY });
       };
       const body = col.createDiv({ cls: "kb-column-body kb-dropzone" });
+      const dropIndicator = document.createElement("div");
+      dropIndicator.className = "kb-drop-indicator";
+      const removeIndicator = () => {
+        if (dropIndicator.parentElement) dropIndicator.parentElement.removeChild(dropIndicator);
+      };
       const setHighlight = (on) => {
         body.classList.toggle("kb-dropzone-hover", on);
+        if (!on) removeIndicator();
       };
       const allowDrop = (e) => {
         e.preventDefault();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
       };
+      const updateIndicatorPosition = (e) => {
+        var _a3;
+        if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
+        allowDrop(e);
+        const children = Array.from(body.querySelectorAll(".kb-card"));
+        let insertIndex = children.length;
+        const y = e.clientY;
+        for (let i = 0; i < children.length; i++) {
+          const rect = children[i].getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (y < midY) {
+            insertIndex = i;
+            break;
+          }
+        }
+        removeIndicator();
+        if (children.length === 0) {
+          body.appendChild(dropIndicator);
+        } else if (insertIndex >= children.length) {
+          body.appendChild(dropIndicator);
+        } else {
+          body.insertBefore(dropIndicator, children[insertIndex]);
+        }
+        setHighlight(true);
+      };
       body.ondragenter = (e) => {
         var _a3;
-        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) {
-          allowDrop(e);
-          setHighlight(true);
-        }
+        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
       };
       body.ondragover = (e) => {
         var _a3;
-        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) {
-          allowDrop(e);
-        }
+        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
       };
-      body.ondragleave = () => {
-        setHighlight(false);
+      body.ondragleave = (e) => {
+        const related = e.relatedTarget;
+        if (!related || !body.contains(related)) setHighlight(false);
       };
       body.ondrop = async (e) => {
-        var _a3, _b3, _c2, _d2;
+        var _a3, _b3, _c2, _d2, _e2, _f, _g, _h, _i, _j, _k, _l;
         if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
-        const path = (_b3 = e.dataTransfer) == null ? void 0 : _b3.getData("text/plain");
-        if (!path) return;
-        const file = this.app.vault.getAbstractFileByPath(path);
+        const isCardDrag = (_b3 = e.dataTransfer) == null ? void 0 : _b3.types.includes("application/x-kb-card");
+        const payloadStr = isCardDrag ? (_c2 = e.dataTransfer) == null ? void 0 : _c2.getData("application/x-kb-card") : (_d2 = e.dataTransfer) == null ? void 0 : _d2.getData("text/plain");
+        if (!payloadStr) return;
+        let payload = null;
+        try {
+          payload = JSON.parse(payloadStr);
+        } catch (e2) {
+          payload = { path: payloadStr };
+        }
+        if (!payload || !payload.path) return;
+        const file = this.app.vault.getAbstractFileByPath(payload.path);
         if (!(file instanceof import_obsidian3.TFile)) return;
         try {
-          const cache = this.app.metadataCache.getFileCache(file);
-          const currentStatus = String((_d2 = (_c2 = cache == null ? void 0 : cache.frontmatter) == null ? void 0 : _c2["status"]) != null ? _d2 : "");
-          if (currentStatus === status) {
-            setHighlight(false);
-            return;
-          }
           const scroller = board;
           const scrollLeft = scroller.scrollLeft;
+          const tasksInCol = (_e2 = byStatus.get(status)) != null ? _e2 : [];
+          const fromStatus = (_i = payload.fromStatus) != null ? _i : String((_h = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) == null ? void 0 : _g["status"]) != null ? _h : "");
+          const tasksInFromCol = (_j = byStatus.get(fromStatus)) != null ? _j : [];
+          const children = Array.from(body.querySelectorAll(".kb-card"));
+          let insertIndex = children.length;
+          const dropY = e.clientY;
+          for (let i = 0; i < children.length; i++) {
+            const rect = children[i].getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (dropY < midY) {
+              insertIndex = i;
+              break;
+            }
+          }
+          const draggedIndexInSource = tasksInFromCol.findIndex((t) => t.filePath === payload.path);
+          if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
+          if (fromStatus === status && draggedIndexInSource !== -1) {
+            if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
+          }
+          let draggedTask = tasksInCol.find((t) => t.filePath === payload.path);
+          if (!draggedTask) {
+            const cache = this.app.metadataCache.getFileCache(file);
+            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_k = cache == null ? void 0 : cache.frontmatter) != null ? _k : {} };
+          }
+          tasksInCol.splice(insertIndex, 0, draggedTask);
           const isCompleted = /^(completed|done)$/i.test(status);
           const isInProgress = /in\s*progress/i.test(status);
-          const patch = { status };
-          if (isCompleted) patch["endDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-          if (isInProgress) patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-          await updateTaskFrontmatter(this.app, file, patch);
-          new import_obsidian3.Notice("Moved to " + status);
+          const updates = [];
+          for (let i = 0; i < tasksInCol.length; i++) {
+            const t = tasksInCol[i];
+            const f = this.app.vault.getAbstractFileByPath(t.filePath);
+            if (!(f instanceof import_obsidian3.TFile)) continue;
+            const patch = { order: i };
+            if (t.filePath === payload.path) {
+              if (String((_l = t.frontmatter["status"]) != null ? _l : "") !== status) {
+                patch["status"] = status;
+                if (isCompleted) patch["endDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+                if (isInProgress) patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+              }
+            }
+            updates.push(updateTaskFrontmatter(this.app, f, patch));
+          }
+          if (fromStatus !== status) {
+            for (let i = 0; i < tasksInFromCol.length; i++) {
+              const t = tasksInFromCol[i];
+              const f = this.app.vault.getAbstractFileByPath(t.filePath);
+              if (!(f instanceof import_obsidian3.TFile)) continue;
+              const patch = { order: i };
+              updates.push(updateTaskFrontmatter(this.app, f, patch));
+            }
+          }
+          try {
+            await Promise.all(updates);
+            new import_obsidian3.Notice("Moved");
+          } catch (err) {
+            new import_obsidian3.Notice("Failed to move: " + err.message);
+          }
           setHighlight(false);
           await this.reload();
           const newBoard = container.querySelector(".kb-kanban");
@@ -522,9 +612,11 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         if (Boolean(task.frontmatter["archived"])) continue;
         const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
         card.ondragstart = (e) => {
-          var _a3;
+          var _a3, _b3;
           e.stopPropagation();
-          (_a3 = e.dataTransfer) == null ? void 0 : _a3.setData("text/plain", task.filePath);
+          const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
+          (_a3 = e.dataTransfer) == null ? void 0 : _a3.setData("application/x-kb-card", payload);
+          (_b3 = e.dataTransfer) == null ? void 0 : _b3.setData("text/plain", payload);
           if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
         };
         card.createDiv({ cls: "kb-card-title", text: (_d = task.frontmatter["title"]) != null ? _d : task.fileName });
