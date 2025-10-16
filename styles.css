@@ -40,3 +40,6 @@
 /* Column menu */
 .kb-ellipsis { background: transparent; border: none; cursor: pointer; color: var(--text-muted); }
 .kb-col-hover { outline: 2px dashed var(--interactive-accent); }
+
+/* Archived rows */
+.kb-row-archived { opacity: 0.6; background: var(--background-secondary); }

@@ -324,14 +324,19 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     const thead = table.createEl("thead");
     const trh = thead.createEl("tr");
     for (const key of this.settings.gridVisibleColumns) trh.createEl("th", { text: key });
+    trh.createEl("th", { text: "Archived" });
     trh.createEl("th", { text: "Open" });
     const tbody = table.createEl("tbody");
     for (const t of this.getFilteredTasks()) {
       const tr = tbody.createEl("tr");
+      const isArchived = Boolean(t.frontmatter["archived"]);
+      if (isArchived) tr.addClass("kb-row-archived");
       for (const key of this.settings.gridVisibleColumns) {
         const val = t.frontmatter[key];
         tr.createEl("td", { text: Array.isArray(val) ? val.join(", ") : String(val != null ? val : "") });
       }
+      const archivedTd = tr.createEl("td");
+      archivedTd.createSpan({ text: isArchived ? "Yes" : "No" });
       const openTd = tr.createEl("td");
       const btn = openTd.createEl("button", { text: "Open" });
       btn.addClass("kb-card-btn");
@@ -514,6 +519,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         }
       };
       for (const task of (_c = byStatus.get(status)) != null ? _c : []) {
+        if (Boolean(task.frontmatter["archived"])) continue;
         const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
         card.ondragstart = (e) => {
           var _a3;
@@ -527,6 +533,31 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         const footer = card.createDiv({ cls: "kb-card-footer" });
         const createdAt = task.frontmatter["createdAt"] || "";
         if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
+        const menuBtn2 = footer.createEl("button", { text: "\u22EF" });
+        menuBtn2.classList.add("kb-ellipsis");
+        menuBtn2.onclick = (ev) => {
+          const menu = new import_obsidian3.Menu();
+          menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
+            try {
+              await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
+              new import_obsidian3.Notice("Task archived");
+              await this.reload();
+            } catch (e2) {
+              new import_obsidian3.Notice("Failed to archive task");
+            }
+          }));
+          menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
+            try {
+              await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath));
+              new import_obsidian3.Notice("Task deleted");
+              await this.reload();
+            } catch (e2) {
+              new import_obsidian3.Notice("Failed to delete task");
+            }
+          }));
+          const e = ev;
+          menu.showAtPosition({ x: e.clientX, y: e.clientY });
+        };
         const open = footer.createEl("button", { text: "Open" });
         open.addClass("kb-card-btn");
         open.onclick = async () => {

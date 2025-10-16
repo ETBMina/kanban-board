@@ -114,15 +114,22 @@ export class BoardTabsView extends ItemView {
     const thead = table.createEl('thead');
     const trh = thead.createEl('tr');
     for (const key of this.settings.gridVisibleColumns) trh.createEl('th', { text: key });
+    trh.createEl('th', { text: 'Archived' });
     trh.createEl('th', { text: 'Open' });
 
     const tbody = table.createEl('tbody');
     for (const t of this.getFilteredTasks()) {
       const tr = tbody.createEl('tr');
+      // Add archived styling
+      const isArchived = Boolean(t.frontmatter['archived']);
+      if (isArchived) tr.addClass('kb-row-archived');
       for (const key of this.settings.gridVisibleColumns) {
         const val = t.frontmatter[key];
         tr.createEl('td', { text: Array.isArray(val) ? val.join(', ') : String(val ?? '') });
       }
+      // Archived column
+      const archivedTd = tr.createEl('td');
+      archivedTd.createSpan({ text: isArchived ? 'Yes' : 'No' });
       const openTd = tr.createEl('td');
       const btn = openTd.createEl('button', { text: 'Open' });
       btn.addClass('kb-card-btn');
@@ -287,6 +294,8 @@ export class BoardTabsView extends ItemView {
       };
 
       for (const task of byStatus.get(status) ?? []) {
+        // Skip archived tasks in kanban view
+        if (Boolean(task.frontmatter['archived'])) continue;
         const card = body.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
         card.ondragstart = (e) => { e.stopPropagation(); e.dataTransfer?.setData('text/plain', task.filePath); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; };
         card.createDiv({ cls: 'kb-card-title', text: task.frontmatter['title'] ?? task.fileName });
@@ -295,6 +304,32 @@ export class BoardTabsView extends ItemView {
         const footer = card.createDiv({ cls: 'kb-card-footer' });
         const createdAt = (task.frontmatter['createdAt'] || '') as string;
         if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
+        // Three dots menu
+        const menuBtn = footer.createEl('button', { text: '⋯' });
+        menuBtn.classList.add('kb-ellipsis');
+        menuBtn.onclick = (ev) => {
+          const menu = new Menu();
+          menu.addItem((i) => i.setTitle('Archive').onClick(async () => {
+            try {
+              await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath) as TFile, { archived: true });
+              new Notice('Task archived');
+              await this.reload();
+            } catch (e) {
+              new Notice('Failed to archive task');
+            }
+          }));
+          menu.addItem((i) => i.setTitle('Delete').onClick(async () => {
+            try {
+              await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath) as TFile);
+              new Notice('Task deleted');
+              await this.reload();
+            } catch (e) {
+              new Notice('Failed to delete task');
+            }
+          }));
+          const e = ev as MouseEvent;
+          menu.showAtPosition({ x: e.clientX, y: e.clientY });
+        };
         const open = footer.createEl('button', { text: 'Open' });
         open.addClass('kb-card-btn');
         open.onclick = async () => {
