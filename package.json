@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-kanban-board",
+  "version": "0.1.0",
+  "description": "Create task notes from a template, grid view with filters/export, and a kanban board.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "esbuild src/main.ts --bundle --outfile=main.js --target=es2018 --format=cjs --external:obsidian --sourcemap --watch",
+    "build": "esbuild src/main.ts --bundle --outfile=main.js --target=es2018 --format=cjs --external:obsidian --minify && node ./scripts/postbuild.js",
+    "check": "tsc --noEmit"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "kanban",
+    "tasks",
+    "grid"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "esbuild": "^0.25.11",
+    "obsidian": "^1.5.7",
+    "typescript": "^5.4.5"
+  }
+}

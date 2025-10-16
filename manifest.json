@@ -1,0 +1,11 @@
+{
+  "id": "kanban-board",
+  "name": "Kanban Board & Task Grid",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Create task notes from a template, manage them in a grid with filters/export, and a modern drag-and-drop kanban board.",
+  "author": "Your Name",
+  "authorUrl": "https://example.com",
+  "isDesktopOnly": false
+}
+
