@@ -125,7 +125,14 @@ export class BoardTabsView extends ItemView {
       if (isArchived) tr.addClass('kb-row-archived');
       for (const key of this.settings.gridVisibleColumns) {
         const val = t.frontmatter[key];
-        tr.createEl('td', { text: Array.isArray(val) ? val.join(', ') : String(val ?? '') });
+        const td = tr.createEl('td');
+        const text = Array.isArray(val) ? val.join(', ') : String(val ?? '');
+        // For multiline text, preserve line breaks
+        if (text.includes('\n')) {
+          td.innerHTML = text.replace(/\n/g, '<br>');
+        } else {
+          td.textContent = text;
+        }
       }
       // Archived column
       const archivedTd = tr.createEl('td');

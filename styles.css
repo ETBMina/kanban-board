@@ -2,6 +2,7 @@
 .kb-container { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text-normal); }
 .kb-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .kb-input { padding: 6px 10px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-secondary); color: var(--text-normal); }
+.kb-input textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 .kb-button { padding: 6px 10px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--interactive-normal); color: var(--text-on-accent); cursor: pointer; }
 .kb-button:hover { background: var(--interactive-hover); }
 .kb-table { width: 100%; border-collapse: separate; border-spacing: 0; }

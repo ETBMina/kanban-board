@@ -69,15 +69,21 @@ export default class KanbanPlugin extends Plugin {
     if (this.settings.templateFields.length !== beforeLen) changed = true;
     const hasStart = this.settings.templateFields.some(f => f.key === 'startDate');
     const hasEnd = this.settings.templateFields.some(f => f.key === 'endDate');
+    const hasNotes = this.settings.templateFields.some(f => f.key === 'notes');
     if (!hasStart) { this.settings.templateFields.splice(5, 0, { key: 'startDate', label: 'Start Date', type: 'date' }); changed = true; }
     if (!hasEnd) { this.settings.templateFields.splice(6, 0, { key: 'endDate', label: 'End Date', type: 'date' }); changed = true; }
+    if (!hasNotes) { this.settings.templateFields.push({ key: 'notes', label: 'Notes', type: 'freetext' }); changed = true; }
 
-    // Grid columns: replace 'due' with 'startDate' and 'endDate' if present
+    // Grid columns: replace 'due' with 'startDate' and 'endDate' if present, and add notes if missing
     const cols = this.settings.gridVisibleColumns ?? [];
     const dueIdx = cols.indexOf('due');
     if (dueIdx !== -1) {
       cols.splice(dueIdx, 1, 'startDate', 'endDate');
       this.settings.gridVisibleColumns = cols;
+      changed = true;
+    }
+    if (!cols.includes('notes')) {
+      this.settings.gridVisibleColumns.push('notes');
       changed = true;
     }
     if (changed) await this.saveSettings();
@@ -133,11 +139,13 @@ export default class KanbanPlugin extends Plugin {
       const title = prefixParts ? `[${prefixParts}] ${coreTitle}${serviceBracket}` : `${coreTitle}${serviceBracket}`;
       const fileName = `${title}.md`;
       const path = `${folder}/${fileName}`;
-      // prune empty values to avoid large empty Properties blocks
+      // prune empty values to avoid large empty Properties blocks, but always include notes field
       const clean: Record<string, any> = {};
       for (const [k, v] of Object.entries(data)) {
         if (Array.isArray(v)) { if (v.length > 0) clean[k] = v; }
-        else if (typeof v === 'string') { if (v.trim() !== '') clean[k] = v.trim(); }
+        else if (typeof v === 'string') { 
+          if (v.trim() !== '' || k === 'notes') clean[k] = v.trim(); 
+        }
         else if (v !== null && v !== undefined) { clean[k] = v; }
       }
       // Title is derived; ensure it is set and not editable via template
@@ -200,7 +208,7 @@ class TaskTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
   private statuses: string[];
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
-  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
 
   constructor(app: App, fields: TaskFieldDefinition[], statuses: string[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
@@ -276,6 +284,22 @@ class TaskTemplateModal extends Modal {
           // Default to first status for status field, Medium for priority
           select.value = field.key === 'status' ? (this.statuses[0] ?? '') : 'Medium';
           this.inputs.set(field.key, select);
+        } else if (field.type === 'freetext') {
+          // For freetext fields, use full width layout
+          row.style.display = 'block';
+          row.style.width = '100%';
+          const label = row.querySelector('.setting-item-name') as HTMLElement;
+          if (label) label.style.display = 'block';
+          control.style.width = '100%';
+          control.style.marginTop = '8px';
+          const textarea = control.createEl('textarea');
+          textarea.addClass('kb-input');
+          textarea.placeholder = field.label;
+          textarea.rows = 4;
+          textarea.style.resize = 'vertical';
+          textarea.style.minHeight = '80px';
+          textarea.style.width = '100%';
+          this.inputs.set(field.key, textarea);
         } else {
           const input = control.createEl('input');
           input.addClass('kb-input');
@@ -296,7 +320,9 @@ class TaskTemplateModal extends Modal {
     create.onclick = async () => {
       const data: Record<string, any> = {};
       for (const [key, input] of this.inputs.entries()) {
-        const val = (input as HTMLInputElement | HTMLSelectElement).value.trim();
+        const element = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        // Don't trim textarea values to preserve newlines
+        const val = element.tagName === 'TEXTAREA' ? element.value : element.value.trim();
         data[key] = val;
       }
       if (!data['status']) data['status'] = this.statuses[0] ?? 'Backlog';
@@ -312,7 +338,7 @@ class TaskTemplateModal extends Modal {
 class CrTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
-  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
 
   constructor(app: App, fields: TaskFieldDefinition[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);

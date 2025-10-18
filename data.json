@@ -44,6 +44,11 @@
       "key": "endDate",
       "label": "End Date",
       "type": "date"
+    },
+    {
+      "key": "notes",
+      "label": "Notes",
+      "type": "freetext"
     }
   ],
   "gridVisibleColumns": [
@@ -53,7 +58,8 @@
     "assignee",
     "startDate",
     "endDate",
-    "tags"
+    "tags",
+    "notes"
   ],
   "crFolder": "Change Requests",
   "crTemplateFields": [

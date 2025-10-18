@@ -1,4 +1,4 @@
-export type FieldType = 'text' | 'number' | 'date' | 'status' | 'tags' | 'url' | 'people';
+export type FieldType = 'text' | 'number' | 'date' | 'status' | 'tags' | 'url' | 'people' | 'freetext';
 
 export interface TaskFieldDefinition {
   key: string; // frontmatter key
@@ -37,9 +37,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     { key: 'plannedEnd', label: 'Planned end date', type: 'date' },
     { key: 'actualStart', label: 'Actual start date', type: 'date' },
     { key: 'actualEnd', label: 'Actual end date', type: 'date' },
-    { key: 'notes', label: 'Notes', type: 'text' }
+    { key: 'notes', label: 'Notes', type: 'freetext' }
   ],
-  gridVisibleColumns: ['title', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags'],
+  gridVisibleColumns: ['title', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags', 'notes'],
   crFolder: 'Change Requests',
   crTemplateFields: [
     { key: 'number', label: 'CR Number', type: 'text' },

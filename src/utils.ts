@@ -21,7 +21,17 @@ export function buildFrontmatterYAML(frontmatter: Record<string, any>): string {
     } else if (typeof value === 'string' && value.trim() === '') {
       continue;
     } else {
-      lines.push(`${key}: ${escapeYaml(value)}`);
+      if (typeof value === 'string' && value.includes('\n')) {
+        // For multiline strings, use the literal block scalar format
+        lines.push(`${key}: |`);
+        const textLines = value.split('\n');
+        for (const line of textLines) {
+          lines.push(`  ${line}`);
+        }
+      } else {
+        const escaped = escapeYaml(value);
+        lines.push(`${key}: ${escaped}`);
+      }
     }
   }
   lines.push('---');
@@ -31,6 +41,12 @@ export function buildFrontmatterYAML(frontmatter: Record<string, any>): string {
 function escapeYaml(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === 'string') {
+    // Handle multiline text with YAML literal block scalar
+    if (value.includes('\n')) {
+      const lines = value.split('\n');
+      return '|\n' + lines.map(line => '  ' + line).join('\n');
+    }
+    // Handle single line text
     if (/[:#\-]|^\s|\s$/.test(value)) return JSON.stringify(value);
     return value;
   }
