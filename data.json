@@ -104,7 +104,7 @@
     {
       "key": "description",
       "label": "Description",
-      "type": "text"
+      "type": "freetext"
     }
   ]
 }

@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     { key: 'title', label: 'Title', type: 'text' },
     { key: 'emailSubject', label: 'Email Subject', type: 'text' },
     { key: 'solutionDesign', label: 'Solution design link', type: 'url' },
-    { key: 'description', label: 'Description', type: 'text' }
+    { key: 'description', label: 'Description', type: 'freetext' }
   ]
 };
 

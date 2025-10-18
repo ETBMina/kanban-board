@@ -407,6 +407,24 @@ class CrTemplateModal extends Modal {
       const row = contentEl.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
+      
+      if (field.type === 'freetext') {
+        // For freetext fields, use full width layout like in TaskTemplateModal
+        row.style.display = 'block';
+        row.style.width = '100%';
+        const label = row.querySelector('.setting-item-name') as HTMLElement;
+        if (label) label.style.display = 'block';
+        control.style.width = '100%';
+        control.style.marginTop = '8px';
+        const textarea = control.createEl('textarea');
+        textarea.addClass('kb-input');
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = 'vertical';
+        textarea.style.minHeight = '80px';
+        textarea.style.width = '100%';
+        this.inputs.set(field.key, textarea);
+      } else {
         const input = control.createEl('input');
         input.addClass('kb-input');
         input.placeholder = field.label;
@@ -415,6 +433,7 @@ class CrTemplateModal extends Modal {
         else if (field.type === 'url') input.type = 'url';
         else input.type = 'text';
         this.inputs.set(field.key, input);
+      }
     }
 
     const footer = contentEl.createDiv({ cls: 'modal-button-container' });

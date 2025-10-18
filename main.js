@@ -53,7 +53,7 @@ var DEFAULT_SETTINGS = {
     { key: "title", label: "Title", type: "text" },
     { key: "emailSubject", label: "Email Subject", type: "text" },
     { key: "solutionDesign", label: "Solution design link", type: "url" },
-    { key: "description", label: "Description", type: "text" }
+    { key: "description", label: "Description", type: "freetext" }
   ]
 };
 
@@ -1076,14 +1076,31 @@ var CrTemplateModal = class extends import_obsidian4.Modal {
       const row = contentEl.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
-      const input = control.createEl("input");
-      input.addClass("kb-input");
-      input.placeholder = field.label;
-      if (field.type === "date") input.type = "date";
-      else if (field.type === "number") input.type = "number";
-      else if (field.type === "url") input.type = "url";
-      else input.type = "text";
-      this.inputs.set(field.key, input);
+      if (field.type === "freetext") {
+        row.style.display = "block";
+        row.style.width = "100%";
+        const label = row.querySelector(".setting-item-name");
+        if (label) label.style.display = "block";
+        control.style.width = "100%";
+        control.style.marginTop = "8px";
+        const textarea = control.createEl("textarea");
+        textarea.addClass("kb-input");
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = "vertical";
+        textarea.style.minHeight = "80px";
+        textarea.style.width = "100%";
+        this.inputs.set(field.key, textarea);
+      } else {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.placeholder = field.label;
+        if (field.type === "date") input.type = "date";
+        else if (field.type === "number") input.type = "number";
+        else if (field.type === "url") input.type = "url";
+        else input.type = "text";
+        this.inputs.set(field.key, input);
+      }
     }
     const footer = contentEl.createDiv({ cls: "modal-button-container" });
     const cancel = footer.createEl("button", { text: "Cancel" });
