@@ -139,14 +139,38 @@ export default class KanbanPlugin extends Plugin {
       const title = prefixParts ? `[${prefixParts}] ${coreTitle}${serviceBracket}` : `${coreTitle}${serviceBracket}`;
       const fileName = `${title}.md`;
       const path = `${folder}/${fileName}`;
-      // prune empty values to avoid large empty Properties blocks, but always include notes field
+      // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};
+      
+      // First, add all provided values
       for (const [k, v] of Object.entries(data)) {
-        if (Array.isArray(v)) { if (v.length > 0) clean[k] = v; }
-        else if (typeof v === 'string') { 
-          if (v.trim() !== '' || k === 'notes') clean[k] = v.trim(); 
+        if (Array.isArray(v)) { 
+          if (v.length > 0) clean[k] = v; 
         }
-        else if (v !== null && v !== undefined) { clean[k] = v; }
+        else if (typeof v === 'string') { 
+          if (v.trim() !== '') clean[k] = v.trim(); 
+        }
+        else if (v !== null && v !== undefined) { 
+          clean[k] = v; 
+        }
+      }
+      
+      // Then, add placeholders for any missing template fields
+      for (const field of this.settings.templateFields) {
+        if (!(field.key in clean)) {
+          // Add placeholder based on field type. For dates, leave unset so the date picker is available in editors.
+          if (field.type === 'freetext') {
+            clean[field.key] = ''; // Empty string for freetext (will show as empty textarea)
+          } else if (field.type === 'date') {
+            // do not set a placeholder for dates; leaving the key out preserves the date picker UI
+          } else if (field.type === 'number') {
+            clean[field.key] = ''; // Empty string for numbers
+          } else if (field.type === 'tags') {
+            clean[field.key] = []; // Empty array for tags
+          } else {
+            clean[field.key] = ''; // Empty string for other types
+          }
+        }
       }
       // Title is derived; ensure it is set and not editable via template
       clean['title'] = title;
@@ -187,11 +211,38 @@ export default class KanbanPlugin extends Plugin {
       const title = (data['title'] || '').trim() || crNumber;
       const fileName = `${crNumber} - ${title}.md`;
       const path = `${folder}/${fileName}`;
+      // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};
+      
+      // First, add all provided values
       for (const [k, v] of Object.entries(data)) {
-        if (Array.isArray(v)) { if (v.length > 0) clean[k] = v; }
-        else if (typeof v === 'string') { if (v.trim() !== '') clean[k] = v.trim(); }
-        else if (v !== null && v !== undefined) { clean[k] = v; }
+        if (Array.isArray(v)) { 
+          if (v.length > 0) clean[k] = v; 
+        }
+        else if (typeof v === 'string') { 
+          if (v.trim() !== '') clean[k] = v.trim(); 
+        }
+        else if (v !== null && v !== undefined) { 
+          clean[k] = v; 
+        }
+      }
+      
+      // Then, add placeholders for any missing template fields
+      for (const field of fields) {
+        if (!(field.key in clean)) {
+          // Add placeholder based on field type. For dates, leave unset so the date picker is available in editors.
+          if (field.type === 'freetext') {
+            clean[field.key] = ''; // Empty string for freetext (will show as empty textarea)
+          } else if (field.type === 'date') {
+            // do not set a placeholder for dates; leaving the key out preserves the date picker UI
+          } else if (field.type === 'number') {
+            clean[field.key] = ''; // Empty string for numbers
+          } else if (field.type === 'tags') {
+            clean[field.key] = []; // Empty array for tags
+          } else {
+            clean[field.key] = ''; // Empty string for other types
+          }
+        }
       }
       clean['number'] = crNumber;
       clean['title'] = title;

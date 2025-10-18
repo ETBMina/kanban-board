@@ -15,11 +15,16 @@ export function buildFrontmatterYAML(frontmatter: Record<string, any>): string {
   for (const [key, value] of Object.entries(frontmatter)) {
     if (value === undefined || value === null) continue;
     if (Array.isArray(value)) {
-      if (value.length === 0) continue;
-      const rendered = value.map(v => escapeYamlInline(v)).join(', ');
-      lines.push(`${key}: [${rendered}]`);
+      if (value.length === 0) {
+        // Include empty arrays as placeholders
+        lines.push(`${key}: []`);
+      } else {
+        const rendered = value.map(v => escapeYamlInline(v)).join(', ');
+        lines.push(`${key}: [${rendered}]`);
+      }
     } else if (typeof value === 'string' && value.trim() === '') {
-      continue;
+      // Include empty strings as placeholders
+      lines.push(`${key}: ""`);
     } else {
       if (typeof value === 'string' && value.includes('\n')) {
         // For multiline strings, use the literal block scalar format

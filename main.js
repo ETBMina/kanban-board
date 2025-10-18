@@ -1,19 +1,1080 @@
-"use strict";var lt=Object.defineProperty;var Et=Object.getOwnPropertyDescriptor;var Ft=Object.getOwnPropertyNames;var Nt=Object.prototype.hasOwnProperty;var Pt=(c,l)=>{for(var t in l)lt(c,t,{get:l[t],enumerable:!0})},At=(c,l,t,e)=>{if(l&&typeof l=="object"||typeof l=="function")for(let s of Ft(l))!Nt.call(c,s)&&s!==t&&lt(c,s,{get:()=>l[s],enumerable:!(e=Et(l,s))||e.enumerable});return c};var Lt=c=>At(lt({},"__esModule",{value:!0}),c);var Rt={};Pt(Rt,{default:()=>st});module.exports=Lt(Rt);var O=require("obsidian");var ct={taskFolder:"Tasks",statuses:["Backlog","In Progress","Blocked","Review","Done"],templateFields:[{key:"title",label:"Title",type:"text"},{key:"status",label:"Status",type:"status"},{key:"priority",label:"Priority",type:"status"},{key:"assignee",label:"Assignee",type:"people"},{key:"startDate",label:"Start Date",type:"date"},{key:"endDate",label:"End Date",type:"date"},{key:"tags",label:"Tags",type:"tags"},{key:"crNumber",label:"CR Number",type:"text"},{key:"plannedStart",label:"Planned start date",type:"date"},{key:"plannedEnd",label:"Planned end date",type:"date"},{key:"actualStart",label:"Actual start date",type:"date"},{key:"actualEnd",label:"Actual end date",type:"date"},{key:"notes",label:"Notes",type:"freetext"}],gridVisibleColumns:["title","status","priority","assignee","startDate","endDate","tags","notes"],crFolder:"Change Requests",crTemplateFields:[{key:"number",label:"CR Number",type:"text"},{key:"title",label:"Title",type:"text"},{key:"emailSubject",label:"Email Subject",type:"text"},{key:"solutionDesign",label:"Solution design link",type:"url"},{key:"description",label:"Description",type:"text"}]};var G=require("obsidian"),Z=class extends G.PluginSettingTab{constructor(l,t){super(l,t),this.plugin=t}display(){let{containerEl:l}=this;l.empty(),l.createEl("h2",{text:"Kanban Board & Task Grid"}),new G.Setting(l).setName("Task folder").setDesc("Folder where task notes are stored").addText(t=>{t.setPlaceholder("Tasks").setValue(this.plugin.settings.taskFolder).onChange(async e=>{this.plugin.settings.taskFolder=e||"Tasks",await this.plugin.saveSettings()})}),new G.Setting(l).setName("Statuses (comma-separated)").setDesc("Columns shown in the Kanban view").addText(t=>{t.setPlaceholder("Backlog, In Progress, Blocked, Review, Done").setValue(this.plugin.settings.statuses.join(", ")).onChange(async e=>{this.plugin.settings.statuses=e.split(",").map(s=>s.trim()).filter(Boolean),await this.plugin.saveSettings()})}),new G.Setting(l).setName("Grid visible columns (keys, comma-separated)").setDesc("Which fields to display in the grid").addText(t=>{t.setPlaceholder("title, status, priority, assignee, due, tags").setValue(this.plugin.settings.gridVisibleColumns.join(", ")).onChange(async e=>{this.plugin.settings.gridVisibleColumns=e.split(",").map(s=>s.trim()).filter(Boolean),await this.plugin.saveSettings()})}),l.createEl("p",{text:"Template fields can be edited in JSON within your data.json for now. A richer editor will be added."})}};var _=require("obsidian");async function dt(c,l){let t=(0,_.normalizePath)(l);try{await c.vault.createFolder(t)}catch(e){}}function tt(c){let l=["---"];for(let[t,e]of Object.entries(c))if(e!=null)if(Array.isArray(e)){if(e.length===0)continue;let s=e.map(a=>Mt(a)).join(", ");l.push(`${t}: [${s}]`)}else{if(typeof e=="string"&&e.trim()==="")continue;if(typeof e=="string"&&e.includes(`
-`)){l.push(`${t}: |`);let s=e.split(`
-`);for(let a of s)l.push(`  ${a}`)}else{let s=It(e);l.push(`${t}: ${s}`)}}return l.push("---"),l.join(`
-`)}function It(c){return c==null?"":typeof c=="string"?c.includes(`
-`)?`|
-`+c.split(`
-`).map(t=>"  "+t).join(`
-`):/[:#\-]|^\s|\s$/.test(c)?JSON.stringify(c):c:String(c)}function Mt(c){if(c==null)return"";let l=String(c);return/[",\[\]:\n]/.test(l)||/^\s|\s$/.test(l)?'"'+l.replace(/"/g,'""')+'"':l}async function vt(c,l){var a;let t=(0,_.normalizePath)(l.taskFolder),e=[],s=c.vault.getMarkdownFiles().filter(o=>o.path.startsWith(t+"/"));for(let o of s){let d=c.metadataCache.getFileCache(o),g=(a=d==null?void 0:d.frontmatter)!=null?a:{};e.push({filePath:o.path,fileName:o.name.replace(/\.md$/,""),frontmatter:g})}return e}async function V(c,l,t){var i,n,m,y,f,u,E;let e=await c.vault.read(l),s=c.metadataCache.getFileCache(l),a=(m=(n=(i=s==null?void 0:s.frontmatterPosition)==null?void 0:i.start)==null?void 0:n.offset)!=null?m:-1,o=(u=(f=(y=s==null?void 0:s.frontmatterPosition)==null?void 0:y.end)==null?void 0:f.offset)!=null?u:-1,g={...(E=s==null?void 0:s.frontmatter)!=null?E:{},...t},p=tt(g),v;if(a>=0&&o>a){let D=e.slice(o),L=D.startsWith(`
-`)?"":`
-`;v=e.slice(0,a)+p+L+D}else{let D=e,L=D.length===0||D.startsWith(`
-`)?`
-`:`
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-`;v=p+L+D}await c.vault.modify(l,v)}function Tt(c){return`[[${(0,_.normalizePath)(c)}]]`}async function pt(c,l,t){var a;let e=(0,_.normalizePath)(l.crFolder||"Change Requests"),s=c.vault.getMarkdownFiles().filter(o=>o.path.startsWith(e+"/"));for(let o of s){let d=(a=c.metadataCache.getFileCache(o))==null?void 0:a.frontmatter;if(d&&String(d.number||d.crNumber||"").toLowerCase()===t.toLowerCase()||o.name.toLowerCase().startsWith(t.toLowerCase()+" "))return o}return null}async function wt(c,l){var d;let t=(0,_.normalizePath)(l.crFolder||"Change Requests"),e=c.vault.getMarkdownFiles().filter(g=>g.path.startsWith(t+"/")),s=0,a=/^CR-(\d+)/i;for(let g of e){let p=(d=c.metadataCache.getFileCache(g))==null?void 0:d.frontmatter,v=String((p==null?void 0:p.number)||(p==null?void 0:p.crNumber)||""),i=a.exec(v);if(i){let m=parseInt(i[1],10);Number.isNaN(m)||(s=Math.max(s,m))}let n=a.exec(g.name);if(n){let m=parseInt(n[1],10);Number.isNaN(m)||(s=Math.max(s,m))}}return`CR-${s+1}`}var C=require("obsidian");var K="kb-board-tabs-view",et=class extends C.ItemView{constructor(t,e,s){super(t);this.tasks=[];this.filterQuery="";this.active="grid";this.settings=e,this.persistSettings=s}async promptText(t,e="",s=""){return new Promise(a=>{let o=this;class d extends C.Modal{constructor(){super(o.app);this.value=s;this.setTitle(t);let i=this.contentEl.createDiv({cls:"kb-prompt"}),n=i.createEl("input",{type:"text"});n.placeholder=e,n.value=s,n.oninput=()=>{this.value=n.value.trim()};let m=i.createDiv({cls:"kb-prompt-actions"}),y=m.createEl("button",{text:"OK"}),f=m.createEl("button",{text:"Cancel"});y.onclick=()=>{this.close(),a(this.value||void 0)},f.onclick=()=>{this.close(),a(void 0)},n.onkeydown=u=>{u.key==="Enter"&&y.click()},setTimeout(()=>n.focus(),0)}}new d().open()})}getViewType(){return K}getDisplayText(){return"Tasks"}getIcon(){return"layout-grid"}async onOpen(){this.contentEl.addClass("kb-container"),this.registerEvent(this.app.metadataCache.on("changed",(0,C.debounce)(()=>this.reload(),300))),this.registerEvent(this.app.vault.on("modify",(0,C.debounce)(()=>this.reload(),300))),await this.reload()}async reload(){this.tasks=await vt(this.app,this.settings),this.render()}render(){let t=this.contentEl;t.empty();let e=t.createDiv({cls:"kb-tabs"}),s=e.createEl("button",{text:"Grid"});s.addClass("kb-tab"),this.active==="grid"&&s.addClass("is-active"),s.onclick=()=>{this.active="grid",this.render()};let a=e.createEl("button",{text:"Board"});a.addClass("kb-tab"),this.active==="board"&&a.addClass("is-active"),a.onclick=()=>{this.active="board",this.render()};let d=t.createDiv({cls:"kb-toolbar"}).createEl("input",{type:"search"});d.addClass("kb-input"),d.placeholder="Filter...",d.value=this.filterQuery,d.oninput=g=>{let p=g.target;this.filterQuery=p.value.trim().toLowerCase(),this.active==="grid"?this.renderGrid(t):this.renderBoard(t)},this.active==="grid"?this.renderGrid(t):this.renderBoard(t)}getFilteredTasks(){let t=this.filterQuery;return t?this.tasks.filter(e=>e.fileName.toLowerCase().includes(t)?!0:this.settings.gridVisibleColumns.some(s=>{var a;return String((a=e.frontmatter[s])!=null?a:"").toLowerCase().includes(t)})):this.tasks}renderGrid(t){let e=t.querySelector(".kb-grid-wrap");e&&e.remove();let a=t.createDiv({cls:"kb-grid-wrap"}).createEl("table");a.addClass("kb-table");let d=a.createEl("thead").createEl("tr");for(let p of this.settings.gridVisibleColumns)d.createEl("th",{text:p});d.createEl("th",{text:"Archived"}),d.createEl("th",{text:"Open"});let g=a.createEl("tbody");for(let p of this.getFilteredTasks()){let v=g.createEl("tr"),i=!!p.frontmatter.archived;i&&v.addClass("kb-row-archived");for(let f of this.settings.gridVisibleColumns){let u=p.frontmatter[f],E=v.createEl("td"),D=Array.isArray(u)?u.join(", "):String(u!=null?u:"");D.includes(`
-`)?E.innerHTML=D.replace(/\n/g,"<br>"):E.textContent=D}v.createEl("td").createSpan({text:i?"Yes":"No"});let y=v.createEl("td").createEl("button",{text:"Open"});y.addClass("kb-card-btn"),y.onclick=async()=>{let f=this.app.vault.getAbstractFileByPath(p.filePath);f instanceof C.TFile&&await this.app.workspace.getLeaf(!0).openFile(f)}}}renderBoard(t){var p,v;let e=t.querySelector(".kb-kanban");e&&e.remove();let s=t.createDiv({cls:"kb-kanban kb-kanban-horizontal",attr:{draggable:"false"}}),a=new Map;for(let i of this.settings.statuses)a.set(i,[]);for(let i of this.getFilteredTasks()){let n=(p=i.frontmatter.status)!=null?p:this.settings.statuses[0];((v=a.get(n))!=null?v:a.get(this.settings.statuses[0])).push(i)}for(let[i,n]of Array.from(a.entries()))n.sort((m,y)=>{var L,h;let f=Number((L=m.frontmatter.order)!=null?L:NaN),u=Number((h=y.frontmatter.order)!=null?h:NaN);if(!Number.isNaN(f)&&!Number.isNaN(u)&&f!==u)return f-u;let E=m.frontmatter.createdAt?new Date(String(m.frontmatter.createdAt)).getTime():0,D=y.frontmatter.createdAt?new Date(String(y.frontmatter.createdAt)).getTime():0;return E-D});let o={dragIndex:-1,onDragStart:(i,n)=>{var m;(m=n.dataTransfer)==null||m.setData("application/x-kb-col",String(i)),n.dataTransfer&&(n.dataTransfer.effectAllowed="move"),o.dragIndex=i},onDropOnIndex:async i=>{var u;let n=o.dragIndex,m=i;if(n<0||m<0||n===m)return;let y=this.settings.statuses,[f]=y.splice(n,1);y.splice(m,0,f),await((u=this.persistSettings)==null?void 0:u.call(this)),this.renderBoard(t)}};this.settings.statuses.forEach((i,n)=>{var S,F,I,j,J;let m=s.createDiv({cls:"kb-column",attr:{"data-col-index":String(n)}});m.ondragover=r=>{var A;((A=r.dataTransfer)==null?void 0:A.types.includes("application/x-kb-col"))?(r.preventDefault(),r.currentTarget.classList.add("kb-col-hover")):(r.dataTransfer&&(r.dataTransfer.dropEffect="move"),r.preventDefault(),u.classList.add("kb-dropzone-hover"))},m.ondragleave=r=>{r.currentTarget.classList.remove("kb-col-hover"),u.classList.remove("kb-dropzone-hover")},m.ondrop=async r=>{var A,T;((A=r.dataTransfer)==null?void 0:A.types.includes("application/x-kb-col"))?(r.preventDefault(),r.currentTarget.classList.remove("kb-col-hover"),await o.onDropOnIndex(n)):await((T=u.ondrop)==null?void 0:T.call(u,r))};let y=m.createDiv({cls:"kb-column-header"});y.draggable=!0,y.ondragstart=r=>o.onDragStart(n,r),y.createSpan({text:i}),y.createSpan({text:String((F=(S=a.get(i))==null?void 0:S.length)!=null?F:0)});let f=y.createEl("button",{text:"\u22EF"});f.classList.add("kb-ellipsis"),f.onclick=r=>{let b=new C.Menu;b.addItem(T=>T.setTitle("Rename").onClick(async()=>{var P,M,$;let k=(P=await this.promptText("Rename column","Column name",i))==null?void 0:P.trim();if(!k||k===i)return;this.settings.statuses[n]=k,await((M=this.persistSettings)==null?void 0:M.call(this));let N=($=a.get(i))!=null?$:[],B=[];for(let R of N){let W=this.app.vault.getAbstractFileByPath(R.filePath);W instanceof C.TFile&&B.push(V(this.app,W,{status:k}))}try{await Promise.all(B)}catch(R){new C.Notice("Some tasks failed to update")}await this.reload()})),b.addItem(T=>T.setTitle("Delete").onClick(async()=>{var k;this.settings.statuses.splice(n,1),await((k=this.persistSettings)==null?void 0:k.call(this)),this.renderBoard(t)})),b.addItem(T=>T.setTitle("Move right").onClick(async()=>{var N;let k=this.settings.statuses;n>=k.length-1||([k[n+1],k[n]]=[k[n],k[n+1]],await((N=this.persistSettings)==null?void 0:N.call(this)),this.renderBoard(t))})),b.addItem(T=>T.setTitle("Move left").onClick(async()=>{var N;let k=this.settings.statuses;n!==0&&([k[n-1],k[n]]=[k[n],k[n-1]],await((N=this.persistSettings)==null?void 0:N.call(this)),this.renderBoard(t))}));let A=r;b.showAtPosition({x:A.clientX,y:A.clientY})};let u=m.createDiv({cls:"kb-column-body kb-dropzone"}),E=document.createElement("div");E.className="kb-drop-indicator";let D=()=>{E.parentElement&&E.parentElement.removeChild(E)},L=r=>{u.classList.toggle("kb-dropzone-hover",r),r||D()},h=r=>{r.preventDefault(),r.dataTransfer&&(r.dataTransfer.dropEffect="move")},w=r=>{var k;if((k=r.dataTransfer)!=null&&k.types.includes("application/x-kb-col"))return;h(r);let b=Array.from(u.querySelectorAll(".kb-card")),A=b.length,T=r.clientY;for(let N=0;N<b.length;N++){let B=b[N].getBoundingClientRect(),P=B.top+B.height/2;if(T<P){A=N;break}}D(),b.length===0||A>=b.length?u.appendChild(E):u.insertBefore(E,b[A]),L(!0)};u.ondragenter=r=>{var b;(b=r.dataTransfer)!=null&&b.types.includes("application/x-kb-col")||w(r)},u.ondragover=r=>{var b;(b=r.dataTransfer)!=null&&b.types.includes("application/x-kb-col")||w(r)},u.ondragleave=r=>{let b=r.relatedTarget;(!b||!u.contains(b))&&L(!1)},u.ondrop=async r=>{var N,B,P,M,$,R,W,gt,mt,ht,yt,bt;if((N=r.dataTransfer)!=null&&N.types.includes("application/x-kb-col"))return;let A=((B=r.dataTransfer)==null?void 0:B.types.includes("application/x-kb-card"))?(P=r.dataTransfer)==null?void 0:P.getData("application/x-kb-card"):(M=r.dataTransfer)==null?void 0:M.getData("text/plain");if(!A)return;let T=null;try{T=JSON.parse(A)}catch(at){T={path:A}}if(!T||!T.path)return;let k=this.app.vault.getAbstractFileByPath(T.path);if(k instanceof C.TFile)try{let Ct=s.scrollLeft,Q=($=a.get(i))!=null?$:[],it=(mt=T.fromStatus)!=null?mt:String((gt=(W=(R=this.app.metadataCache.getFileCache(k))==null?void 0:R.frontmatter)==null?void 0:W.status)!=null?gt:""),U=(ht=a.get(it))!=null?ht:[],nt=Array.from(u.querySelectorAll(".kb-card")),z=nt.length,St=r.clientY;for(let x=0;x<nt.length;x++){let H=nt[x].getBoundingClientRect(),Y=H.top+H.height/2;if(St<Y){z=x;break}}let X=U.findIndex(x=>x.filePath===T.path);X!==-1&&U.splice(X,1),it===i&&X!==-1&&X<z&&(z=Math.max(0,z-1));let rt=Q.find(x=>x.filePath===T.path);if(!rt){let x=this.app.metadataCache.getFileCache(k);rt={filePath:T.path,fileName:k.name.replace(/\.md$/,""),frontmatter:(yt=x==null?void 0:x.frontmatter)!=null?yt:{}}}Q.splice(z,0,rt);let xt=/^(completed|done)$/i.test(i),Dt=/in\s*progress/i.test(i),ot=[];for(let x=0;x<Q.length;x++){let H=Q[x],Y=this.app.vault.getAbstractFileByPath(H.filePath);if(!(Y instanceof C.TFile))continue;let q={order:x};H.filePath===T.path&&String((bt=H.frontmatter.status)!=null?bt:"")!==i&&(q.status=i,xt&&(q.endDate=new Date().toISOString().slice(0,10)),Dt&&(q.startDate=new Date().toISOString().slice(0,10))),ot.push(V(this.app,Y,q))}if(it!==i)for(let x=0;x<U.length;x++){let H=U[x],Y=this.app.vault.getAbstractFileByPath(H.filePath);if(!(Y instanceof C.TFile))continue;let q={order:x};ot.push(V(this.app,Y,q))}try{await Promise.all(ot),new C.Notice("Moved")}catch(x){new C.Notice("Failed to move: "+x.message)}L(!1),await this.reload();let kt=t.querySelector(".kb-kanban");kt&&(kt.scrollLeft=Ct)}catch(at){new C.Notice("Failed to move: "+at.message)}};for(let r of(I=a.get(i))!=null?I:[]){if(r.frontmatter.archived)continue;let b=u.createDiv({cls:"kb-card",attr:{draggable:"true"}});b.ondragstart=P=>{var $,R;P.stopPropagation();let M=JSON.stringify({path:r.filePath,fromStatus:i});($=P.dataTransfer)==null||$.setData("application/x-kb-card",M),(R=P.dataTransfer)==null||R.setData("text/plain",M),P.dataTransfer&&(P.dataTransfer.effectAllowed="move")},b.createDiv({cls:"kb-card-title",text:(j=r.frontmatter.title)!=null?j:r.fileName}),b.createDiv().createSpan({cls:"kb-chip",text:(J=r.frontmatter.priority)!=null?J:""});let T=b.createDiv({cls:"kb-card-footer"}),k=r.frontmatter.createdAt||"";k&&T.createSpan({cls:"kb-card-ts",text:new Date(k).toLocaleString()});let N=T.createEl("button",{text:"\u22EF"});N.classList.add("kb-ellipsis"),N.onclick=P=>{let M=new C.Menu;M.addItem(R=>R.setTitle("Archive").onClick(async()=>{try{await V(this.app,this.app.vault.getAbstractFileByPath(r.filePath),{archived:!0}),new C.Notice("Task archived"),await this.reload()}catch(W){new C.Notice("Failed to archive task")}})),M.addItem(R=>R.setTitle("Delete").onClick(async()=>{try{await this.app.vault.delete(this.app.vault.getAbstractFileByPath(r.filePath)),new C.Notice("Task deleted"),await this.reload()}catch(W){new C.Notice("Failed to delete task")}}));let $=P;M.showAtPosition({x:$.clientX,y:$.clientY})};let B=T.createEl("button",{text:"Open"});B.addClass("kb-card-btn"),B.onclick=async()=>{let P=this.app.vault.getAbstractFileByPath(r.filePath);P instanceof C.TFile&&await this.app.workspace.getLeaf(!0).openFile(P)}}});let g=s.createDiv({cls:"kb-column kb-column-add"}).createEl("button",{text:"+ Add column"});g.classList.add("kb-button"),g.onclick=async()=>{var n,m;let i=(n=await this.promptText("New column","Column name"))==null?void 0:n.trim();i&&(this.settings.statuses.push(i),await((m=this.persistSettings)==null?void 0:m.call(this)),this.renderBoard(t))}}};var st=class extends O.Plugin{constructor(){super(...arguments);this.settings=ct}async onload(){await this.loadSettings(),await this.migrateSettingsIfNeeded(),this.addSettingTab(new Z(this.app,this)),this.registerView(K,t=>new et(t,this.settings,()=>this.saveSettings())),this.addCommand({id:"open-tasks-pane",name:"Open Tasks (Grid/Board Tabs)",callback:()=>this.activateTabsView()}),this.addCommand({id:"create-task",name:"Create Task from Template",callback:()=>this.createTaskFromTemplate()}),this.addCommand({id:"create-cr",name:"Create Change Request (CR) from Template",callback:()=>this.createCrFromTemplate()}),this.addRibbonIcon("sheets-in-box","Open Tasks (Tabs)",()=>this.activateTabsView()),this.registerEvent(this.app.metadataCache.on("changed",async t=>{var v;if(!(t instanceof O.TFile))return;let e=this.settings.taskFolder||"Tasks";if(!t.path.startsWith(e+"/"))return;let s=(v=this.app.metadataCache.getFileCache(t))==null?void 0:v.frontmatter;if(!s)return;let a=String(s.status||""),o=/^(completed|done)$/i.test(a),d=/in\s*progress/i.test(a),g=String(s.endDate||""),p=String(s.startDate||"");if(o&&!g)try{await V(this.app,t,{endDate:new Date().toISOString().slice(0,10)})}catch(i){}if(d&&!p)try{await V(this.app,t,{startDate:new Date().toISOString().slice(0,10)})}catch(i){}}))}async migrateSettingsIfNeeded(){var v,i;let t=!1,e=(v=this.settings.templateFields)!=null?v:[],s=e.length;this.settings.templateFields=e.filter(n=>n.key!=="due"),this.settings.templateFields.length!==s&&(t=!0);let a=this.settings.templateFields.some(n=>n.key==="startDate"),o=this.settings.templateFields.some(n=>n.key==="endDate"),d=this.settings.templateFields.some(n=>n.key==="notes");a||(this.settings.templateFields.splice(5,0,{key:"startDate",label:"Start Date",type:"date"}),t=!0),o||(this.settings.templateFields.splice(6,0,{key:"endDate",label:"End Date",type:"date"}),t=!0),d||(this.settings.templateFields.push({key:"notes",label:"Notes",type:"freetext"}),t=!0);let g=(i=this.settings.gridVisibleColumns)!=null?i:[],p=g.indexOf("due");p!==-1&&(g.splice(p,1,"startDate","endDate"),this.settings.gridVisibleColumns=g,t=!0),g.includes("notes")||(this.settings.gridVisibleColumns.push("notes"),t=!0),t&&await this.saveSettings()}onunload(){}async loadSettings(){this.settings=Object.assign({},ct,await this.loadData())}async saveSettings(){await this.saveData(this.settings)}async activateTabsView(){let t=this.getRightLeaf();await t.setViewState({type:K,active:!0}),this.app.workspace.revealLeaf(t)}getRightLeaf(){var e;let t=this.app.workspace.getLeavesOfType(K);return t.length>0?t[0]:(e=this.app.workspace.getRightLeaf(!1))!=null?e:this.app.workspace.getLeaf(!0)}async createTaskFromTemplate(){new ut(this.app,this.settings.templateFields,this.settings.statuses,async e=>{var L,h;let s=this.settings.taskFolder||"Tasks";await dt(this.app,s);let a=String(e.crNumber||"").trim(),o=String(e.taskNumber||"").trim(),d=String(e.service||"").trim(),g="";if(a){let w=await pt(this.app,this.settings,a);if(w){let S=(L=this.app.metadataCache.getFileCache(w))==null?void 0:L.frontmatter;g=String((h=S==null?void 0:S.title)!=null?h:""),g||(g=w.name.replace(/\.md$/i,"").replace(/^CR-\d+\s*-\s*/i,""))}}let p=[a,o].filter(Boolean).join(" "),v=d?` - [${d}]`:"",i=g.trim()||`Task ${new Date().toISOString().slice(0,10)}`,n=p?`[${p}] ${i}${v}`:`${i}${v}`,m=`${n}.md`,y=`${s}/${m}`,f={};for(let[w,S]of Object.entries(e))Array.isArray(S)?S.length>0&&(f[w]=S):typeof S=="string"?(S.trim()!==""||w==="notes")&&(f[w]=S.trim()):S!=null&&(f[w]=S);f.title=n,f.createdAt=new Date().toISOString();let u=f.crNumber;if(u)try{let w=await pt(this.app,this.settings,u);w&&(f.crLink=Tt(w.path))}catch(w){}let E=tt(f);await this.app.vault.create(y,`${E}
+// src/main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => KanbanPlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian4 = require("obsidian");
 
-`);let D=this.app.vault.getAbstractFileByPath(y);D instanceof O.TFile&&await this.app.workspace.getLeaf(!0).openFile(D)}).open()}async createCrFromTemplate(){var s;let t=(s=this.settings.crTemplateFields)!=null?s:[{key:"number",label:"CR Number",type:"text"},{key:"title",label:"Title",type:"text"},{key:"emailSubject",label:"Email Subject",type:"text"},{key:"solutionDesign",label:"Solution design link",type:"url"},{key:"description",label:"Description",type:"text"}];new ft(this.app,t,async a=>{let o=this.settings.crFolder||"Change Requests";await dt(this.app,o);let d=(a.number||"").trim();d||(d=await wt(this.app,this.settings)),/^CR-\d+$/i.test(d)||(d="CR-"+d.replace(/[^0-9]/g,""));let g=(a.title||"").trim()||d,p=`${d} - ${g}.md`,v=`${o}/${p}`,i={};for(let[y,f]of Object.entries(a))Array.isArray(f)?f.length>0&&(i[y]=f):typeof f=="string"?f.trim()!==""&&(i[y]=f.trim()):f!=null&&(i[y]=f);i.number=d,i.title=g;let n=tt(i);await this.app.vault.create(v,`${n}
+// src/models.ts
+var DEFAULT_SETTINGS = {
+  taskFolder: "Tasks",
+  statuses: ["Backlog", "In Progress", "Blocked", "Review", "Done"],
+  templateFields: [
+    { key: "title", label: "Title", type: "text" },
+    { key: "status", label: "Status", type: "status" },
+    { key: "priority", label: "Priority", type: "status" },
+    { key: "assignee", label: "Assignee", type: "people" },
+    { key: "startDate", label: "Start Date", type: "date" },
+    { key: "endDate", label: "End Date", type: "date" },
+    { key: "tags", label: "Tags", type: "tags" },
+    { key: "crNumber", label: "CR Number", type: "text" },
+    { key: "plannedStart", label: "Planned start date", type: "date" },
+    { key: "plannedEnd", label: "Planned end date", type: "date" },
+    { key: "actualStart", label: "Actual start date", type: "date" },
+    { key: "actualEnd", label: "Actual end date", type: "date" },
+    { key: "notes", label: "Notes", type: "freetext" }
+  ],
+  gridVisibleColumns: ["title", "status", "priority", "assignee", "startDate", "endDate", "tags", "notes"],
+  crFolder: "Change Requests",
+  crTemplateFields: [
+    { key: "number", label: "CR Number", type: "text" },
+    { key: "title", label: "Title", type: "text" },
+    { key: "emailSubject", label: "Email Subject", type: "text" },
+    { key: "solutionDesign", label: "Solution design link", type: "url" },
+    { key: "description", label: "Description", type: "text" }
+  ]
+};
 
-`);let m=this.app.vault.getAbstractFileByPath(v);m instanceof O.TFile&&await this.app.workspace.getLeaf(!0).openFile(m)}).open()}},ut=class extends O.Modal{constructor(t,e,s,a){super(t);this.inputs=new Map;this.fields=e,this.statuses=s,this.onSubmit=a}onOpen(){var D,L;let{contentEl:t}=this;t.empty(),t.addClass("kb-container"),t.createEl("h2",{text:"New Task"});let e=t.createDiv({cls:"setting-item"});e.createDiv({cls:"setting-item-name",text:"Status"});let a=e.createDiv({cls:"setting-item-control"}).createEl("select");for(let h of this.statuses){let w=a.createEl("option",{text:h});w.value=h}a.value=(D=this.statuses[0])!=null?D:"",this.inputs.set("status",a);let o=t.createDiv({cls:"setting-item"});o.createDiv({cls:"setting-item-name",text:"CR Number"});let g=o.createDiv({cls:"setting-item-control"}).createEl("input");g.addClass("kb-input"),g.placeholder="e.g. CR-6485",g.type="text",this.inputs.set("crNumber",g);let p=t.createDiv({cls:"setting-item"});p.createDiv({cls:"setting-item-name",text:"Task Number"});let i=p.createDiv({cls:"setting-item-control"}).createEl("input");i.addClass("kb-input"),i.placeholder="e.g. T-01",i.type="text",this.inputs.set("taskNumber",i);let n=t.createDiv({cls:"setting-item"});n.createDiv({cls:"setting-item-name",text:"Service Name"});let y=n.createDiv({cls:"setting-item-control"}).createEl("input");y.addClass("kb-input"),y.placeholder="Service name",y.type="text",this.inputs.set("service",y);for(let h of this.fields){if(h.key==="status"||h.key==="title"||h.key==="due"||h.key==="crNumber"||h.key==="taskNumber"||h.key==="service")continue;let w=t.createDiv({cls:"setting-item"});w.createDiv({cls:"setting-item-name",text:h.label});let S=w.createDiv({cls:"setting-item-control"});if(h.type==="status"||h.key==="priority"){let F=S.createEl("select");F.addClass("kb-input");let I=h.key==="status"?this.statuses:["Urgent","High","Medium","Low"];for(let j of I){let J=F.createEl("option",{text:j});J.value=j}F.value=h.key==="status"?(L=this.statuses[0])!=null?L:"":"Medium",this.inputs.set(h.key,F)}else if(h.type==="freetext"){w.style.display="block",w.style.width="100%";let F=w.querySelector(".setting-item-name");F&&(F.style.display="block"),S.style.width="100%",S.style.marginTop="8px";let I=S.createEl("textarea");I.addClass("kb-input"),I.placeholder=h.label,I.rows=4,I.style.resize="vertical",I.style.minHeight="80px",I.style.width="100%",this.inputs.set(h.key,I)}else{let F=S.createEl("input");F.addClass("kb-input"),F.placeholder=h.label,h.type==="date"?F.type="date":h.type==="number"?F.type="number":F.type="text",this.inputs.set(h.key,F)}}let f=t.createDiv({cls:"modal-button-container"}),u=f.createEl("button",{text:"Cancel"});u.addClass("mod-warning"),u.onclick=()=>this.close();let E=f.createEl("button",{text:"Create Task"});E.addClass("mod-cta"),E.onclick=async()=>{var w;let h={};for(let[S,F]of this.inputs.entries()){let I=F,j=I.tagName==="TEXTAREA"?I.value:I.value.trim();h[S]=j}h.status||(h.status=(w=this.statuses[0])!=null?w:"Backlog"),h.priority=h.priority||"Medium",await this.onSubmit(h),this.close()}}},ft=class extends O.Modal{constructor(t,e,s){super(t);this.inputs=new Map;this.fields=e,this.onSubmit=s}onOpen(){let{contentEl:t}=this;t.empty(),t.addClass("kb-container"),t.createEl("h2",{text:"New Change Request"});for(let o of this.fields){let d=t.createDiv({cls:"setting-item"});d.createDiv({cls:"setting-item-name",text:o.label});let p=d.createDiv({cls:"setting-item-control"}).createEl("input");p.addClass("kb-input"),p.placeholder=o.label,o.type==="date"?p.type="date":o.type==="number"?p.type="number":o.type==="url"?p.type="url":p.type="text",this.inputs.set(o.key,p)}let e=t.createDiv({cls:"modal-button-container"}),s=e.createEl("button",{text:"Cancel"});s.addClass("mod-warning"),s.onclick=()=>this.close();let a=e.createEl("button",{text:"Create CR"});a.addClass("mod-cta"),a.onclick=async()=>{let o={};for(let[d,g]of this.inputs.entries()){let p=g.value.trim();o[d]=p}o.title||(o.title="Untitled CR"),o.priority||(o.priority="Medium"),await this.onSubmit(o),this.close()}}};
+// src/settings.ts
+var import_obsidian = require("obsidian");
+var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Kanban Board & Task Grid" });
+    new import_obsidian.Setting(containerEl).setName("Task folder").setDesc("Folder where task notes are stored").addText((text) => {
+      text.setPlaceholder("Tasks").setValue(this.plugin.settings.taskFolder).onChange(async (value) => {
+        this.plugin.settings.taskFolder = value || "Tasks";
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian.Setting(containerEl).setName("Statuses (comma-separated)").setDesc("Columns shown in the Kanban view").addText((text) => {
+      text.setPlaceholder("Backlog, In Progress, Blocked, Review, Done").setValue(this.plugin.settings.statuses.join(", ")).onChange(async (value) => {
+        this.plugin.settings.statuses = value.split(",").map((s) => s.trim()).filter(Boolean);
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian.Setting(containerEl).setName("Grid visible columns (keys, comma-separated)").setDesc("Which fields to display in the grid").addText((text) => {
+      text.setPlaceholder("title, status, priority, assignee, due, tags").setValue(this.plugin.settings.gridVisibleColumns.join(", ")).onChange(async (value) => {
+        this.plugin.settings.gridVisibleColumns = value.split(",").map((s) => s.trim()).filter(Boolean);
+        await this.plugin.saveSettings();
+      });
+    });
+    containerEl.createEl("p", { text: "Template fields can be edited in JSON within your data.json for now. A richer editor will be added." });
+  }
+};
+
+// src/utils.ts
+var import_obsidian2 = require("obsidian");
+async function ensureFolder(app, folderPath) {
+  const path = (0, import_obsidian2.normalizePath)(folderPath);
+  try {
+    await app.vault.createFolder(path);
+  } catch (e) {
+  }
+}
+function buildFrontmatterYAML(frontmatter) {
+  const lines = ["---"];
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (value === void 0 || value === null) continue;
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        lines.push(`${key}: []`);
+      } else {
+        const rendered = value.map((v) => escapeYamlInline(v)).join(", ");
+        lines.push(`${key}: [${rendered}]`);
+      }
+    } else if (typeof value === "string" && value.trim() === "") {
+      lines.push(`${key}: ""`);
+    } else {
+      if (typeof value === "string" && value.includes("\n")) {
+        lines.push(`${key}: |`);
+        const textLines = value.split("\n");
+        for (const line of textLines) {
+          lines.push(`  ${line}`);
+        }
+      } else {
+        const escaped = escapeYaml(value);
+        lines.push(`${key}: ${escaped}`);
+      }
+    }
+  }
+  lines.push("---");
+  return lines.join("\n");
+}
+function escapeYaml(value) {
+  if (value === null || value === void 0) return "";
+  if (typeof value === "string") {
+    if (value.includes("\n")) {
+      const lines = value.split("\n");
+      return "|\n" + lines.map((line) => "  " + line).join("\n");
+    }
+    if (/[:#\-]|^\s|\s$/.test(value)) return JSON.stringify(value);
+    return value;
+  }
+  return String(value);
+}
+function escapeYamlInline(value) {
+  if (value === null || value === void 0) return "";
+  const s = String(value);
+  if (/[",\[\]:\n]/.test(s) || /^\s|\s$/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+async function readAllTasks(app, settings) {
+  var _a;
+  const folder = (0, import_obsidian2.normalizePath)(settings.taskFolder);
+  const results = [];
+  const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
+  for (const file of files) {
+    const cache = app.metadataCache.getFileCache(file);
+    const fm = (_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : {};
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: fm });
+  }
+  return results;
+}
+async function updateTaskFrontmatter(app, file, patch) {
+  var _a, _b, _c, _d, _e, _f, _g;
+  const content = await app.vault.read(file);
+  const cache = app.metadataCache.getFileCache(file);
+  const start = (_c = (_b = (_a = cache == null ? void 0 : cache.frontmatterPosition) == null ? void 0 : _a.start) == null ? void 0 : _b.offset) != null ? _c : -1;
+  const end = (_f = (_e = (_d = cache == null ? void 0 : cache.frontmatterPosition) == null ? void 0 : _d.end) == null ? void 0 : _e.offset) != null ? _f : -1;
+  const current = (_g = cache == null ? void 0 : cache.frontmatter) != null ? _g : {};
+  const merged = { ...current, ...patch };
+  const yaml = buildFrontmatterYAML(merged);
+  let next;
+  if (start >= 0 && end > start) {
+    const after = content.slice(end);
+    const needsNewline = after.startsWith("\n") ? "" : "\n";
+    next = content.slice(0, start) + yaml + needsNewline + after;
+  } else {
+    const body = content;
+    const sep = body.length === 0 ? "\n" : body.startsWith("\n") ? "\n" : "\n\n";
+    next = yaml + sep + body;
+  }
+  await app.vault.modify(file, next);
+}
+function buildWikiLink(path) {
+  const p = (0, import_obsidian2.normalizePath)(path);
+  return `[[${p}]]`;
+}
+async function findCrFileByNumber(app, settings, crNumber) {
+  var _a;
+  const folder = (0, import_obsidian2.normalizePath)(settings.crFolder || "Change Requests");
+  const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
+  for (const file of files) {
+    const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+    if (fm && String(fm["number"] || fm["crNumber"] || "").toLowerCase() === crNumber.toLowerCase()) {
+      return file;
+    }
+    if (file.name.toLowerCase().startsWith(crNumber.toLowerCase() + " ")) return file;
+  }
+  return null;
+}
+async function generateNextCrNumber(app, settings) {
+  var _a;
+  const folder = (0, import_obsidian2.normalizePath)(settings.crFolder || "Change Requests");
+  const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
+  let max = 0;
+  const rx = /^CR-(\d+)/i;
+  for (const file of files) {
+    const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+    const fromFm = String((fm == null ? void 0 : fm["number"]) || (fm == null ? void 0 : fm["crNumber"]) || "");
+    const m1 = rx.exec(fromFm);
+    if (m1) {
+      const n = parseInt(m1[1], 10);
+      if (!Number.isNaN(n)) max = Math.max(max, n);
+    }
+    const m2 = rx.exec(file.name);
+    if (m2) {
+      const n = parseInt(m2[1], 10);
+      if (!Number.isNaN(n)) max = Math.max(max, n);
+    }
+  }
+  const next = max + 1;
+  return `CR-${next}`;
+}
+
+// src/views/boardTabsView.ts
+var import_obsidian3 = require("obsidian");
+var BOARD_TABS_VIEW_TYPE = "kb-board-tabs-view";
+var BoardTabsView = class extends import_obsidian3.ItemView {
+  constructor(leaf, settings, persistSettings) {
+    super(leaf);
+    this.tasks = [];
+    this.filterQuery = "";
+    this.active = "grid";
+    this.settings = settings;
+    this.persistSettings = persistSettings;
+  }
+  async promptText(title, placeholder = "", initial = "") {
+    return new Promise((resolve) => {
+      const self = this;
+      class TextPrompt extends import_obsidian3.Modal {
+        constructor() {
+          super(self.app);
+          this.value = initial;
+          this.setTitle(title);
+          const content = this.contentEl.createDiv({ cls: "kb-prompt" });
+          const input = content.createEl("input", { type: "text" });
+          input.placeholder = placeholder;
+          input.value = initial;
+          input.oninput = () => {
+            this.value = input.value.trim();
+          };
+          const actions = content.createDiv({ cls: "kb-prompt-actions" });
+          const ok = actions.createEl("button", { text: "OK" });
+          const cancel = actions.createEl("button", { text: "Cancel" });
+          ok.onclick = () => {
+            this.close();
+            resolve(this.value || void 0);
+          };
+          cancel.onclick = () => {
+            this.close();
+            resolve(void 0);
+          };
+          input.onkeydown = (e) => {
+            if (e.key === "Enter") {
+              ok.click();
+            }
+          };
+          setTimeout(() => input.focus(), 0);
+        }
+      }
+      const modal = new TextPrompt();
+      modal.open();
+    });
+  }
+  getViewType() {
+    return BOARD_TABS_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "Tasks";
+  }
+  getIcon() {
+    return "layout-grid";
+  }
+  async onOpen() {
+    this.contentEl.addClass("kb-container");
+    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian3.debounce)(() => this.reload(), 300)));
+    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian3.debounce)(() => this.reload(), 300)));
+    await this.reload();
+  }
+  async reload() {
+    this.tasks = await readAllTasks(this.app, this.settings);
+    this.render();
+  }
+  render() {
+    const c = this.contentEl;
+    c.empty();
+    const tabs = c.createDiv({ cls: "kb-tabs" });
+    const gridBtn = tabs.createEl("button", { text: "Grid" });
+    gridBtn.addClass("kb-tab");
+    if (this.active === "grid") gridBtn.addClass("is-active");
+    gridBtn.onclick = () => {
+      this.active = "grid";
+      this.render();
+    };
+    const boardBtn = tabs.createEl("button", { text: "Board" });
+    boardBtn.addClass("kb-tab");
+    if (this.active === "board") boardBtn.addClass("is-active");
+    boardBtn.onclick = () => {
+      this.active = "board";
+      this.render();
+    };
+    const bar = c.createDiv({ cls: "kb-toolbar" });
+    const search = bar.createEl("input", { type: "search" });
+    search.addClass("kb-input");
+    search.placeholder = "Filter...";
+    search.value = this.filterQuery;
+    search.oninput = (ev) => {
+      const target = ev.target;
+      this.filterQuery = target.value.trim().toLowerCase();
+      if (this.active === "grid") this.renderGrid(c);
+      else this.renderBoard(c);
+    };
+    if (this.active === "grid") this.renderGrid(c);
+    else this.renderBoard(c);
+  }
+  // GRID
+  getFilteredTasks() {
+    const q = this.filterQuery;
+    if (!q) return this.tasks;
+    return this.tasks.filter((t) => {
+      if (t.fileName.toLowerCase().includes(q)) return true;
+      return this.settings.gridVisibleColumns.some((key) => {
+        var _a;
+        return String((_a = t.frontmatter[key]) != null ? _a : "").toLowerCase().includes(q);
+      });
+    });
+  }
+  renderGrid(container) {
+    const old = container.querySelector(".kb-grid-wrap");
+    if (old) old.remove();
+    const wrap = container.createDiv({ cls: "kb-grid-wrap" });
+    const table = wrap.createEl("table");
+    table.addClass("kb-table");
+    const thead = table.createEl("thead");
+    const trh = thead.createEl("tr");
+    for (const key of this.settings.gridVisibleColumns) trh.createEl("th", { text: key });
+    trh.createEl("th", { text: "Archived" });
+    trh.createEl("th", { text: "Open" });
+    const tbody = table.createEl("tbody");
+    for (const t of this.getFilteredTasks()) {
+      const tr = tbody.createEl("tr");
+      const isArchived = Boolean(t.frontmatter["archived"]);
+      if (isArchived) tr.addClass("kb-row-archived");
+      for (const key of this.settings.gridVisibleColumns) {
+        const val = t.frontmatter[key];
+        const td = tr.createEl("td");
+        const text = Array.isArray(val) ? val.join(", ") : String(val != null ? val : "");
+        if (text.includes("\n")) {
+          td.innerHTML = text.replace(/\n/g, "<br>");
+        } else {
+          td.textContent = text;
+        }
+      }
+      const archivedTd = tr.createEl("td");
+      archivedTd.createSpan({ text: isArchived ? "Yes" : "No" });
+      const openTd = tr.createEl("td");
+      const btn = openTd.createEl("button", { text: "Open" });
+      btn.addClass("kb-card-btn");
+      btn.onclick = async () => {
+        const file = this.app.vault.getAbstractFileByPath(t.filePath);
+        if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      };
+    }
+  }
+  // BOARD
+  renderBoard(container) {
+    var _a, _b;
+    const existing = container.querySelector(".kb-kanban");
+    if (existing) existing.remove();
+    const board = container.createDiv({ cls: "kb-kanban kb-kanban-horizontal", attr: { draggable: "false" } });
+    const byStatus = /* @__PURE__ */ new Map();
+    for (const status of this.settings.statuses) byStatus.set(status, []);
+    for (const t of this.getFilteredTasks()) {
+      const status = (_a = t.frontmatter["status"]) != null ? _a : this.settings.statuses[0];
+      ((_b = byStatus.get(status)) != null ? _b : byStatus.get(this.settings.statuses[0])).push(t);
+    }
+    for (const [k, arr] of Array.from(byStatus.entries())) {
+      arr.sort((a, b) => {
+        var _a2, _b2;
+        const oa = Number((_a2 = a.frontmatter["order"]) != null ? _a2 : NaN);
+        const ob = Number((_b2 = b.frontmatter["order"]) != null ? _b2 : NaN);
+        if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
+        const ca = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
+        const cb = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
+        return ca - cb;
+      });
+    }
+    const handleColumnDrag = {
+      dragIndex: -1,
+      onDragStart: (idx, e) => {
+        var _a2;
+        (_a2 = e.dataTransfer) == null ? void 0 : _a2.setData("application/x-kb-col", String(idx));
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        handleColumnDrag.dragIndex = idx;
+      },
+      onDropOnIndex: async (idx) => {
+        var _a2;
+        const from = handleColumnDrag.dragIndex;
+        const to = idx;
+        if (from < 0 || to < 0 || from === to) return;
+        const arr = this.settings.statuses;
+        const [moved] = arr.splice(from, 1);
+        arr.splice(to, 0, moved);
+        await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
+        this.renderBoard(container);
+      }
+    };
+    this.settings.statuses.forEach((status, idx) => {
+      var _a2, _b2, _c, _d, _e;
+      const col = board.createDiv({ cls: "kb-column", attr: { "data-col-index": String(idx) } });
+      col.ondragover = (e) => {
+        var _a3;
+        const isColDrag = (_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col");
+        if (isColDrag) {
+          e.preventDefault();
+          e.currentTarget.classList.add("kb-col-hover");
+        } else {
+          if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+          e.preventDefault();
+          body.classList.add("kb-dropzone-hover");
+        }
+      };
+      col.ondragleave = (e) => {
+        e.currentTarget.classList.remove("kb-col-hover");
+        body.classList.remove("kb-dropzone-hover");
+      };
+      col.ondrop = async (e) => {
+        var _a3, _b3;
+        const isColDrag = (_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col");
+        if (isColDrag) {
+          e.preventDefault();
+          e.currentTarget.classList.remove("kb-col-hover");
+          await handleColumnDrag.onDropOnIndex(idx);
+        } else {
+          await ((_b3 = body.ondrop) == null ? void 0 : _b3.call(body, e));
+        }
+      };
+      const header = col.createDiv({ cls: "kb-column-header" });
+      header.draggable = true;
+      header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
+      header.createSpan({ text: status });
+      header.createSpan({ text: String((_b2 = (_a2 = byStatus.get(status)) == null ? void 0 : _a2.length) != null ? _b2 : 0) });
+      const menuBtn = header.createEl("button", { text: "\u22EF" });
+      menuBtn.classList.add("kb-ellipsis");
+      menuBtn.onclick = (ev) => {
+        const menu = new import_obsidian3.Menu();
+        menu.addItem((i) => i.setTitle("Rename").onClick(async () => {
+          var _a3, _b3, _c2;
+          const newName = (_a3 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a3.trim();
+          if (!newName || newName === status) return;
+          this.settings.statuses[idx] = newName;
+          await ((_b3 = this.persistSettings) == null ? void 0 : _b3.call(this));
+          const tasksInCol = (_c2 = byStatus.get(status)) != null ? _c2 : [];
+          const updates = [];
+          for (const t of tasksInCol) {
+            const f = this.app.vault.getAbstractFileByPath(t.filePath);
+            if (f instanceof import_obsidian3.TFile) {
+              updates.push(updateTaskFrontmatter(this.app, f, { status: newName }));
+            }
+          }
+          try {
+            await Promise.all(updates);
+          } catch (e2) {
+            new import_obsidian3.Notice("Some tasks failed to update");
+          }
+          await this.reload();
+        }));
+        menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
+          var _a3;
+          this.settings.statuses.splice(idx, 1);
+          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          this.renderBoard(container);
+        }));
+        menu.addItem((i) => i.setTitle("Move right").onClick(async () => {
+          var _a3;
+          const arr = this.settings.statuses;
+          if (idx >= arr.length - 1) return;
+          [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
+          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          this.renderBoard(container);
+        }));
+        menu.addItem((i) => i.setTitle("Move left").onClick(async () => {
+          var _a3;
+          const arr = this.settings.statuses;
+          if (idx === 0) return;
+          [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          this.renderBoard(container);
+        }));
+        const e = ev;
+        menu.showAtPosition({ x: e.clientX, y: e.clientY });
+      };
+      const body = col.createDiv({ cls: "kb-column-body kb-dropzone" });
+      const dropIndicator = document.createElement("div");
+      dropIndicator.className = "kb-drop-indicator";
+      const removeIndicator = () => {
+        if (dropIndicator.parentElement) dropIndicator.parentElement.removeChild(dropIndicator);
+      };
+      const setHighlight = (on) => {
+        body.classList.toggle("kb-dropzone-hover", on);
+        if (!on) removeIndicator();
+      };
+      const allowDrop = (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      };
+      const updateIndicatorPosition = (e) => {
+        var _a3;
+        if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
+        allowDrop(e);
+        const children = Array.from(body.querySelectorAll(".kb-card"));
+        let insertIndex = children.length;
+        const y = e.clientY;
+        for (let i = 0; i < children.length; i++) {
+          const rect = children[i].getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (y < midY) {
+            insertIndex = i;
+            break;
+          }
+        }
+        removeIndicator();
+        if (children.length === 0) {
+          body.appendChild(dropIndicator);
+        } else if (insertIndex >= children.length) {
+          body.appendChild(dropIndicator);
+        } else {
+          body.insertBefore(dropIndicator, children[insertIndex]);
+        }
+        setHighlight(true);
+      };
+      body.ondragenter = (e) => {
+        var _a3;
+        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
+      };
+      body.ondragover = (e) => {
+        var _a3;
+        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
+      };
+      body.ondragleave = (e) => {
+        const related = e.relatedTarget;
+        if (!related || !body.contains(related)) setHighlight(false);
+      };
+      body.ondrop = async (e) => {
+        var _a3, _b3, _c2, _d2, _e2, _f, _g, _h, _i, _j, _k, _l;
+        if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
+        const isCardDrag = (_b3 = e.dataTransfer) == null ? void 0 : _b3.types.includes("application/x-kb-card");
+        const payloadStr = isCardDrag ? (_c2 = e.dataTransfer) == null ? void 0 : _c2.getData("application/x-kb-card") : (_d2 = e.dataTransfer) == null ? void 0 : _d2.getData("text/plain");
+        if (!payloadStr) return;
+        let payload = null;
+        try {
+          payload = JSON.parse(payloadStr);
+        } catch (e2) {
+          payload = { path: payloadStr };
+        }
+        if (!payload || !payload.path) return;
+        const file = this.app.vault.getAbstractFileByPath(payload.path);
+        if (!(file instanceof import_obsidian3.TFile)) return;
+        try {
+          const scroller = board;
+          const scrollLeft = scroller.scrollLeft;
+          const tasksInCol = (_e2 = byStatus.get(status)) != null ? _e2 : [];
+          const fromStatus = (_i = payload.fromStatus) != null ? _i : String((_h = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) == null ? void 0 : _g["status"]) != null ? _h : "");
+          const tasksInFromCol = (_j = byStatus.get(fromStatus)) != null ? _j : [];
+          const children = Array.from(body.querySelectorAll(".kb-card"));
+          let insertIndex = children.length;
+          const dropY = e.clientY;
+          for (let i = 0; i < children.length; i++) {
+            const rect = children[i].getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (dropY < midY) {
+              insertIndex = i;
+              break;
+            }
+          }
+          const draggedIndexInSource = tasksInFromCol.findIndex((t) => t.filePath === payload.path);
+          if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
+          if (fromStatus === status && draggedIndexInSource !== -1) {
+            if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
+          }
+          let draggedTask = tasksInCol.find((t) => t.filePath === payload.path);
+          if (!draggedTask) {
+            const cache = this.app.metadataCache.getFileCache(file);
+            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_k = cache == null ? void 0 : cache.frontmatter) != null ? _k : {} };
+          }
+          tasksInCol.splice(insertIndex, 0, draggedTask);
+          const isCompleted = /^(completed|done)$/i.test(status);
+          const isInProgress = /in\s*progress/i.test(status);
+          const updates = [];
+          for (let i = 0; i < tasksInCol.length; i++) {
+            const t = tasksInCol[i];
+            const f = this.app.vault.getAbstractFileByPath(t.filePath);
+            if (!(f instanceof import_obsidian3.TFile)) continue;
+            const patch = { order: i };
+            if (t.filePath === payload.path) {
+              if (String((_l = t.frontmatter["status"]) != null ? _l : "") !== status) {
+                patch["status"] = status;
+                if (isCompleted) patch["endDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+                if (isInProgress) patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+              }
+            }
+            updates.push(updateTaskFrontmatter(this.app, f, patch));
+          }
+          if (fromStatus !== status) {
+            for (let i = 0; i < tasksInFromCol.length; i++) {
+              const t = tasksInFromCol[i];
+              const f = this.app.vault.getAbstractFileByPath(t.filePath);
+              if (!(f instanceof import_obsidian3.TFile)) continue;
+              const patch = { order: i };
+              updates.push(updateTaskFrontmatter(this.app, f, patch));
+            }
+          }
+          try {
+            await Promise.all(updates);
+            new import_obsidian3.Notice("Moved");
+          } catch (err) {
+            new import_obsidian3.Notice("Failed to move: " + err.message);
+          }
+          setHighlight(false);
+          await this.reload();
+          const newBoard = container.querySelector(".kb-kanban");
+          if (newBoard) newBoard.scrollLeft = scrollLeft;
+        } catch (err) {
+          new import_obsidian3.Notice("Failed to move: " + err.message);
+        }
+      };
+      for (const task of (_c = byStatus.get(status)) != null ? _c : []) {
+        if (Boolean(task.frontmatter["archived"])) continue;
+        const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
+        card.ondragstart = (e) => {
+          var _a3, _b3;
+          e.stopPropagation();
+          const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
+          (_a3 = e.dataTransfer) == null ? void 0 : _a3.setData("application/x-kb-card", payload);
+          (_b3 = e.dataTransfer) == null ? void 0 : _b3.setData("text/plain", payload);
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        };
+        card.createDiv({ cls: "kb-card-title", text: (_d = task.frontmatter["title"]) != null ? _d : task.fileName });
+        const meta = card.createDiv();
+        meta.createSpan({ cls: "kb-chip", text: (_e = task.frontmatter["priority"]) != null ? _e : "" });
+        const footer = card.createDiv({ cls: "kb-card-footer" });
+        const createdAt = task.frontmatter["createdAt"] || "";
+        if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
+        const menuBtn2 = footer.createEl("button", { text: "\u22EF" });
+        menuBtn2.classList.add("kb-ellipsis");
+        menuBtn2.onclick = (ev) => {
+          const menu = new import_obsidian3.Menu();
+          menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
+            try {
+              await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
+              new import_obsidian3.Notice("Task archived");
+              await this.reload();
+            } catch (e2) {
+              new import_obsidian3.Notice("Failed to archive task");
+            }
+          }));
+          menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
+            try {
+              await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath));
+              new import_obsidian3.Notice("Task deleted");
+              await this.reload();
+            } catch (e2) {
+              new import_obsidian3.Notice("Failed to delete task");
+            }
+          }));
+          const e = ev;
+          menu.showAtPosition({ x: e.clientX, y: e.clientY });
+        };
+        const open = footer.createEl("button", { text: "Open" });
+        open.addClass("kb-card-btn");
+        open.onclick = async () => {
+          const file = this.app.vault.getAbstractFileByPath(task.filePath);
+          if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+        };
+      }
+    });
+    const addCol = board.createDiv({ cls: "kb-column kb-column-add" });
+    const addBtn = addCol.createEl("button", { text: "+ Add column" });
+    addBtn.classList.add("kb-button");
+    addBtn.onclick = async () => {
+      var _a2, _b2;
+      const name = (_a2 = await this.promptText("New column", "Column name")) == null ? void 0 : _a2.trim();
+      if (!name) return;
+      this.settings.statuses.push(name);
+      await ((_b2 = this.persistSettings) == null ? void 0 : _b2.call(this));
+      this.renderBoard(container);
+    };
+  }
+};
+
+// src/main.ts
+var KanbanPlugin = class extends import_obsidian4.Plugin {
+  constructor() {
+    super(...arguments);
+    this.settings = DEFAULT_SETTINGS;
+  }
+  async onload() {
+    await this.loadSettings();
+    await this.migrateSettingsIfNeeded();
+    this.addSettingTab(new KanbanSettingTab(this.app, this));
+    this.registerView(BOARD_TABS_VIEW_TYPE, (leaf) => new BoardTabsView(leaf, this.settings, () => this.saveSettings()));
+    this.addCommand({
+      id: "open-tasks-pane",
+      name: "Open Tasks (Grid/Board Tabs)",
+      callback: () => this.activateTabsView()
+    });
+    this.addCommand({
+      id: "create-task",
+      name: "Create Task from Template",
+      callback: () => this.createTaskFromTemplate()
+    });
+    this.addCommand({
+      id: "create-cr",
+      name: "Create Change Request (CR) from Template",
+      callback: () => this.createCrFromTemplate()
+    });
+    this.addRibbonIcon("sheets-in-box", "Open Tasks (Tabs)", () => this.activateTabsView());
+    this.registerEvent(this.app.metadataCache.on("changed", async (file) => {
+      var _a;
+      if (!(file instanceof import_obsidian4.TFile)) return;
+      const folder = this.settings.taskFolder || "Tasks";
+      if (!file.path.startsWith(folder + "/")) return;
+      const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+      if (!fm) return;
+      const status = String(fm["status"] || "");
+      const isCompleted = /^(completed|done)$/i.test(status);
+      const isInProgress = /in\s*progress/i.test(status);
+      const endDate = String(fm["endDate"] || "");
+      const startDate = String(fm["startDate"] || "");
+      if (isCompleted && !endDate) {
+        try {
+          await updateTaskFrontmatter(this.app, file, { endDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) });
+        } catch (e) {
+        }
+      }
+      if (isInProgress && !startDate) {
+        try {
+          await updateTaskFrontmatter(this.app, file, { startDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) });
+        } catch (e) {
+        }
+      }
+    }));
+  }
+  async migrateSettingsIfNeeded() {
+    var _a, _b;
+    let changed = false;
+    const tf = (_a = this.settings.templateFields) != null ? _a : [];
+    const beforeLen = tf.length;
+    this.settings.templateFields = tf.filter((f) => f.key !== "due");
+    if (this.settings.templateFields.length !== beforeLen) changed = true;
+    const hasStart = this.settings.templateFields.some((f) => f.key === "startDate");
+    const hasEnd = this.settings.templateFields.some((f) => f.key === "endDate");
+    const hasNotes = this.settings.templateFields.some((f) => f.key === "notes");
+    if (!hasStart) {
+      this.settings.templateFields.splice(5, 0, { key: "startDate", label: "Start Date", type: "date" });
+      changed = true;
+    }
+    if (!hasEnd) {
+      this.settings.templateFields.splice(6, 0, { key: "endDate", label: "End Date", type: "date" });
+      changed = true;
+    }
+    if (!hasNotes) {
+      this.settings.templateFields.push({ key: "notes", label: "Notes", type: "freetext" });
+      changed = true;
+    }
+    const cols = (_b = this.settings.gridVisibleColumns) != null ? _b : [];
+    const dueIdx = cols.indexOf("due");
+    if (dueIdx !== -1) {
+      cols.splice(dueIdx, 1, "startDate", "endDate");
+      this.settings.gridVisibleColumns = cols;
+      changed = true;
+    }
+    if (!cols.includes("notes")) {
+      this.settings.gridVisibleColumns.push("notes");
+      changed = true;
+    }
+    if (changed) await this.saveSettings();
+  }
+  onunload() {
+  }
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+  async activateTabsView() {
+    const leaf = this.getRightLeaf();
+    await leaf.setViewState({ type: BOARD_TABS_VIEW_TYPE, active: true });
+    this.app.workspace.revealLeaf(leaf);
+  }
+  getRightLeaf() {
+    var _a;
+    const leaves = this.app.workspace.getLeavesOfType(BOARD_TABS_VIEW_TYPE);
+    if (leaves.length > 0) return leaves[0];
+    return (_a = this.app.workspace.getRightLeaf(false)) != null ? _a : this.app.workspace.getLeaf(true);
+  }
+  async createTaskFromTemplate() {
+    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, async (data) => {
+      var _a, _b;
+      const folder = this.settings.taskFolder || "Tasks";
+      await ensureFolder(this.app, folder);
+      const crNumInput = String(data["crNumber"] || "").trim();
+      const taskNumInput = String(data["taskNumber"] || "").trim();
+      const serviceInput = String(data["service"] || "").trim();
+      let crTitle = "";
+      if (crNumInput) {
+        const crFile = await findCrFileByNumber(this.app, this.settings, crNumInput);
+        if (crFile) {
+          const fm2 = (_a = this.app.metadataCache.getFileCache(crFile)) == null ? void 0 : _a.frontmatter;
+          crTitle = String((_b = fm2 == null ? void 0 : fm2["title"]) != null ? _b : "");
+          if (!crTitle) {
+            const name = crFile.name.replace(/\.md$/i, "");
+            crTitle = name.replace(/^CR-\d+\s*-\s*/i, "");
+          }
+        }
+      }
+      const prefixParts = [crNumInput, taskNumInput].filter(Boolean).join(" ");
+      const serviceBracket = serviceInput ? ` - [${serviceInput}]` : "";
+      const coreTitle = crTitle.trim() || `Task ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
+      const title = prefixParts ? `[${prefixParts}] ${coreTitle}${serviceBracket}` : `${coreTitle}${serviceBracket}`;
+      const fileName = `${title}.md`;
+      const path = `${folder}/${fileName}`;
+      const clean = {};
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v)) {
+          if (v.length > 0) clean[k] = v;
+        } else if (typeof v === "string") {
+          if (v.trim() !== "") clean[k] = v.trim();
+        } else if (v !== null && v !== void 0) {
+          clean[k] = v;
+        }
+      }
+      for (const field of this.settings.templateFields) {
+        if (!(field.key in clean)) {
+          if (field.type === "freetext") {
+            clean[field.key] = "";
+          } else if (field.type === "date") {
+          } else if (field.type === "number") {
+            clean[field.key] = "";
+          } else if (field.type === "tags") {
+            clean[field.key] = [];
+          } else {
+            clean[field.key] = "";
+          }
+        }
+      }
+      clean["title"] = title;
+      clean["createdAt"] = (/* @__PURE__ */ new Date()).toISOString();
+      const crNum = clean["crNumber"];
+      if (crNum) {
+        try {
+          const crFile = await findCrFileByNumber(this.app, this.settings, crNum);
+          if (crFile) clean["crLink"] = buildWikiLink(crFile.path);
+        } catch (e) {
+        }
+      }
+      const fm = buildFrontmatterYAML(clean);
+      await this.app.vault.create(path, `${fm}
+
+`);
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof import_obsidian4.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+    });
+    modal.open();
+  }
+  async createCrFromTemplate() {
+    var _a;
+    const fields = (_a = this.settings.crTemplateFields) != null ? _a : [
+      { key: "number", label: "CR Number", type: "text" },
+      { key: "title", label: "Title", type: "text" },
+      { key: "emailSubject", label: "Email Subject", type: "text" },
+      { key: "solutionDesign", label: "Solution design link", type: "url" },
+      { key: "description", label: "Description", type: "text" }
+    ];
+    const modal = new CrTemplateModal(this.app, fields, async (data) => {
+      const folder = this.settings.crFolder || "Change Requests";
+      await ensureFolder(this.app, folder);
+      let crNumber = (data["number"] || "").trim();
+      if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.settings);
+      if (!/^CR-\d+$/i.test(crNumber)) crNumber = "CR-" + crNumber.replace(/[^0-9]/g, "");
+      const title = (data["title"] || "").trim() || crNumber;
+      const fileName = `${crNumber} - ${title}.md`;
+      const path = `${folder}/${fileName}`;
+      const clean = {};
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v)) {
+          if (v.length > 0) clean[k] = v;
+        } else if (typeof v === "string") {
+          if (v.trim() !== "") clean[k] = v.trim();
+        } else if (v !== null && v !== void 0) {
+          clean[k] = v;
+        }
+      }
+      for (const field of fields) {
+        if (!(field.key in clean)) {
+          if (field.type === "freetext") {
+            clean[field.key] = "";
+          } else if (field.type === "date") {
+          } else if (field.type === "number") {
+            clean[field.key] = "";
+          } else if (field.type === "tags") {
+            clean[field.key] = [];
+          } else {
+            clean[field.key] = "";
+          }
+        }
+      }
+      clean["number"] = crNumber;
+      clean["title"] = title;
+      const fm = buildFrontmatterYAML(clean);
+      await this.app.vault.create(path, `${fm}
+
+`);
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof import_obsidian4.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+    });
+    modal.open();
+  }
+};
+var TaskTemplateModal = class extends import_obsidian4.Modal {
+  constructor(app, fields, statuses, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.fields = fields;
+    this.statuses = statuses;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    var _a, _b;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kb-container");
+    contentEl.createEl("h2", { text: "New Task" });
+    const statusRow = contentEl.createDiv({ cls: "setting-item" });
+    statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
+    const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
+    const statusSelect = statusControl.createEl("select");
+    for (const s of this.statuses) {
+      const opt = statusSelect.createEl("option", { text: s });
+      opt.value = s;
+    }
+    statusSelect.value = (_a = this.statuses[0]) != null ? _a : "";
+    this.inputs.set("status", statusSelect);
+    const crRow = contentEl.createDiv({ cls: "setting-item" });
+    crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
+    const crControl = crRow.createDiv({ cls: "setting-item-control" });
+    const crInput = crControl.createEl("input");
+    crInput.addClass("kb-input");
+    crInput.placeholder = "e.g. CR-6485";
+    crInput.type = "text";
+    this.inputs.set("crNumber", crInput);
+    const tnRow = contentEl.createDiv({ cls: "setting-item" });
+    tnRow.createDiv({ cls: "setting-item-name", text: "Task Number" });
+    const tnControl = tnRow.createDiv({ cls: "setting-item-control" });
+    const tnInput = tnControl.createEl("input");
+    tnInput.addClass("kb-input");
+    tnInput.placeholder = "e.g. T-01";
+    tnInput.type = "text";
+    this.inputs.set("taskNumber", tnInput);
+    const svcRow = contentEl.createDiv({ cls: "setting-item" });
+    svcRow.createDiv({ cls: "setting-item-name", text: "Service Name" });
+    const svcControl = svcRow.createDiv({ cls: "setting-item-control" });
+    const svcInput = svcControl.createEl("input");
+    svcInput.addClass("kb-input");
+    svcInput.placeholder = "Service name";
+    svcInput.type = "text";
+    this.inputs.set("service", svcInput);
+    for (const field of this.fields) {
+      if (field.key === "status" || field.key === "title" || field.key === "due" || field.key === "crNumber" || field.key === "taskNumber" || field.key === "service") continue;
+      const row = contentEl.createDiv({ cls: "setting-item" });
+      row.createDiv({ cls: "setting-item-name", text: field.label });
+      const control = row.createDiv({ cls: "setting-item-control" });
+      if (field.type === "status" || field.key === "priority") {
+        const select = control.createEl("select");
+        select.addClass("kb-input");
+        const options = field.key === "status" ? this.statuses : ["Urgent", "High", "Medium", "Low"];
+        for (const o of options) {
+          const opt = select.createEl("option", { text: o });
+          opt.value = o;
+        }
+        select.value = field.key === "status" ? (_b = this.statuses[0]) != null ? _b : "" : "Medium";
+        this.inputs.set(field.key, select);
+      } else if (field.type === "freetext") {
+        row.style.display = "block";
+        row.style.width = "100%";
+        const label = row.querySelector(".setting-item-name");
+        if (label) label.style.display = "block";
+        control.style.width = "100%";
+        control.style.marginTop = "8px";
+        const textarea = control.createEl("textarea");
+        textarea.addClass("kb-input");
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = "vertical";
+        textarea.style.minHeight = "80px";
+        textarea.style.width = "100%";
+        this.inputs.set(field.key, textarea);
+      } else {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.placeholder = field.label;
+        if (field.type === "date") input.type = "date";
+        else if (field.type === "number") input.type = "number";
+        else input.type = "text";
+        this.inputs.set(field.key, input);
+      }
+    }
+    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const cancel = footer.createEl("button", { text: "Cancel" });
+    cancel.addClass("mod-warning");
+    cancel.onclick = () => this.close();
+    const create = footer.createEl("button", { text: "Create Task" });
+    create.addClass("mod-cta");
+    create.onclick = async () => {
+      var _a2;
+      const data = {};
+      for (const [key, input] of this.inputs.entries()) {
+        const element = input;
+        const val = element.tagName === "TEXTAREA" ? element.value : element.value.trim();
+        data[key] = val;
+      }
+      if (!data["status"]) data["status"] = (_a2 = this.statuses[0]) != null ? _a2 : "Backlog";
+      data["priority"] = data["priority"] || "Medium";
+      await this.onSubmit(data);
+      this.close();
+    };
+  }
+};
+var CrTemplateModal = class extends import_obsidian4.Modal {
+  constructor(app, fields, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.fields = fields;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kb-container");
+    contentEl.createEl("h2", { text: "New Change Request" });
+    for (const field of this.fields) {
+      const row = contentEl.createDiv({ cls: "setting-item" });
+      row.createDiv({ cls: "setting-item-name", text: field.label });
+      const control = row.createDiv({ cls: "setting-item-control" });
+      const input = control.createEl("input");
+      input.addClass("kb-input");
+      input.placeholder = field.label;
+      if (field.type === "date") input.type = "date";
+      else if (field.type === "number") input.type = "number";
+      else if (field.type === "url") input.type = "url";
+      else input.type = "text";
+      this.inputs.set(field.key, input);
+    }
+    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const cancel = footer.createEl("button", { text: "Cancel" });
+    cancel.addClass("mod-warning");
+    cancel.onclick = () => this.close();
+    const create = footer.createEl("button", { text: "Create CR" });
+    create.addClass("mod-cta");
+    create.onclick = async () => {
+      const data = {};
+      for (const [key, input] of this.inputs.entries()) {
+        const val = input.value.trim();
+        data[key] = val;
+      }
+      if (!data["title"]) data["title"] = "Untitled CR";
+      if (!data["priority"]) data["priority"] = "Medium";
+      await this.onSubmit(data);
+      this.close();
+    };
+  }
+};
+//# sourceMappingURL=main.js.map
