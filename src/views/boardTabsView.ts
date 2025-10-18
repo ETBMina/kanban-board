@@ -96,9 +96,19 @@ export class BoardTabsView extends ItemView {
 
   // GRID
   private getFilteredTasks(): TaskNoteMeta[] {
+    let tasks = [...this.tasks]; // Create a copy to sort
+    
+    // Sort by createdAt timestamp in descending order (newest first)
+    tasks.sort((a, b) => {
+      const timestampA = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
+      const timestampB = b.frontmatter['createdAt'] ? new Date(String(b.frontmatter['createdAt'])).getTime() : 0;
+      return timestampB - timestampA; // Descending order
+    });
+
+    // Then apply filter if exists
     const q = this.filterQuery;
-    if (!q) return this.tasks;
-    return this.tasks.filter(t => {
+    if (!q) return tasks;
+    return tasks.filter(t => {
       if (t.fileName.toLowerCase().includes(q)) return true;
       return this.settings.gridVisibleColumns.some((key) => String(t.frontmatter[key] ?? '').toLowerCase().includes(q));
     });

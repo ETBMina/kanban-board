@@ -323,9 +323,15 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   // GRID
   getFilteredTasks() {
+    let tasks = [...this.tasks];
+    tasks.sort((a, b) => {
+      const timestampA = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
+      const timestampB = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
+      return timestampB - timestampA;
+    });
     const q = this.filterQuery;
-    if (!q) return this.tasks;
-    return this.tasks.filter((t) => {
+    if (!q) return tasks;
+    return tasks.filter((t) => {
       if (t.fileName.toLowerCase().includes(q)) return true;
       return this.settings.gridVisibleColumns.some((key) => {
         var _a;
