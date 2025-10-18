@@ -126,12 +126,33 @@ export class BoardTabsView extends ItemView {
       for (const key of this.settings.gridVisibleColumns) {
         const val = t.frontmatter[key];
         const td = tr.createEl('td');
-        const text = Array.isArray(val) ? val.join(', ') : String(val ?? '');
-        // For multiline text, preserve line breaks
-        if (text.includes('\n')) {
-          td.innerHTML = text.replace(/\n/g, '<br>');
+        // Special handling for CR numbers
+        if (key === 'crNumber' && val) {
+          const text = String(val);
+          const crLink = t.frontmatter['crLink'];
+          if (crLink) {
+            const link = td.createEl('a', { text });
+            link.href = '#';
+            link.onclick = async (e) => {
+              e.preventDefault();
+              // Extract file path from [[path]] wiki link format
+              const path = crLink.replace(/^\[\[/, '').replace(/\]\]$/, '');
+              const file = this.app.vault.getAbstractFileByPath(path);
+              if (file instanceof TFile) {
+                await this.app.workspace.getLeaf(true).openFile(file);
+              }
+            };
+          } else {
+            td.textContent = text;
+          }
         } else {
-          td.textContent = text;
+          const text = Array.isArray(val) ? val.join(', ') : String(val ?? '');
+          // For multiline text, preserve line breaks
+          if (text.includes('\n')) {
+            td.innerHTML = text.replace(/\n/g, '<br>');
+          } else {
+            td.textContent = text;
+          }
         }
       }
       // Archived column

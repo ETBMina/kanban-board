@@ -23,17 +23,12 @@
     {
       "key": "priority",
       "label": "Priority",
-      "type": "text"
+      "type": "status"
     },
     {
       "key": "assignee",
       "label": "Assignee",
       "type": "people"
-    },
-    {
-      "key": "tags",
-      "label": "Tags",
-      "type": "tags"
     },
     {
       "key": "startDate",
@@ -46,13 +41,36 @@
       "type": "date"
     },
     {
+      "key": "tags",
+      "label": "Tags",
+      "type": "tags"
+    },
+    {
+      "key": "crNumber",
+      "label": "CR Number",
+      "type": "text"
+    },
+    {
+      "key": "taskNumber",
+      "label": "Task Number",
+      "type": "text"
+    },
+    {
+      "key": "service",
+      "label": "Service",
+      "type": "text"
+    },
+    {
       "key": "notes",
       "label": "Notes",
       "type": "freetext"
     }
   ],
   "gridVisibleColumns": [
+    "crNumber",
+    "taskNumber",
     "title",
+    "service",
     "status",
     "priority",
     "assignee",

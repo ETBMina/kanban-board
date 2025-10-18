@@ -38,13 +38,15 @@ var DEFAULT_SETTINGS = {
     { key: "endDate", label: "End Date", type: "date" },
     { key: "tags", label: "Tags", type: "tags" },
     { key: "crNumber", label: "CR Number", type: "text" },
+    { key: "taskNumber", label: "Task Number", type: "text" },
+    { key: "service", label: "Service", type: "text" },
     { key: "plannedStart", label: "Planned start date", type: "date" },
     { key: "plannedEnd", label: "Planned end date", type: "date" },
     { key: "actualStart", label: "Actual start date", type: "date" },
     { key: "actualEnd", label: "Actual end date", type: "date" },
     { key: "notes", label: "Notes", type: "freetext" }
   ],
-  gridVisibleColumns: ["title", "status", "priority", "assignee", "startDate", "endDate", "tags", "notes"],
+  gridVisibleColumns: ["crNumber", "taskNumber", "title", "service", "status", "priority", "assignee", "startDate", "endDate", "tags", "notes"],
   crFolder: "Change Requests",
   crTemplateFields: [
     { key: "number", label: "CR Number", type: "text" },
@@ -350,11 +352,30 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       for (const key of this.settings.gridVisibleColumns) {
         const val = t.frontmatter[key];
         const td = tr.createEl("td");
-        const text = Array.isArray(val) ? val.join(", ") : String(val != null ? val : "");
-        if (text.includes("\n")) {
-          td.innerHTML = text.replace(/\n/g, "<br>");
+        if (key === "crNumber" && val) {
+          const text = String(val);
+          const crLink = t.frontmatter["crLink"];
+          if (crLink) {
+            const link = td.createEl("a", { text });
+            link.href = "#";
+            link.onclick = async (e) => {
+              e.preventDefault();
+              const path = crLink.replace(/^\[\[/, "").replace(/\]\]$/, "");
+              const file = this.app.vault.getAbstractFileByPath(path);
+              if (file instanceof import_obsidian3.TFile) {
+                await this.app.workspace.getLeaf(true).openFile(file);
+              }
+            };
+          } else {
+            td.textContent = text;
+          }
         } else {
-          td.textContent = text;
+          const text = Array.isArray(val) ? val.join(", ") : String(val != null ? val : "");
+          if (text.includes("\n")) {
+            td.innerHTML = text.replace(/\n/g, "<br>");
+          } else {
+            td.textContent = text;
+          }
         }
       }
       const archivedTd = tr.createEl("td");

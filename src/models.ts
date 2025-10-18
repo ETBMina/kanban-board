@@ -33,13 +33,15 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     { key: 'endDate', label: 'End Date', type: 'date' },
     { key: 'tags', label: 'Tags', type: 'tags' },
     { key: 'crNumber', label: 'CR Number', type: 'text' },
+    { key: 'taskNumber', label: 'Task Number', type: 'text' },
+    { key: 'service', label: 'Service', type: 'text' },
     { key: 'plannedStart', label: 'Planned start date', type: 'date' },
     { key: 'plannedEnd', label: 'Planned end date', type: 'date' },
     { key: 'actualStart', label: 'Actual start date', type: 'date' },
     { key: 'actualEnd', label: 'Actual end date', type: 'date' },
     { key: 'notes', label: 'Notes', type: 'freetext' }
   ],
-  gridVisibleColumns: ['title', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags', 'notes'],
+  gridVisibleColumns: ['crNumber', 'taskNumber', 'title', 'service', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags', 'notes'],
   crFolder: 'Change Requests',
   crTemplateFields: [
     { key: 'number', label: 'CR Number', type: 'text' },
