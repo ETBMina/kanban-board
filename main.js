@@ -158,6 +158,17 @@ async function readAllTasks(app, settings) {
   }
   return results;
 }
+async function getAllExistingTags(app, settings) {
+  const tasks = await readAllTasks(app, settings);
+  const tagSet = /* @__PURE__ */ new Set();
+  for (const task of tasks) {
+    const tags = task.frontmatter["tags"];
+    if (Array.isArray(tags)) {
+      tags.forEach((tag) => tagSet.add(String(tag).trim()));
+    }
+  }
+  return Array.from(tagSet).sort();
+}
 async function updateTaskFrontmatter(app, file, patch) {
   var _a, _b, _c, _d, _e, _f, _g;
   const content = await app.vault.read(file);
@@ -879,7 +890,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
     return (_a = this.app.workspace.getRightLeaf(false)) != null ? _a : this.app.workspace.getLeaf(true);
   }
   async createTaskFromTemplate() {
-    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, async (data) => {
+    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, this.settings, async (data) => {
       var _a, _b;
       const folder = this.settings.taskFolder || "Tasks";
       await ensureFolder(this.app, folder);
@@ -1002,11 +1013,12 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
   }
 };
 var TaskTemplateModal = class extends import_obsidian4.Modal {
-  constructor(app, fields, statuses, onSubmit) {
+  constructor(app, fields, statuses, settings, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
     this.fields = fields;
     this.statuses = statuses;
+    this.settings = settings;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -1064,6 +1076,88 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         }
         select.value = field.key === "status" ? (_b = this.statuses[0]) != null ? _b : "" : "Medium";
         this.inputs.set(field.key, select);
+      } else if (field.type === "tags") {
+        const tagsContainer = control.createDiv({ cls: "kb-tags-input-container" });
+        const tagsInput = tagsContainer.createEl("input");
+        tagsInput.addClass("kb-input");
+        tagsInput.placeholder = "Type to add or select tags...";
+        tagsInput.type = "text";
+        const tagsDisplay = tagsContainer.createDiv({ cls: "kb-selected-tags" });
+        const selectedTags = [];
+        const suggestionsContainer = tagsContainer.createDiv({ cls: "kb-tags-suggestions" });
+        suggestionsContainer.style.display = "none";
+        let allTags = [];
+        const loadAllTags = async () => {
+          try {
+            allTags = await getAllExistingTags(this.app, this.settings);
+          } catch (e) {
+            allTags = [];
+          }
+        };
+        loadAllTags();
+        const renderSuggestions = (query) => {
+          suggestionsContainer.empty();
+          const q = (query != null ? query : "").trim().toLowerCase();
+          let candidates = allTags.filter((t) => !selectedTags.includes(t));
+          if (q) candidates = candidates.filter((t) => t.toLowerCase().includes(q));
+          if (q && !allTags.map((t) => t.toLowerCase()).includes(q)) {
+            const addOption = suggestionsContainer.createDiv({ cls: "kb-tag-suggestion" });
+            addOption.setText(`Add "${query}" as new tag`);
+            addOption.onclick = () => addTag(query.trim());
+          }
+          for (const tag of candidates) {
+            const option = suggestionsContainer.createDiv({ cls: "kb-tag-suggestion" });
+            option.setText(tag);
+            option.onclick = () => addTag(tag);
+          }
+          suggestionsContainer.style.display = candidates.length > 0 || q && !allTags.map((t) => t.toLowerCase()).includes(q) ? "block" : "none";
+        };
+        tagsInput.oninput = () => renderSuggestions(tagsInput.value);
+        tagsInput.onfocus = async () => {
+          if (allTags.length === 0) await loadAllTags();
+          renderSuggestions("");
+        };
+        document.addEventListener("click", (e) => {
+          if (!tagsContainer.contains(e.target)) {
+            suggestionsContainer.style.display = "none";
+          }
+        });
+        const addTag = (tag) => {
+          if (!selectedTags.includes(tag)) {
+            selectedTags.push(tag);
+            const tagEl = tagsDisplay.createDiv({ cls: "kb-tag" });
+            tagEl.setText(tag);
+            const removeBtn = tagEl.createSpan({ cls: "kb-tag-remove" });
+            removeBtn.setText("\xD7");
+            removeBtn.onclick = (e) => {
+              e.stopPropagation();
+              const index = selectedTags.indexOf(tag);
+              if (index > -1) {
+                selectedTags.splice(index, 1);
+                tagEl.remove();
+              }
+            };
+          }
+          tagsInput.value = "";
+          suggestionsContainer.style.display = "none";
+          tagsInput.focus();
+        };
+        tagsInput.onkeydown = (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const value = tagsInput.value.trim();
+            if (value) {
+              addTag(value);
+            }
+          }
+        };
+        const hiddenInput = control.createEl("input");
+        hiddenInput.type = "hidden";
+        hiddenInput.value = "[]";
+        this.inputs.set(field.key, {
+          value: "",
+          getValue: () => selectedTags
+        });
       } else if (field.type === "freetext") {
         row.style.display = "block";
         row.style.width = "100%";
@@ -1099,6 +1193,11 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
       var _a2;
       const data = {};
       for (const [key, input] of this.inputs.entries()) {
+        const anyInput = input;
+        if (anyInput && typeof anyInput.getValue === "function") {
+          data[key] = anyInput.getValue();
+          continue;
+        }
         const element = input;
         const val = element.tagName === "TEXTAREA" ? element.value : element.value.trim();
         data[key] = val;

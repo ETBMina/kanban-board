@@ -77,6 +77,20 @@ export async function readAllTasks(app: App, settings: PluginSettings): Promise<
   return results;
 }
 
+export async function getAllExistingTags(app: App, settings: PluginSettings): Promise<string[]> {
+  const tasks = await readAllTasks(app, settings);
+  const tagSet = new Set<string>();
+  
+  for (const task of tasks) {
+    const tags = task.frontmatter['tags'];
+    if (Array.isArray(tags)) {
+      tags.forEach(tag => tagSet.add(String(tag).trim()));
+    }
+  }
+  
+  return Array.from(tagSet).sort();
+}
+
 export async function updateTaskFrontmatter(app: App, file: TFile, patch: Record<string, any>): Promise<void> {
   const content = await app.vault.read(file);
   const cache = app.metadataCache.getFileCache(file);

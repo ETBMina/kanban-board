@@ -5,6 +5,68 @@
 .kb-input textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 .kb-button { padding: 6px 10px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--interactive-normal); color: var(--text-on-accent); cursor: pointer; }
 .kb-button:hover { background: var(--interactive-hover); }
+
+/* Tags input styling */
+.kb-tags-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.kb-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.kb-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--tag-background);
+  border: 1px solid var(--tag-border-color);
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.kb-tag-remove {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-left: 2px;
+}
+
+.kb-tag-remove:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.kb-tags-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.kb-tag-suggestion {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.kb-tag-suggestion:hover {
+  background: var(--background-modifier-hover);
+}
 .kb-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); }
 .kb-chip { padding: 2px 8px; border-radius: 999px; background: var(--tag-bg); border: 1px solid var(--tag-border-color); }

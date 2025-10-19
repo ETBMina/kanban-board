@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings, TaskFieldDefinition } from './models';
 import { KanbanSettingTab } from './settings';
-import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter} from './utils';
+import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter, getAllExistingTags} from './utils';
 import { BoardTabsView, BOARD_TABS_VIEW_TYPE } from './views/boardTabsView';
 
 export default class KanbanPlugin extends Plugin {
@@ -114,7 +114,7 @@ export default class KanbanPlugin extends Plugin {
   }
 
   private async createTaskFromTemplate() {
-    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, async (data) => {
+    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, this.settings, async (data: Record<string, any>) => {
       const folder = this.settings.taskFolder || 'Tasks';
       await ensureFolder(this.app, folder);
       // Derive title from CR title + task number + service name
@@ -258,13 +258,15 @@ export default class KanbanPlugin extends Plugin {
 class TaskTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
   private statuses: string[];
+  private settings: PluginSettings;
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
-  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
+  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-  constructor(app: App, fields: TaskFieldDefinition[], statuses: string[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, fields: TaskFieldDefinition[], statuses: string[], settings: PluginSettings, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
     this.fields = fields;
     this.statuses = statuses;
+    this.settings = settings;
     this.onSubmit = onSubmit;
   }
 
@@ -335,6 +337,115 @@ class TaskTemplateModal extends Modal {
           // Default to first status for status field, Medium for priority
           select.value = field.key === 'status' ? (this.statuses[0] ?? '') : 'Medium';
           this.inputs.set(field.key, select);
+        } else if (field.type === 'tags') {
+          // Create container for tags input and suggestions
+          const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });
+          const tagsInput = tagsContainer.createEl('input');
+          tagsInput.addClass('kb-input');
+          tagsInput.placeholder = 'Type to add or select tags...';
+          tagsInput.type = 'text';
+
+          // Create tags display area
+          const tagsDisplay = tagsContainer.createDiv({ cls: 'kb-selected-tags' });
+          const selectedTags: string[] = [];
+
+          // Create suggestions dropdown
+          const suggestionsContainer = tagsContainer.createDiv({ cls: 'kb-tags-suggestions' });
+          suggestionsContainer.style.display = 'none';
+          
+          // Load existing tags and render suggestions
+          let allTags: string[] = [];
+          const loadAllTags = async () => {
+            try {
+              allTags = await getAllExistingTags(this.app, this.settings);
+            } catch {
+              allTags = [];
+            }
+          };
+          // Kick off load immediately (non-blocking)
+          loadAllTags();
+
+          const renderSuggestions = (query?: string) => {
+            suggestionsContainer.empty();
+            const q = (query ?? '').trim().toLowerCase();
+            // Build list of candidates excluding already selected tags
+            let candidates = allTags.filter(t => !selectedTags.includes(t));
+            if (q) candidates = candidates.filter(t => t.toLowerCase().includes(q));
+
+            // If there's a typed query that's not an exact existing tag, offer to add it
+            if (q && !allTags.map(t => t.toLowerCase()).includes(q)) {
+              const addOption = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
+              addOption.setText(`Add "${query}" as new tag`);
+              addOption.onclick = () => addTag(query!.trim());
+            }
+
+            // Add existing matches
+            for (const tag of candidates) {
+              const option = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
+              option.setText(tag);
+              option.onclick = () => addTag(tag);
+            }
+
+            suggestionsContainer.style.display = candidates.length > 0 || (q && !allTags.map(t => t.toLowerCase()).includes(q)) ? 'block' : 'none';
+          };
+
+          // Handle input changes
+          tagsInput.oninput = () => renderSuggestions(tagsInput.value);
+
+          // Handle focus: ensure tags are loaded then show full suggestion list
+          tagsInput.onfocus = async () => {
+            if (allTags.length === 0) await loadAllTags();
+            renderSuggestions('');
+          };
+
+          // Close suggestions when clicking outside
+          document.addEventListener('click', (e) => {
+            if (!tagsContainer.contains(e.target as Node)) {
+              suggestionsContainer.style.display = 'none';
+            }
+          });
+
+          // Function to add a tag
+          const addTag = (tag: string) => {
+            if (!selectedTags.includes(tag)) {
+              selectedTags.push(tag);
+              const tagEl = tagsDisplay.createDiv({ cls: 'kb-tag' });
+              tagEl.setText(tag);
+              const removeBtn = tagEl.createSpan({ cls: 'kb-tag-remove' });
+              removeBtn.setText('×');
+              removeBtn.onclick = (e) => {
+                e.stopPropagation();
+                const index = selectedTags.indexOf(tag);
+                if (index > -1) {
+                  selectedTags.splice(index, 1);
+                  tagEl.remove();
+                }
+              };
+            }
+            tagsInput.value = '';
+            suggestionsContainer.style.display = 'none';
+            tagsInput.focus();
+          };
+
+          // Handle enter key to add current input as tag
+          tagsInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const value = tagsInput.value.trim();
+              if (value) {
+                addTag(value);
+              }
+            }
+          };
+
+          // Create a hidden input to store the actual tags array
+          const hiddenInput = control.createEl('input');
+          hiddenInput.type = 'hidden';
+          hiddenInput.value = '[]';
+          this.inputs.set(field.key, {
+            value: '',
+            getValue: () => selectedTags
+          } as any);
         } else if (field.type === 'freetext') {
           // For freetext fields, use full width layout
           row.style.display = 'block';
@@ -371,6 +482,13 @@ class TaskTemplateModal extends Modal {
     create.onclick = async () => {
       const data: Record<string, any> = {};
       for (const [key, input] of this.inputs.entries()) {
+        // If input is a custom object with getValue(), use that
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyInput = input as any;
+        if (anyInput && typeof anyInput.getValue === 'function') {
+          data[key] = anyInput.getValue();
+          continue;
+        }
         const element = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
         // Don't trim textarea values to preserve newlines
         const val = element.tagName === 'TEXTAREA' ? element.value : element.value.trim();
