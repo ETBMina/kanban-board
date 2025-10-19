@@ -729,16 +729,21 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           (_b3 = e.dataTransfer) == null ? void 0 : _b3.setData("text/plain", payload);
           if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
         };
-        card.createDiv({ cls: "kb-card-title", text: (_d = task.frontmatter["title"]) != null ? _d : task.fileName });
+        const cardHeader = card.createDiv({ cls: "kb-card-header" });
+        cardHeader.createDiv({ cls: "kb-card-title", text: (_d = task.frontmatter["title"]) != null ? _d : task.fileName });
+        const menuBtn2 = cardHeader.createEl("button", { text: "\u22EF" });
+        menuBtn2.classList.add("kb-ellipsis", "kb-card-menu-btn");
         const meta = card.createDiv();
         meta.createSpan({ cls: "kb-chip", text: (_e = task.frontmatter["priority"]) != null ? _e : "" });
         const footer = card.createDiv({ cls: "kb-card-footer" });
         const createdAt = task.frontmatter["createdAt"] || "";
         if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
-        const menuBtn2 = footer.createEl("button", { text: "\u22EF" });
-        menuBtn2.classList.add("kb-ellipsis");
         menuBtn2.onclick = (ev) => {
           const menu = new import_obsidian3.Menu();
+          menu.addItem((i) => i.setTitle("Open").onClick(async () => {
+            const file = this.app.vault.getAbstractFileByPath(task.filePath);
+            if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+          }));
           menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
             try {
               await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
@@ -759,12 +764,6 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           }));
           const e = ev;
           menu.showAtPosition({ x: e.clientX, y: e.clientY });
-        };
-        const open = footer.createEl("button", { text: "Open" });
-        open.addClass("kb-card-btn");
-        open.onclick = async () => {
-          const file = this.app.vault.getAbstractFileByPath(task.filePath);
-          if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
         };
       }
     });

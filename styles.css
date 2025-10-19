@@ -86,6 +86,12 @@
 .kb-card-btn { background: transparent; border: 1px solid var(--background-modifier-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
 .kb-card-btn:hover { background: var(--background-modifier-hover); }
 
+/* Card header with top-right menu */
+.kb-card-header { display: flex; align-items: flex-start; justify-content: space-between; position: relative; }
+.kb-card .kb-card-title { margin-right: 28px; }
+.kb-card-menu-btn { position: absolute; top: 6px; right: 6px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.kb-card-menu-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
 /* Drop indicator shown between cards */
 .kb-drop-indicator { height: 2px; background: var(--interactive-accent); margin: 6px 0; border-radius: 2px; }
 

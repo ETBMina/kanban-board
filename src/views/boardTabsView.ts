@@ -526,17 +526,25 @@ export class BoardTabsView extends ItemView {
           e.dataTransfer?.setData('text/plain', payload);
           if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
         };
-        card.createDiv({ cls: 'kb-card-title', text: task.frontmatter['title'] ?? task.fileName });
+        // Card header: title and menu button positioned top-right
+        const cardHeader = card.createDiv({ cls: 'kb-card-header' });
+        cardHeader.createDiv({ cls: 'kb-card-title', text: task.frontmatter['title'] ?? task.fileName });
+        const menuBtn = cardHeader.createEl('button', { text: '⋯' });
+        menuBtn.classList.add('kb-ellipsis', 'kb-card-menu-btn');
+
         const meta = card.createDiv();
         meta.createSpan({ cls: 'kb-chip', text: task.frontmatter['priority'] ?? '' });
         const footer = card.createDiv({ cls: 'kb-card-footer' });
         const createdAt = (task.frontmatter['createdAt'] || '') as string;
         if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
-        // Three dots menu
-        const menuBtn = footer.createEl('button', { text: '⋯' });
-        menuBtn.classList.add('kb-ellipsis');
+
+        // Three dots menu: Open is first option
         menuBtn.onclick = (ev) => {
           const menu = new Menu();
+          menu.addItem((i) => i.setTitle('Open').onClick(async () => {
+            const file = this.app.vault.getAbstractFileByPath(task.filePath);
+            if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+          }));
           menu.addItem((i) => i.setTitle('Archive').onClick(async () => {
             try {
               await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath) as TFile, { archived: true });
@@ -557,12 +565,6 @@ export class BoardTabsView extends ItemView {
           }));
           const e = ev as MouseEvent;
           menu.showAtPosition({ x: e.clientX, y: e.clientY });
-        };
-        const open = footer.createEl('button', { text: 'Open' });
-        open.addClass('kb-card-btn');
-        open.onclick = async () => {
-          const file = this.app.vault.getAbstractFileByPath(task.filePath);
-          if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
         };
       }
     });
