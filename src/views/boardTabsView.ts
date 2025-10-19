@@ -623,7 +623,53 @@ class EditTaskModal extends Modal {
 
     const fm = this.task.frontmatter ?? {};
 
-    for (const field of this.settings.templateFields) {
+    // Add status field first (always present)
+    const statusRow = contentEl.createDiv({ cls: 'setting-item' });
+    statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
+    const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
+    const statusSelect = statusControl.createEl('select');
+    for (const s of this.settings.statuses) {
+      const opt = statusSelect.createEl('option', { text: s });
+      opt.value = s;
+    }
+    statusSelect.value = String(fm['status'] ?? this.settings.statuses[0] ?? '');
+    this.inputs.set('status', statusSelect);
+
+    // CR Number
+    const crRow = contentEl.createDiv({ cls: 'setting-item' });
+    crRow.createDiv({ cls: 'setting-item-name', text: 'CR Number' });
+    const crControl = crRow.createDiv({ cls: 'setting-item-control' });
+    const crInput = crControl.createEl('input');
+    crInput.addClass('kb-input');
+    crInput.placeholder = 'e.g. CR-6485';
+    crInput.type = 'text';
+    crInput.value = String(fm['crNumber'] ?? '');
+    this.inputs.set('crNumber', crInput);
+
+    // Task Number
+    const tnRow = contentEl.createDiv({ cls: 'setting-item' });
+    tnRow.createDiv({ cls: 'setting-item-name', text: 'Task Number' });
+    const tnControl = tnRow.createDiv({ cls: 'setting-item-control' });
+    const tnInput = tnControl.createEl('input');
+    tnInput.addClass('kb-input');
+    tnInput.placeholder = 'e.g. T-01';
+    tnInput.type = 'text';
+    tnInput.value = String(fm['taskNumber'] ?? '');
+    this.inputs.set('taskNumber', tnInput);
+
+    // Service Name
+    const svcRow = contentEl.createDiv({ cls: 'setting-item' });
+    svcRow.createDiv({ cls: 'setting-item-name', text: 'Service Name' });
+    const svcControl = svcRow.createDiv({ cls: 'setting-item-control' });
+    const svcInput = svcControl.createEl('input');
+    svcInput.addClass('kb-input');
+    svcInput.placeholder = 'Service name';
+    svcInput.type = 'text';
+    svcInput.value = String(fm['service'] ?? '');
+    this.inputs.set('service', svcInput);
+
+    // Render remaining template fields
+    for (const field of this.settings.templateFields.filter(f => !['status', 'crNumber', 'taskNumber', 'service'].includes(f.key))) {
       const row = contentEl.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });

@@ -804,13 +804,50 @@ var EditTaskModal = class extends import_obsidian3.Modal {
     this.onSubmit = onSubmit;
   }
   onOpen() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("kb-container");
     contentEl.createEl("h2", { text: "Edit Task" });
     const fm = (_a = this.task.frontmatter) != null ? _a : {};
-    for (const field of this.settings.templateFields) {
+    const statusRow = contentEl.createDiv({ cls: "setting-item" });
+    statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
+    const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
+    const statusSelect = statusControl.createEl("select");
+    for (const s of this.settings.statuses) {
+      const opt = statusSelect.createEl("option", { text: s });
+      opt.value = s;
+    }
+    statusSelect.value = String((_c = (_b = fm["status"]) != null ? _b : this.settings.statuses[0]) != null ? _c : "");
+    this.inputs.set("status", statusSelect);
+    const crRow = contentEl.createDiv({ cls: "setting-item" });
+    crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
+    const crControl = crRow.createDiv({ cls: "setting-item-control" });
+    const crInput = crControl.createEl("input");
+    crInput.addClass("kb-input");
+    crInput.placeholder = "e.g. CR-6485";
+    crInput.type = "text";
+    crInput.value = String((_d = fm["crNumber"]) != null ? _d : "");
+    this.inputs.set("crNumber", crInput);
+    const tnRow = contentEl.createDiv({ cls: "setting-item" });
+    tnRow.createDiv({ cls: "setting-item-name", text: "Task Number" });
+    const tnControl = tnRow.createDiv({ cls: "setting-item-control" });
+    const tnInput = tnControl.createEl("input");
+    tnInput.addClass("kb-input");
+    tnInput.placeholder = "e.g. T-01";
+    tnInput.type = "text";
+    tnInput.value = String((_e = fm["taskNumber"]) != null ? _e : "");
+    this.inputs.set("taskNumber", tnInput);
+    const svcRow = contentEl.createDiv({ cls: "setting-item" });
+    svcRow.createDiv({ cls: "setting-item-name", text: "Service Name" });
+    const svcControl = svcRow.createDiv({ cls: "setting-item-control" });
+    const svcInput = svcControl.createEl("input");
+    svcInput.addClass("kb-input");
+    svcInput.placeholder = "Service name";
+    svcInput.type = "text";
+    svcInput.value = String((_f = fm["service"]) != null ? _f : "");
+    this.inputs.set("service", svcInput);
+    for (const field of this.settings.templateFields.filter((f) => !["status", "crNumber", "taskNumber", "service"].includes(f.key))) {
       const row = contentEl.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
@@ -822,7 +859,7 @@ var EditTaskModal = class extends import_obsidian3.Modal {
           const opt = select.createEl("option", { text: o });
           opt.value = o;
         }
-        select.value = String((_c = fm[field.key]) != null ? _c : field.key === "status" ? (_b = this.settings.statuses[0]) != null ? _b : "" : "Medium");
+        select.value = String((_h = fm[field.key]) != null ? _h : field.key === "status" ? (_g = this.settings.statuses[0]) != null ? _g : "" : "Medium");
         this.inputs.set(field.key, select);
       } else if (field.type === "tags") {
         const tagsContainer = control.createDiv({ cls: "kb-tags-input-container" });
@@ -908,7 +945,7 @@ var EditTaskModal = class extends import_obsidian3.Modal {
         textarea.style.resize = "vertical";
         textarea.style.minHeight = "80px";
         textarea.style.width = "100%";
-        textarea.value = String((_d = fm[field.key]) != null ? _d : "");
+        textarea.value = String((_i = fm[field.key]) != null ? _i : "");
         this.inputs.set(field.key, textarea);
       } else {
         const input = control.createEl("input");
@@ -917,7 +954,7 @@ var EditTaskModal = class extends import_obsidian3.Modal {
         if (field.type === "date") input.type = "date";
         else if (field.type === "number") input.type = "number";
         else input.type = "text";
-        input.value = String((_e = fm[field.key]) != null ? _e : "");
+        input.value = String((_j = fm[field.key]) != null ? _j : "");
         this.inputs.set(field.key, input);
       }
     }
