@@ -590,8 +590,6 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         const file = this.app.vault.getAbstractFileByPath(payload.path);
         if (!(file instanceof import_obsidian3.TFile)) return;
         try {
-          const scroller = board;
-          const scrollLeft = scroller.scrollLeft;
           const tasksInCol = (_e2 = byStatus.get(status)) != null ? _e2 : [];
           const fromStatus = (_i = payload.fromStatus) != null ? _i : String((_h = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) == null ? void 0 : _g["status"]) != null ? _h : "");
           const tasksInFromCol = (_j = byStatus.get(fromStatus)) != null ? _j : [];
@@ -607,6 +605,15 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             }
           }
           const draggedIndexInSource = tasksInFromCol.findIndex((t) => t.filePath === payload.path);
+          if (fromStatus === status && draggedIndexInSource !== -1) {
+            const adjustedInsertIndex = draggedIndexInSource < insertIndex ? insertIndex - 1 : insertIndex;
+            if (draggedIndexInSource === adjustedInsertIndex) {
+              setHighlight(false);
+              return;
+            }
+          }
+          const scroller = board;
+          const scrollLeft = scroller.scrollLeft;
           if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
           if (fromStatus === status && draggedIndexInSource !== -1) {
             if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
@@ -644,15 +651,19 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             }
           }
           try {
-            await Promise.all(updates);
-            new import_obsidian3.Notice("Moved");
+            if (updates.length > 0) {
+              await Promise.all(updates);
+              new import_obsidian3.Notice("Moved");
+              setHighlight(false);
+              await this.reload();
+              const newBoard = container.querySelector(".kb-kanban");
+              if (newBoard) newBoard.scrollLeft = scrollLeft;
+            } else {
+              setHighlight(false);
+            }
           } catch (err) {
             new import_obsidian3.Notice("Failed to move: " + err.message);
           }
-          setHighlight(false);
-          await this.reload();
-          const newBoard = container.querySelector(".kb-kanban");
-          if (newBoard) newBoard.scrollLeft = scrollLeft;
         } catch (err) {
           new import_obsidian3.Notice("Failed to move: " + err.message);
         }

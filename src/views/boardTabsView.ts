@@ -357,10 +357,6 @@ export class BoardTabsView extends ItemView {
         if (!(file instanceof TFile)) return;
 
         try {
-          // Preserve horizontal scroll position while we update
-          const scroller = board; // .kb-kanban is the horizontal scroller
-          const scrollLeft = scroller.scrollLeft;
-
           // Build current ordered list of tasks for this column
           const tasksInCol = byStatus.get(status) ?? [];
 
@@ -378,13 +374,30 @@ export class BoardTabsView extends ItemView {
             if (dropY < midY) { insertIndex = i; break; }
           }
 
-          // Find and remove dragged task from source list if present
+          // Find task index in source list
           const draggedIndexInSource = tasksInFromCol.findIndex(t => t.filePath === payload!.path);
+          
+          // Early exit if dropping in same position in same column
+          if (fromStatus === status && draggedIndexInSource !== -1) {
+            const adjustedInsertIndex = draggedIndexInSource < insertIndex 
+              ? insertIndex - 1  // Account for removal when moving down
+              : insertIndex;     // No adjustment needed when moving up
+              
+            if (draggedIndexInSource === adjustedInsertIndex) {
+              setHighlight(false);
+              return; // No changes needed
+            }
+          }
+
+          // Preserve horizontal scroll position while we update
+          const scroller = board;
+          const scrollLeft = scroller.scrollLeft;
+          
+          // Remove from source list if present
           if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
 
-          // If moving within same column, we need to adjust target index if removed earlier in same list
+          // If moving within same column, adjust target index if removed from earlier position
           if (fromStatus === status && draggedIndexInSource !== -1) {
-            // When removing an earlier index the insertIndex should be adjusted
             if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
           }
 
@@ -431,17 +444,20 @@ export class BoardTabsView extends ItemView {
           }
 
           try {
-            await Promise.all(updates);
-            new Notice('Moved');
+            if (updates.length > 0) {
+              await Promise.all(updates);
+              new Notice('Moved');
+              setHighlight(false);
+              await this.reload();
+              // Restore scroll after reload
+              const newBoard = container.querySelector('.kb-kanban');
+              if (newBoard) newBoard.scrollLeft = scrollLeft;
+            } else {
+              setHighlight(false);
+            }
           } catch (err) {
             new Notice('Failed to move: ' + (err as Error).message);
           }
-
-          setHighlight(false);
-          await this.reload();
-          // Restore scroll after reload
-          const newBoard = container.querySelector('.kb-kanban') as HTMLElement | null;
-          if (newBoard) newBoard.scrollLeft = scrollLeft;
         } catch (err) {
           new Notice('Failed to move: ' + (err as Error).message);
         }
