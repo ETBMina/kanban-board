@@ -596,12 +596,51 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           const children = Array.from(body.querySelectorAll(".kb-card"));
           let insertIndex = children.length;
           const dropY = e.clientY;
-          for (let i = 0; i < children.length; i++) {
-            const rect = children[i].getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            if (dropY < midY) {
-              insertIndex = i;
-              break;
+          if (children.length > 0) {
+            const gaps = [];
+            const firstRect = children[0].getBoundingClientRect();
+            gaps.push({
+              top: firstRect.top - 20,
+              // Add some padding above first card
+              bottom: firstRect.top + 10,
+              index: 0
+            });
+            for (let i = 0; i < children.length - 1; i++) {
+              const currentRect = children[i].getBoundingClientRect();
+              const nextRect = children[i + 1].getBoundingClientRect();
+              const gapMiddle = currentRect.bottom + (nextRect.top - currentRect.bottom) / 2;
+              gaps.push({
+                top: gapMiddle - 10,
+                // 10px above middle
+                bottom: gapMiddle + 10,
+                // 10px below middle
+                index: i + 1
+              });
+            }
+            const lastRect = children[children.length - 1].getBoundingClientRect();
+            gaps.push({
+              top: lastRect.bottom - 10,
+              bottom: lastRect.bottom + 20,
+              // Add some padding below last card
+              index: children.length
+            });
+            let foundGap = false;
+            for (const gap of gaps) {
+              if (dropY >= gap.top && dropY <= gap.bottom) {
+                insertIndex = gap.index;
+                foundGap = true;
+                break;
+              }
+            }
+            if (!foundGap) {
+              for (let i = 0; i < children.length; i++) {
+                const rect = children[i].getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (dropY < midY) {
+                  insertIndex = i;
+                  break;
+                }
+              }
             }
           }
           const draggedIndexInSource = tasksInFromCol.findIndex((t) => t.filePath === payload.path);

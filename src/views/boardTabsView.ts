@@ -368,10 +368,61 @@ export class BoardTabsView extends ItemView {
           const children = Array.from(body.querySelectorAll('.kb-card')) as HTMLElement[];
           let insertIndex = children.length; // append by default
           const dropY = (e as DragEvent).clientY;
-          for (let i = 0; i < children.length; i++) {
-            const rect = children[i].getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            if (dropY < midY) { insertIndex = i; break; }
+
+          if (children.length > 0) {
+            // Calculate gaps between cards
+            const gaps: { top: number; bottom: number; index: number }[] = [];
+            
+            // First card's top gap
+            const firstRect = children[0].getBoundingClientRect();
+            gaps.push({ 
+              top: firstRect.top - 20, // Add some padding above first card
+              bottom: firstRect.top + 10,
+              index: 0 
+            });
+
+            // Gaps between cards
+            for (let i = 0; i < children.length - 1; i++) {
+              const currentRect = children[i].getBoundingClientRect();
+              const nextRect = children[i + 1].getBoundingClientRect();
+              const gapMiddle = currentRect.bottom + (nextRect.top - currentRect.bottom) / 2;
+              
+              gaps.push({
+                top: gapMiddle - 10, // 10px above middle
+                bottom: gapMiddle + 10, // 10px below middle
+                index: i + 1
+              });
+            }
+
+            // Last card's bottom gap
+            const lastRect = children[children.length - 1].getBoundingClientRect();
+            gaps.push({
+              top: lastRect.bottom - 10,
+              bottom: lastRect.bottom + 20, // Add some padding below last card
+              index: children.length
+            });
+
+            // Find which gap we're in
+            let foundGap = false;
+            for (const gap of gaps) {
+              if (dropY >= gap.top && dropY <= gap.bottom) {
+                insertIndex = gap.index;
+                foundGap = true;
+                break;
+              }
+            }
+
+            // If not in a gap, find nearest card's position
+            if (!foundGap) {
+              for (let i = 0; i < children.length; i++) {
+                const rect = children[i].getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (dropY < midY) {
+                  insertIndex = i;
+                  break;
+                }
+              }
+            }
           }
 
           // Find task index in source list
