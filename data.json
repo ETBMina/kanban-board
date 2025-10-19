@@ -92,6 +92,21 @@
       "type": "text"
     },
     {
+      "key": "priority",
+      "label": "Priority",
+      "type": "status"
+    },
+    {
+      "key": "plannedStart",
+      "label": "Planned start date",
+      "type": "date"
+    },
+    {
+      "key": "plannedEnd",
+      "label": "Planned end date",
+      "type": "date"
+    },
+    {
       "key": "emailSubject",
       "label": "Email Subject",
       "type": "text"

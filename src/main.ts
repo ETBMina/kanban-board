@@ -424,6 +424,17 @@ class CrTemplateModal extends Modal {
         textarea.style.minHeight = '80px';
         textarea.style.width = '100%';
         this.inputs.set(field.key, textarea);
+      } else if (field.type === 'status' && field.key === 'priority') {
+        // Render dropdown for priority, like in TaskTemplateModal
+        const select = control.createEl('select');
+        select.addClass('kb-input');
+        const options = ['Urgent', 'High', 'Medium', 'Low'];
+        for (const o of options) {
+          const opt = select.createEl('option', { text: o });
+          opt.value = o;
+        }
+        select.value = 'Medium';
+        this.inputs.set(field.key, select);
       } else {
         const input = control.createEl('input');
         input.addClass('kb-input');
