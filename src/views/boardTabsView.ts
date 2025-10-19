@@ -1,6 +1,6 @@
-import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal } from 'obsidian';
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App } from 'obsidian';
 import { PluginSettings, TaskNoteMeta } from '../models';
-import { readAllTasks, updateTaskFrontmatter } from '../utils';
+import { readAllTasks, updateTaskFrontmatter, getAllExistingTags } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -540,6 +540,8 @@ export class BoardTabsView extends ItemView {
 
         // Three dots menu: Open is first option
         menuBtn.onclick = (ev) => {
+          // Prevent card click from firing when clicking the menu
+          ev.stopPropagation();
           const menu = new Menu();
           menu.addItem((i) => i.setTitle('Open').onClick(async () => {
             const file = this.app.vault.getAbstractFileByPath(task.filePath);
@@ -566,6 +568,22 @@ export class BoardTabsView extends ItemView {
           const e = ev as MouseEvent;
           menu.showAtPosition({ x: e.clientX, y: e.clientY });
         };
+        // Click anywhere on the card (except menu) to open edit modal
+        card.onclick = async (e) => {
+          // Open edit modal populated with current frontmatter values
+          const file = this.app.vault.getAbstractFileByPath(task.filePath);
+          if (!(file instanceof TFile)) return;
+          const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
+            try {
+              await updateTaskFrontmatter(this.app, file, patch);
+              new Notice('Task updated');
+              await this.reload();
+            } catch (err) {
+              new Notice('Failed to update task: ' + (err as Error).message);
+            }
+          });
+          modal.open();
+        };
       }
     });
 
@@ -579,6 +597,111 @@ export class BoardTabsView extends ItemView {
       this.settings.statuses.push(name);
       await this.persistSettings?.();
       this.renderBoard(container);
+    };
+  }
+}
+
+// Modal for editing an existing task. Reuses templateFields from settings to avoid duplication.
+class EditTaskModal extends Modal {
+  private settings: PluginSettings;
+  private task: TaskNoteMeta;
+  private onSubmit: (patch: Record<string, any>) => void | Promise<void>;
+  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
+
+  constructor(app: App, settings: PluginSettings, task: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void | Promise<void>) {
+    super(app);
+    this.settings = settings;
+    this.task = task;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('kb-container');
+    contentEl.createEl('h2', { text: 'Edit Task' });
+
+    const fm = this.task.frontmatter ?? {};
+
+    for (const field of this.settings.templateFields) {
+      const row = contentEl.createDiv({ cls: 'setting-item' });
+      row.createDiv({ cls: 'setting-item-name', text: field.label });
+      const control = row.createDiv({ cls: 'setting-item-control' });
+
+      if (field.type === 'status' || field.key === 'priority') {
+        const select = control.createEl('select');
+        select.addClass('kb-input');
+        const options = field.key === 'status' ? this.settings.statuses : ['Urgent', 'High', 'Medium', 'Low'];
+        for (const o of options) {
+          const opt = select.createEl('option', { text: o }); opt.value = o;
+        }
+        select.value = String(fm[field.key] ?? (field.key === 'status' ? this.settings.statuses[0] ?? '' : 'Medium'));
+        this.inputs.set(field.key, select);
+      } else if (field.type === 'tags') {
+        // Reuse the same tags input UI as creation modal
+        const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });
+        const tagsInput = tagsContainer.createEl('input'); tagsInput.addClass('kb-input'); tagsInput.type = 'text';
+        const tagsDisplay = tagsContainer.createDiv({ cls: 'kb-selected-tags' });
+        const suggestionsContainer = tagsContainer.createDiv({ cls: 'kb-tags-suggestions' }); suggestionsContainer.style.display = 'none';
+
+        const selectedTags: string[] = Array.isArray(fm[field.key]) ? fm[field.key].slice() : [];
+        const renderSelected = () => {
+          tagsDisplay.empty();
+          for (const tag of selectedTags) {
+            const tagEl = tagsDisplay.createDiv({ cls: 'kb-tag' }); tagEl.setText(tag);
+            const removeBtn = tagEl.createSpan({ cls: 'kb-tag-remove' }); removeBtn.setText('×');
+            removeBtn.onclick = (e) => { e.stopPropagation(); const idx = selectedTags.indexOf(tag); if (idx > -1) selectedTags.splice(idx,1); renderSelected(); };
+          }
+        };
+        renderSelected();
+
+        let allTags: string[] = [];
+        const loadAllTags = async () => { allTags = await getAllExistingTags(this.app, this.settings).catch(() => []); };
+        loadAllTags();
+
+        const addTag = (tag: string) => { if (!selectedTags.includes(tag)) selectedTags.push(tag); renderSelected(); tagsInput.value=''; suggestionsContainer.style.display='none'; tagsInput.focus(); };
+
+        const renderSuggestions = (q?: string) => {
+          suggestionsContainer.empty();
+          const query = (q ?? '').trim().toLowerCase();
+          let candidates = allTags.filter(t => !selectedTags.includes(t));
+          if (query) candidates = candidates.filter(t => t.toLowerCase().includes(query));
+          if (query && !allTags.map(t=>t.toLowerCase()).includes(query)) {
+            const addOption = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' }); addOption.setText(`Add "${q}" as new tag`); addOption.onclick = () => addTag(q!.trim());
+          }
+          for (const tag of candidates) { const opt = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' }); opt.setText(tag); opt.onclick = () => addTag(tag); }
+          suggestionsContainer.style.display = candidates.length>0 || (query && !allTags.map(t=>t.toLowerCase()).includes(query)) ? 'block' : 'none';
+        };
+
+        tagsInput.oninput = () => renderSuggestions(tagsInput.value);
+        tagsInput.onfocus = async () => { if (allTags.length === 0) await loadAllTags(); renderSuggestions(''); };
+        document.addEventListener('click', (e) => { if (!tagsContainer.contains(e.target as Node)) suggestionsContainer.style.display='none'; });
+        tagsInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = tagsInput.value.trim(); if (v) addTag(v); } };
+
+        this.inputs.set(field.key, { getValue: () => selectedTags } as any);
+      } else if (field.type === 'freetext') {
+        row.style.display='block'; row.style.width='100%'; const label = row.querySelector('.setting-item-name') as HTMLElement; if (label) label.style.display='block'; control.style.width='100%'; control.style.marginTop='8px';
+        const textarea = control.createEl('textarea'); textarea.addClass('kb-input'); textarea.placeholder = field.label; textarea.rows=4; textarea.style.resize='vertical'; textarea.style.minHeight='80px'; textarea.style.width='100%'; textarea.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, textarea);
+      } else {
+        const input = control.createEl('input'); input.addClass('kb-input'); input.placeholder = field.label; if (field.type === 'date') input.type='date'; else if (field.type === 'number') input.type='number'; else input.type='text'; input.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, input);
+      }
+    }
+
+    const footer = contentEl.createDiv({ cls: 'modal-button-container' });
+    const cancel = footer.createEl('button', { text: 'Cancel' }); cancel.addClass('mod-warning'); cancel.onclick = () => this.close();
+    const save = footer.createEl('button', { text: 'Save' }); save.addClass('mod-cta');
+    save.onclick = async () => {
+      const patch: Record<string, any> = {};
+      for (const [key, input] of this.inputs.entries()) {
+        const anyInput = input as any;
+        if (anyInput && typeof anyInput.getValue === 'function') { patch[key] = anyInput.getValue(); continue; }
+        const el = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        const val = el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
+        if (val !== '' && val != null) patch[key] = val;
+        else patch[key] = val === '' ? '' : undefined;
+      }
+      await this.onSubmit(patch);
+      this.close();
     };
   }
 }

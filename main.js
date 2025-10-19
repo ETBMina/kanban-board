@@ -739,6 +739,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         const createdAt = task.frontmatter["createdAt"] || "";
         if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
         menuBtn2.onclick = (ev) => {
+          ev.stopPropagation();
           const menu = new import_obsidian3.Menu();
           menu.addItem((i) => i.setTitle("Open").onClick(async () => {
             const file = this.app.vault.getAbstractFileByPath(task.filePath);
@@ -765,6 +766,20 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           const e = ev;
           menu.showAtPosition({ x: e.clientX, y: e.clientY });
         };
+        card.onclick = async (e) => {
+          const file = this.app.vault.getAbstractFileByPath(task.filePath);
+          if (!(file instanceof import_obsidian3.TFile)) return;
+          const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
+            try {
+              await updateTaskFrontmatter(this.app, file, patch);
+              new import_obsidian3.Notice("Task updated");
+              await this.reload();
+            } catch (err) {
+              new import_obsidian3.Notice("Failed to update task: " + err.message);
+            }
+          });
+          modal.open();
+        };
       }
     });
     const addCol = board.createDiv({ cls: "kb-column kb-column-add" });
@@ -777,6 +792,156 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       this.settings.statuses.push(name);
       await ((_b2 = this.persistSettings) == null ? void 0 : _b2.call(this));
       this.renderBoard(container);
+    };
+  }
+};
+var EditTaskModal = class extends import_obsidian3.Modal {
+  constructor(app, settings, task, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.settings = settings;
+    this.task = task;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    var _a, _b, _c, _d, _e;
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kb-container");
+    contentEl.createEl("h2", { text: "Edit Task" });
+    const fm = (_a = this.task.frontmatter) != null ? _a : {};
+    for (const field of this.settings.templateFields) {
+      const row = contentEl.createDiv({ cls: "setting-item" });
+      row.createDiv({ cls: "setting-item-name", text: field.label });
+      const control = row.createDiv({ cls: "setting-item-control" });
+      if (field.type === "status" || field.key === "priority") {
+        const select = control.createEl("select");
+        select.addClass("kb-input");
+        const options = field.key === "status" ? this.settings.statuses : ["Urgent", "High", "Medium", "Low"];
+        for (const o of options) {
+          const opt = select.createEl("option", { text: o });
+          opt.value = o;
+        }
+        select.value = String((_c = fm[field.key]) != null ? _c : field.key === "status" ? (_b = this.settings.statuses[0]) != null ? _b : "" : "Medium");
+        this.inputs.set(field.key, select);
+      } else if (field.type === "tags") {
+        const tagsContainer = control.createDiv({ cls: "kb-tags-input-container" });
+        const tagsInput = tagsContainer.createEl("input");
+        tagsInput.addClass("kb-input");
+        tagsInput.type = "text";
+        const tagsDisplay = tagsContainer.createDiv({ cls: "kb-selected-tags" });
+        const suggestionsContainer = tagsContainer.createDiv({ cls: "kb-tags-suggestions" });
+        suggestionsContainer.style.display = "none";
+        const selectedTags = Array.isArray(fm[field.key]) ? fm[field.key].slice() : [];
+        const renderSelected = () => {
+          tagsDisplay.empty();
+          for (const tag of selectedTags) {
+            const tagEl = tagsDisplay.createDiv({ cls: "kb-tag" });
+            tagEl.setText(tag);
+            const removeBtn = tagEl.createSpan({ cls: "kb-tag-remove" });
+            removeBtn.setText("\xD7");
+            removeBtn.onclick = (e) => {
+              e.stopPropagation();
+              const idx = selectedTags.indexOf(tag);
+              if (idx > -1) selectedTags.splice(idx, 1);
+              renderSelected();
+            };
+          }
+        };
+        renderSelected();
+        let allTags = [];
+        const loadAllTags = async () => {
+          allTags = await getAllExistingTags(this.app, this.settings).catch(() => []);
+        };
+        loadAllTags();
+        const addTag = (tag) => {
+          if (!selectedTags.includes(tag)) selectedTags.push(tag);
+          renderSelected();
+          tagsInput.value = "";
+          suggestionsContainer.style.display = "none";
+          tagsInput.focus();
+        };
+        const renderSuggestions = (q) => {
+          suggestionsContainer.empty();
+          const query = (q != null ? q : "").trim().toLowerCase();
+          let candidates = allTags.filter((t) => !selectedTags.includes(t));
+          if (query) candidates = candidates.filter((t) => t.toLowerCase().includes(query));
+          if (query && !allTags.map((t) => t.toLowerCase()).includes(query)) {
+            const addOption = suggestionsContainer.createDiv({ cls: "kb-tag-suggestion" });
+            addOption.setText(`Add "${q}" as new tag`);
+            addOption.onclick = () => addTag(q.trim());
+          }
+          for (const tag of candidates) {
+            const opt = suggestionsContainer.createDiv({ cls: "kb-tag-suggestion" });
+            opt.setText(tag);
+            opt.onclick = () => addTag(tag);
+          }
+          suggestionsContainer.style.display = candidates.length > 0 || query && !allTags.map((t) => t.toLowerCase()).includes(query) ? "block" : "none";
+        };
+        tagsInput.oninput = () => renderSuggestions(tagsInput.value);
+        tagsInput.onfocus = async () => {
+          if (allTags.length === 0) await loadAllTags();
+          renderSuggestions("");
+        };
+        document.addEventListener("click", (e) => {
+          if (!tagsContainer.contains(e.target)) suggestionsContainer.style.display = "none";
+        });
+        tagsInput.onkeydown = (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const v = tagsInput.value.trim();
+            if (v) addTag(v);
+          }
+        };
+        this.inputs.set(field.key, { getValue: () => selectedTags });
+      } else if (field.type === "freetext") {
+        row.style.display = "block";
+        row.style.width = "100%";
+        const label = row.querySelector(".setting-item-name");
+        if (label) label.style.display = "block";
+        control.style.width = "100%";
+        control.style.marginTop = "8px";
+        const textarea = control.createEl("textarea");
+        textarea.addClass("kb-input");
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = "vertical";
+        textarea.style.minHeight = "80px";
+        textarea.style.width = "100%";
+        textarea.value = String((_d = fm[field.key]) != null ? _d : "");
+        this.inputs.set(field.key, textarea);
+      } else {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.placeholder = field.label;
+        if (field.type === "date") input.type = "date";
+        else if (field.type === "number") input.type = "number";
+        else input.type = "text";
+        input.value = String((_e = fm[field.key]) != null ? _e : "");
+        this.inputs.set(field.key, input);
+      }
+    }
+    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const cancel = footer.createEl("button", { text: "Cancel" });
+    cancel.addClass("mod-warning");
+    cancel.onclick = () => this.close();
+    const save = footer.createEl("button", { text: "Save" });
+    save.addClass("mod-cta");
+    save.onclick = async () => {
+      const patch = {};
+      for (const [key, input] of this.inputs.entries()) {
+        const anyInput = input;
+        if (anyInput && typeof anyInput.getValue === "function") {
+          patch[key] = anyInput.getValue();
+          continue;
+        }
+        const el = input;
+        const val = el.tagName === "TEXTAREA" ? el.value : el.value.trim();
+        if (val !== "" && val != null) patch[key] = val;
+        else patch[key] = val === "" ? "" : void 0;
+      }
+      await this.onSubmit(patch);
+      this.close();
     };
   }
 };
