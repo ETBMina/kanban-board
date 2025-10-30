@@ -1,6 +1,7 @@
-import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App } from 'obsidian';
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
+import * as XLSX from 'xlsx';
 import { PluginSettings, TaskNoteMeta } from '../models';
-import { readAllTasks, updateTaskFrontmatter, getAllExistingTags } from '../utils';
+import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -78,6 +79,15 @@ export class BoardTabsView extends ItemView {
     if (this.active === 'board') boardBtn.addClass('is-active');
     boardBtn.onclick = () => { this.active = 'board'; this.render(); };
 
+    const menuBtn = tabs.createEl('button', { text: '⋯' });
+    menuBtn.addClass('kb-ellipsis');
+    menuBtn.onclick = (ev) => {
+      const menu = new Menu();
+      menu.addItem((i) => i.setTitle('Export to Excel').onClick(() => this.exportToExcel()));
+      const e = ev as MouseEvent;
+      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    };
+
     // Toolbar
     const bar = c.createDiv({ cls: 'kb-toolbar' });
     const search = bar.createEl('input', { type: 'search' });
@@ -92,6 +102,41 @@ export class BoardTabsView extends ItemView {
     };
 
     if (this.active === 'grid') this.renderGrid(c); else this.renderBoard(c);
+  }
+
+  private async exportToExcel() {
+    const allItems = await readAllItems(this.app, this.settings);
+    const taskFolder = normalizePath(this.settings.taskFolder);
+    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+
+    const tasksData = allItems
+      .filter(t => t.filePath.startsWith(taskFolder + '/'))
+      .map(t => t.frontmatter);
+    
+    let crData: any[] = [];
+    if (crFolder) {
+      crData = allItems
+        .filter(t => t.filePath.startsWith(crFolder + '/'))
+        .map(t => t.frontmatter);
+    }
+
+    const wb = XLSX.utils.book_new();
+    const wsTasks = XLSX.utils.json_to_sheet(tasksData);
+    const wsCr = XLSX.utils.json_to_sheet(crData);
+
+    XLSX.utils.book_append_sheet(wb, wsTasks, 'Tasks');
+    XLSX.utils.book_append_sheet(wb, wsCr, 'Change Requests');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const fileName = `Kanban-Export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // GRID
@@ -146,7 +191,7 @@ export class BoardTabsView extends ItemView {
             link.onclick = async (e) => {
               e.preventDefault();
               // Extract file path from [[path]] wiki link format
-              const path = crLink.replace(/^\[\[/, '').replace(/\]\]$/, '');
+              const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
               const file = this.app.vault.getAbstractFileByPath(path);
               if (file instanceof TFile) {
                 await this.app.workspace.getLeaf(true).openFile(file);
@@ -375,7 +420,7 @@ export class BoardTabsView extends ItemView {
             
             // First card's top gap
             const firstRect = children[0].getBoundingClientRect();
-            gaps.push({ 
+            gaps.push({
               top: firstRect.top - 20, // Add some padding above first card
               bottom: firstRect.top + 10,
               index: 0 
@@ -751,5 +796,3 @@ class EditTaskModal extends Modal {
     };
   }
 }
-
-

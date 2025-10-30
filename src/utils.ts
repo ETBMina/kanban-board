@@ -65,6 +65,23 @@ function escapeYamlInline(value: unknown): string {
   return s;
 }
 
+export async function readAllItems(app: App, settings: PluginSettings): Promise<TaskNoteMeta[]> {
+  const taskFolder = normalizePath(settings.taskFolder);
+  const crFolder = settings.crFolder ? normalizePath(settings.crFolder) : null;
+  const results: TaskNoteMeta[] = [];
+  const files = app.vault.getMarkdownFiles().filter(f => {
+    if (f.path.startsWith(taskFolder + '/')) return true;
+    if (crFolder && f.path.startsWith(crFolder + '/')) return true;
+    return false;
+  });
+  for (const file of files) {
+    const cache = app.metadataCache.getFileCache(file);
+    const fm = cache?.frontmatter ?? {};
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm });
+  }
+  return results;
+}
+
 export async function readAllTasks(app: App, settings: PluginSettings): Promise<TaskNoteMeta[]> {
   const folder = normalizePath(settings.taskFolder);
   const results: TaskNoteMeta[] = [];

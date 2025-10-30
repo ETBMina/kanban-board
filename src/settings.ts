@@ -27,6 +27,19 @@ export class KanbanSettingTab extends PluginSettingTab {
           });
       });
 
+    // CR folder
+    new Setting(containerEl)
+      .setName('Change Request folder')
+      .setDesc('Folder where CR notes are stored')
+      .addText((text) => {
+        text.setPlaceholder('Change Requests')
+          .setValue(this.plugin.settings.crFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.crFolder = value || 'Change Requests';
+            await this.plugin.saveSettings();
+          });
+      });
+
     // Statuses
     new Setting(containerEl)
       .setName('Statuses (comma-separated)')
