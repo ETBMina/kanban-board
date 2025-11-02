@@ -15,10 +15,16 @@ export interface PluginSettings {
   crTemplateFields?: TaskFieldDefinition[];
 }
 
+export interface Subtask {
+  text: string;
+  completed: boolean;
+}
+
 export interface TaskNoteMeta {
   filePath: string;
   fileName: string;
   frontmatter: Record<string, any>;
+  subtasks: Subtask[];
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {

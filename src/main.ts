@@ -144,6 +144,7 @@ export default class KanbanPlugin extends Plugin {
       
       // First, add all provided values
       for (const [k, v] of Object.entries(data)) {
+        if (k === 'subtasks') continue;
         if (Array.isArray(v)) { 
           if (v.length > 0) clean[k] = v; 
         }
@@ -186,8 +187,12 @@ export default class KanbanPlugin extends Plugin {
         } catch { /* ignore */ }
       }
       const fm = buildFrontmatterYAML(clean);
-      // Start the note with just frontmatter; no auto-inserted title body
-      await this.app.vault.create(path, `${fm}\n\n`);
+      let content = `${fm}\n\n`;
+      if (data.subtasks && data.subtasks.length > 0) {
+        content += '### Subtasks\n';
+        content += data.subtasks.map((st: any) => ` - [${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
+      }
+      await this.app.vault.create(path, content);
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
@@ -473,6 +478,54 @@ class TaskTemplateModal extends Modal {
         }
     }
 
+    const subtasksContainer = contentEl.createDiv({ cls: 'kb-subtasks-edit' });
+    subtasksContainer.createEl('h3', { text: 'Subtasks' });
+    const subtasksList = subtasksContainer.createDiv();
+
+    let subtasks: { text: string, completed: boolean }[] = [];
+
+    const renderSubtasks = () => {
+      subtasksList.empty();
+      subtasks.forEach((subtask, index) => {
+        const subtaskEl = subtasksList.createDiv({ cls: 'kb-subtask-edit-item' });
+        const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
+        checkbox.checked = subtask.completed;
+        checkbox.onchange = () => {
+          subtask.completed = checkbox.checked;
+        };
+        const textInput = subtaskEl.createEl('input', { type: 'text' });
+        textInput.value = subtask.text;
+        textInput.onchange = () => {
+          subtask.text = textInput.value;
+        };
+        const deleteBtn = subtaskEl.createEl('button', { text: 'Delete' });
+        deleteBtn.onclick = () => {
+          subtasks.splice(index, 1);
+          renderSubtasks();
+        };
+      });
+    };
+
+    renderSubtasks();
+
+    const addSubtaskInput = subtasksContainer.createEl('input', { type: 'text', placeholder: 'Add an item' });
+    const addSubtaskBtn = subtasksContainer.createEl('button', { text: 'Add Subtask' });
+    addSubtaskBtn.onclick = () => {
+      const text = addSubtaskInput.value.trim();
+      if (text) {
+        subtasks.push({ text, completed: false });
+        addSubtaskInput.value = '';
+        renderSubtasks();
+        addSubtaskInput.focus();
+      }
+    };
+    addSubtaskInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addSubtaskBtn.click();
+      }
+    };
+
     const footer = contentEl.createDiv({ cls: 'modal-button-container' });
     const cancel = footer.createEl('button', { text: 'Cancel' });
     cancel.addClass('mod-warning');
@@ -494,6 +547,7 @@ class TaskTemplateModal extends Modal {
         const val = element.tagName === 'TEXTAREA' ? element.value : element.value.trim();
         data[key] = val;
       }
+      data['subtasks'] = subtasks;
       if (!data['status']) data['status'] = this.statuses[0] ?? 'Backlog';
       // Always ensure we have a priority value
       data['priority'] = data['priority'] || 'Medium';

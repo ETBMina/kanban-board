@@ -1,6 +1,6 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
-import { PluginSettings, TaskNoteMeta } from '../models';
+import { PluginSettings, Subtask, TaskNoteMeta } from '../models';
 import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
@@ -502,7 +502,7 @@ export class BoardTabsView extends ItemView {
           let draggedTask = tasksInCol.find(t => t.filePath === payload.path);
           if (!draggedTask) {
             const cache = this.app.metadataCache.getFileCache(file);
-            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: cache?.frontmatter ?? {} };
+            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: cache?.frontmatter ?? {}, subtasks: [] };
           }
           tasksInCol.splice(insertIndex, 0, draggedTask);
 
@@ -579,6 +579,41 @@ export class BoardTabsView extends ItemView {
 
         const meta = card.createDiv();
         meta.createSpan({ cls: 'kb-chip', text: task.frontmatter['priority'] ?? '' });
+
+        const subtasksContainer = card.createDiv({ cls: 'kb-subtasks' });
+        if (task.subtasks && task.subtasks.length > 0) {
+          const completedCount = task.subtasks.filter(st => st.completed).length;
+          const totalCount = task.subtasks.length;
+          const subtaskSummary = subtasksContainer.createDiv({ cls: 'kb-subtask-summary' });
+          subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
+
+          for (const subtask of task.subtasks) {
+            if(subtask.completed) continue;
+            const subtaskEl = subtasksContainer.createDiv({ cls: 'kb-subtask' });
+            const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
+            checkbox.checked = subtask.completed;
+            checkbox.onchange = async (e) => {
+              e.stopPropagation();
+              subtask.completed = checkbox.checked;
+              const file = this.app.vault.getAbstractFileByPath(task.filePath);
+              if (file instanceof TFile) {
+                const content = await this.app.vault.read(file);
+                const lines = content.split('\n');
+                const lineIndex = lines.findIndex(line => {
+                  const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+                  return match && match[2].trim() === subtask.text;
+                });
+                if (lineIndex !== -1) {
+                  lines[lineIndex] = ` - [${subtask.completed ? 'x' : ' '}] ${subtask.text}`;
+                  await this.app.vault.modify(file, lines.join('\n'));
+                  this.reload();
+                }
+              }
+            };
+            subtaskEl.createSpan({ text: subtask.text });
+          }
+        }
+
         const footer = card.createDiv({ cls: 'kb-card-footer' });
         const createdAt = (task.frontmatter['createdAt'] || '') as string;
         if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
@@ -778,6 +813,54 @@ class EditTaskModal extends Modal {
       }
     }
 
+    const subtasksContainer = contentEl.createDiv({ cls: 'kb-subtasks-edit' });
+    subtasksContainer.createEl('h3', { text: 'Subtasks' });
+    const subtasksList = subtasksContainer.createDiv();
+
+    let subtasks = this.task.subtasks ? JSON.parse(JSON.stringify(this.task.subtasks)) as Subtask[] : [];
+
+    const renderSubtasks = () => {
+      subtasksList.empty();
+      subtasks.forEach((subtask, index) => {
+        const subtaskEl = subtasksList.createDiv({ cls: 'kb-subtask-edit-item' });
+        const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
+        checkbox.checked = subtask.completed;
+        checkbox.onchange = () => {
+          subtask.completed = checkbox.checked;
+        };
+        const textInput = subtaskEl.createEl('input', { type: 'text' });
+        textInput.value = subtask.text;
+        textInput.onchange = () => {
+          subtask.text = textInput.value;
+        };
+        const deleteBtn = subtaskEl.createEl('button', { text: 'Delete' });
+        deleteBtn.onclick = () => {
+          subtasks.splice(index, 1);
+          renderSubtasks();
+        };
+      });
+    };
+
+    renderSubtasks();
+
+    const addSubtaskInput = subtasksContainer.createEl('input', { type: 'text', placeholder: 'Add an item' });
+    const addSubtaskBtn = subtasksContainer.createEl('button', { text: 'Add Subtask' });
+    addSubtaskBtn.onclick = () => {
+      const text = addSubtaskInput.value.trim();
+      if (text) {
+        subtasks.push({ text, completed: false });
+        addSubtaskInput.value = '';
+        renderSubtasks();
+        addSubtaskInput.focus();
+      }
+    };
+    addSubtaskInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addSubtaskBtn.click();
+      }
+    };
+
     const footer = contentEl.createDiv({ cls: 'modal-button-container' });
     const cancel = footer.createEl('button', { text: 'Cancel' }); cancel.addClass('mod-warning'); cancel.onclick = () => this.close();
     const save = footer.createEl('button', { text: 'Save' }); save.addClass('mod-cta');
@@ -791,7 +874,32 @@ class EditTaskModal extends Modal {
         if (val !== '' && val != null) patch[key] = val;
         else patch[key] = val === '' ? '' : undefined;
       }
-      await this.onSubmit(patch);
+
+      const file = this.app.vault.getAbstractFileByPath(this.task.filePath);
+      if (file instanceof TFile) {
+        await this.app.fileManager.processFrontMatter(file, (fm) => {
+          for (const key in patch) {
+            if (patch[key] === undefined) {
+              delete fm[key];
+            } else {
+              fm[key] = patch[key];
+            }
+          }
+        });
+
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+        const fmIndex = lines.findIndex(line => line === '---');
+        const secondFmIndex = lines.slice(fmIndex + 1).findIndex(line => line === '---') + fmIndex + 1;
+        let newLines = lines.slice(0, secondFmIndex + 1);
+        const subtasksContent = subtasks.map((st: any) => ` - [${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
+        if (subtasks.length > 0) {
+          newLines.push('### Subtasks');
+          newLines.push(subtasksContent);
+        }
+        await this.app.vault.modify(file, newLines.join('\n'));
+      }
+
       this.close();
     };
   }

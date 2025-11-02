@@ -165,7 +165,23 @@ async function readAllItems(app, settings) {
   for (const file of files) {
     const cache = app.metadataCache.getFileCache(file);
     const fm = (_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : {};
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: fm });
+    const content = await app.vault.read(file);
+    const subtasks = [];
+    const lines = content.split("\n");
+    let inSubtasks = false;
+    for (const line of lines) {
+      if (line.startsWith("### Subtasks")) {
+        inSubtasks = true;
+        continue;
+      }
+      if (inSubtasks) {
+        const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+        if (match) {
+          subtasks.push({ completed: match[1].trim() !== "", text: match[2].trim() });
+        }
+      }
+    }
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: fm, subtasks });
   }
   return results;
 }
@@ -177,7 +193,23 @@ async function readAllTasks(app, settings) {
   for (const file of files) {
     const cache = app.metadataCache.getFileCache(file);
     const fm = (_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : {};
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: fm });
+    const content = await app.vault.read(file);
+    const subtasks = [];
+    const lines = content.split("\n");
+    let inSubtasks = false;
+    for (const line of lines) {
+      if (line.startsWith("### Subtasks")) {
+        inSubtasks = true;
+        continue;
+      }
+      if (inSubtasks) {
+        const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+        if (match) {
+          subtasks.push({ completed: match[1].trim() !== "", text: match[2].trim() });
+        }
+      }
+    }
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: fm, subtasks });
   }
   return results;
 }
@@ -193,25 +225,15 @@ async function getAllExistingTags(app, settings) {
   return Array.from(tagSet).sort();
 }
 async function updateTaskFrontmatter(app, file, patch) {
-  var _a, _b, _c, _d, _e, _f, _g;
-  const content = await app.vault.read(file);
-  const cache = app.metadataCache.getFileCache(file);
-  const start = (_c = (_b = (_a = cache == null ? void 0 : cache.frontmatterPosition) == null ? void 0 : _a.start) == null ? void 0 : _b.offset) != null ? _c : -1;
-  const end = (_f = (_e = (_d = cache == null ? void 0 : cache.frontmatterPosition) == null ? void 0 : _d.end) == null ? void 0 : _e.offset) != null ? _f : -1;
-  const current = (_g = cache == null ? void 0 : cache.frontmatter) != null ? _g : {};
-  const merged = { ...current, ...patch };
-  const yaml = buildFrontmatterYAML(merged);
-  let next;
-  if (start >= 0 && end > start) {
-    const after = content.slice(end);
-    const needsNewline = after.startsWith("\n") ? "" : "\n";
-    next = content.slice(0, start) + yaml + needsNewline + after;
-  } else {
-    const body = content;
-    const sep = body.length === 0 ? "\n" : body.startsWith("\n") ? "\n" : "\n\n";
-    next = yaml + sep + body;
-  }
-  await app.vault.modify(file, next);
+  await app.fileManager.processFrontMatter(file, (fm) => {
+    for (const key in patch) {
+      if (patch[key] === void 0) {
+        delete fm[key];
+      } else {
+        fm[key] = patch[key];
+      }
+    }
+  });
 }
 function buildWikiLink(path) {
   const p = (0, import_obsidian2.normalizePath)(path);
@@ -21209,7 +21231,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           let draggedTask = tasksInCol.find((t) => t.filePath === payload.path);
           if (!draggedTask) {
             const cache = this.app.metadataCache.getFileCache(file);
-            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_k = cache == null ? void 0 : cache.frontmatter) != null ? _k : {} };
+            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_k = cache == null ? void 0 : cache.frontmatter) != null ? _k : {}, subtasks: [] };
           }
           tasksInCol.splice(insertIndex, 0, draggedTask);
           const isCompleted = /^(completed|done)$/i.test(status);
@@ -21273,6 +21295,38 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         menuBtn2.classList.add("kb-ellipsis", "kb-card-menu-btn");
         const meta = card.createDiv();
         meta.createSpan({ cls: "kb-chip", text: (_e = task.frontmatter["priority"]) != null ? _e : "" });
+        const subtasksContainer = card.createDiv({ cls: "kb-subtasks" });
+        if (task.subtasks && task.subtasks.length > 0) {
+          const completedCount = task.subtasks.filter((st) => st.completed).length;
+          const totalCount = task.subtasks.length;
+          const subtaskSummary = subtasksContainer.createDiv({ cls: "kb-subtask-summary" });
+          subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
+          for (const subtask of task.subtasks) {
+            if (subtask.completed) continue;
+            const subtaskEl = subtasksContainer.createDiv({ cls: "kb-subtask" });
+            const checkbox = subtaskEl.createEl("input", { type: "checkbox" });
+            checkbox.checked = subtask.completed;
+            checkbox.onchange = async (e) => {
+              e.stopPropagation();
+              subtask.completed = checkbox.checked;
+              const file = this.app.vault.getAbstractFileByPath(task.filePath);
+              if (file instanceof import_obsidian3.TFile) {
+                const content = await this.app.vault.read(file);
+                const lines = content.split("\n");
+                const lineIndex = lines.findIndex((line) => {
+                  const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+                  return match && match[2].trim() === subtask.text;
+                });
+                if (lineIndex !== -1) {
+                  lines[lineIndex] = ` - [${subtask.completed ? "x" : " "}] ${subtask.text}`;
+                  await this.app.vault.modify(file, lines.join("\n"));
+                  this.reload();
+                }
+              }
+            };
+            subtaskEl.createSpan({ text: subtask.text });
+          }
+        }
         const footer = card.createDiv({ cls: "kb-card-footer" });
         const createdAt = task.frontmatter["createdAt"] || "";
         if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
@@ -21496,6 +21550,49 @@ var EditTaskModal = class extends import_obsidian3.Modal {
         this.inputs.set(field.key, input);
       }
     }
+    const subtasksContainer = contentEl.createDiv({ cls: "kb-subtasks-edit" });
+    subtasksContainer.createEl("h3", { text: "Subtasks" });
+    const subtasksList = subtasksContainer.createDiv();
+    let subtasks = this.task.subtasks ? JSON.parse(JSON.stringify(this.task.subtasks)) : [];
+    const renderSubtasks = () => {
+      subtasksList.empty();
+      subtasks.forEach((subtask, index) => {
+        const subtaskEl = subtasksList.createDiv({ cls: "kb-subtask-edit-item" });
+        const checkbox = subtaskEl.createEl("input", { type: "checkbox" });
+        checkbox.checked = subtask.completed;
+        checkbox.onchange = () => {
+          subtask.completed = checkbox.checked;
+        };
+        const textInput = subtaskEl.createEl("input", { type: "text" });
+        textInput.value = subtask.text;
+        textInput.onchange = () => {
+          subtask.text = textInput.value;
+        };
+        const deleteBtn = subtaskEl.createEl("button", { text: "Delete" });
+        deleteBtn.onclick = () => {
+          subtasks.splice(index, 1);
+          renderSubtasks();
+        };
+      });
+    };
+    renderSubtasks();
+    const addSubtaskInput = subtasksContainer.createEl("input", { type: "text", placeholder: "Add an item" });
+    const addSubtaskBtn = subtasksContainer.createEl("button", { text: "Add Subtask" });
+    addSubtaskBtn.onclick = () => {
+      const text = addSubtaskInput.value.trim();
+      if (text) {
+        subtasks.push({ text, completed: false });
+        addSubtaskInput.value = "";
+        renderSubtasks();
+        addSubtaskInput.focus();
+      }
+    };
+    addSubtaskInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addSubtaskBtn.click();
+      }
+    };
     const footer = contentEl.createDiv({ cls: "modal-button-container" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
@@ -21515,7 +21612,29 @@ var EditTaskModal = class extends import_obsidian3.Modal {
         if (val !== "" && val != null) patch[key] = val;
         else patch[key] = val === "" ? "" : void 0;
       }
-      await this.onSubmit(patch);
+      const file = this.app.vault.getAbstractFileByPath(this.task.filePath);
+      if (file instanceof import_obsidian3.TFile) {
+        await this.app.fileManager.processFrontMatter(file, (fm2) => {
+          for (const key in patch) {
+            if (patch[key] === void 0) {
+              delete fm2[key];
+            } else {
+              fm2[key] = patch[key];
+            }
+          }
+        });
+        const content = await this.app.vault.read(file);
+        const lines = content.split("\n");
+        const fmIndex = lines.findIndex((line) => line === "---");
+        const secondFmIndex = lines.slice(fmIndex + 1).findIndex((line) => line === "---") + fmIndex + 1;
+        let newLines = lines.slice(0, secondFmIndex + 1);
+        const subtasksContent = subtasks.map((st) => ` - [${st.completed ? "x" : " "}] ${st.text}`).join("\n");
+        if (subtasks.length > 0) {
+          newLines.push("### Subtasks");
+          newLines.push(subtasksContent);
+        }
+        await this.app.vault.modify(file, newLines.join("\n"));
+      }
       this.close();
     };
   }
@@ -21656,6 +21775,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
       const path = `${folder}/${fileName}`;
       const clean = {};
       for (const [k, v] of Object.entries(data)) {
+        if (k === "subtasks") continue;
         if (Array.isArray(v)) {
           if (v.length > 0) clean[k] = v;
         } else if (typeof v === "string") {
@@ -21689,9 +21809,14 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
         }
       }
       const fm = buildFrontmatterYAML(clean);
-      await this.app.vault.create(path, `${fm}
+      let content = `${fm}
 
-`);
+`;
+      if (data.subtasks && data.subtasks.length > 0) {
+        content += "### Subtasks\n";
+        content += data.subtasks.map((st) => ` - [${st.completed ? "x" : " "}] ${st.text}`).join("\n");
+      }
+      await this.app.vault.create(path, content);
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof import_obsidian4.TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
@@ -21922,6 +22047,49 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         this.inputs.set(field.key, input);
       }
     }
+    const subtasksContainer = contentEl.createDiv({ cls: "kb-subtasks-edit" });
+    subtasksContainer.createEl("h3", { text: "Subtasks" });
+    const subtasksList = subtasksContainer.createDiv();
+    let subtasks = [];
+    const renderSubtasks = () => {
+      subtasksList.empty();
+      subtasks.forEach((subtask, index) => {
+        const subtaskEl = subtasksList.createDiv({ cls: "kb-subtask-edit-item" });
+        const checkbox = subtaskEl.createEl("input", { type: "checkbox" });
+        checkbox.checked = subtask.completed;
+        checkbox.onchange = () => {
+          subtask.completed = checkbox.checked;
+        };
+        const textInput = subtaskEl.createEl("input", { type: "text" });
+        textInput.value = subtask.text;
+        textInput.onchange = () => {
+          subtask.text = textInput.value;
+        };
+        const deleteBtn = subtaskEl.createEl("button", { text: "Delete" });
+        deleteBtn.onclick = () => {
+          subtasks.splice(index, 1);
+          renderSubtasks();
+        };
+      });
+    };
+    renderSubtasks();
+    const addSubtaskInput = subtasksContainer.createEl("input", { type: "text", placeholder: "Add an item" });
+    const addSubtaskBtn = subtasksContainer.createEl("button", { text: "Add Subtask" });
+    addSubtaskBtn.onclick = () => {
+      const text = addSubtaskInput.value.trim();
+      if (text) {
+        subtasks.push({ text, completed: false });
+        addSubtaskInput.value = "";
+        renderSubtasks();
+        addSubtaskInput.focus();
+      }
+    };
+    addSubtaskInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addSubtaskBtn.click();
+      }
+    };
     const footer = contentEl.createDiv({ cls: "modal-button-container" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
@@ -21941,6 +22109,7 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         const val = element.tagName === "TEXTAREA" ? element.value : element.value.trim();
         data[key] = val;
       }
+      data["subtasks"] = subtasks;
       if (!data["status"]) data["status"] = (_a2 = this.statuses[0]) != null ? _a2 : "Backlog";
       data["priority"] = data["priority"] || "Medium";
       await this.onSubmit(data);

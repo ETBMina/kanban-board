@@ -77,7 +77,23 @@ export async function readAllItems(app: App, settings: PluginSettings): Promise<
   for (const file of files) {
     const cache = app.metadataCache.getFileCache(file);
     const fm = cache?.frontmatter ?? {};
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm });
+    const content = await app.vault.read(file);
+    const subtasks = [];
+    const lines = content.split('\n');
+    let inSubtasks = false;
+    for (const line of lines) {
+      if (line.startsWith('### Subtasks')) {
+        inSubtasks = true;
+        continue;
+      }
+      if (inSubtasks) {
+        const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+        if (match) {
+          subtasks.push({ completed: match[1].trim() !== '', text: match[2].trim() });
+        }
+      }
+    }
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
   }
   return results;
 }
@@ -89,7 +105,23 @@ export async function readAllTasks(app: App, settings: PluginSettings): Promise<
   for (const file of files) {
     const cache = app.metadataCache.getFileCache(file);
     const fm = cache?.frontmatter ?? {};
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm });
+    const content = await app.vault.read(file);
+    const subtasks = [];
+    const lines = content.split('\n');
+    let inSubtasks = false;
+    for (const line of lines) {
+      if (line.startsWith('### Subtasks')) {
+        inSubtasks = true;
+        continue;
+      }
+      if (inSubtasks) {
+        const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+        if (match) {
+          subtasks.push({ completed: match[1].trim() !== '', text: match[2].trim() });
+        }
+      }
+    }
+    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
   }
   return results;
 }
@@ -109,26 +141,15 @@ export async function getAllExistingTags(app: App, settings: PluginSettings): Pr
 }
 
 export async function updateTaskFrontmatter(app: App, file: TFile, patch: Record<string, any>): Promise<void> {
-  const content = await app.vault.read(file);
-  const cache = app.metadataCache.getFileCache(file);
-  const start = cache?.frontmatterPosition?.start?.offset ?? -1;
-  const end = cache?.frontmatterPosition?.end?.offset ?? -1;
-  const current = cache?.frontmatter ?? {};
-  const merged = { ...current, ...patch };
-  const yaml = buildFrontmatterYAML(merged);
-  let next: string;
-  if (start >= 0 && end > start) {
-    // Replace in place without forcing extra newline; keep original spacing
-    const after = content.slice(end);
-    const needsNewline = after.startsWith('\n') ? '' : '\n';
-    next = content.slice(0, start) + yaml + needsNewline + after;
-  } else {
-    // Insert FM at top; ensure a single blank line between FM and body if body exists
-    const body = content;
-    const sep = body.length === 0 ? '\n' : (body.startsWith('\n') ? '\n' : '\n\n');
-    next = yaml + sep + body;
-  }
-  await app.vault.modify(file, next);
+  await app.fileManager.processFrontMatter(file, (fm) => {
+    for (const key in patch) {
+      if (patch[key] === undefined) {
+        delete fm[key];
+      } else {
+        fm[key] = patch[key];
+      }
+    }
+  });
 }
 
 export function buildWikiLink(path: string): string {
