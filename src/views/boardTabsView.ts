@@ -179,36 +179,173 @@ export class BoardTabsView extends ItemView {
       const isArchived = Boolean(t.frontmatter['archived']);
       if (isArchived) tr.addClass('kb-row-archived');
       for (const key of this.settings.gridVisibleColumns) {
+        const fieldDef = this.settings.templateFields.find(f => f.key === key) || { key, label: key, type: 'text' } as any;
         const val = t.frontmatter[key];
         const td = tr.createEl('td');
-        // Special handling for CR numbers
+        td.addClass('kb-grid-cell');
+
+        // Helper to show saving/ok state
+        const showSaving = () => { td.addClass('kb-saving'); td.removeClass('kb-saved'); };
+        const showSaved = () => { td.removeClass('kb-saving'); td.addClass('kb-saved'); setTimeout(() => td.removeClass('kb-saved'), 900); };
+
+        const fileObj = this.app.vault.getAbstractFileByPath(t.filePath);
+
+        const getDisplayText = () => Array.isArray(val) ? (val as any[]).join(', ') : String(val ?? '');
+
+        // Render display mode with placeholder for empty cells
+        const displayEl = td.createDiv({ cls: 'kb-cell-display' });
+        const isEmpty = !t.frontmatter.hasOwnProperty(key) || t.frontmatter[key] === '' || t.frontmatter[key] === null;
+        if (isEmpty) displayEl.addClass('kb-cell-empty');
+        
+        const setDisplayText = (text: string) => {
+          if (!text.trim()) {
+            displayEl.addClass('kb-cell-empty');
+            displayEl.textContent = '—'; // em dash as placeholder
+          } else {
+            displayEl.removeClass('kb-cell-empty');
+            if (text.includes('\n')) displayEl.innerHTML = text.replace(/\n/g, '<br>');
+            else displayEl.textContent = text;
+          }
+        };
+
+        setDisplayText(getDisplayText());
+
+        // Special: CR link behavior
         if (key === 'crNumber' && val) {
-          const text = String(val);
           const crLink = t.frontmatter['crLink'];
           if (crLink) {
-            const link = td.createEl('a', { text });
+            const link = displayEl.createEl('a', { text: String(val) });
             link.href = '#';
             link.onclick = async (e) => {
               e.preventDefault();
-              // Extract file path from [[path]] wiki link format
               const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
               const file = this.app.vault.getAbstractFileByPath(path);
-              if (file instanceof TFile) {
-                await this.app.workspace.getLeaf(true).openFile(file);
-              }
+              if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
             };
-          } else {
-            td.textContent = text;
-          }
-        } else {
-          const text = Array.isArray(val) ? val.join(', ') : String(val ?? '');
-          // For multiline text, preserve line breaks
-          if (text.includes('\n')) {
-            td.innerHTML = text.replace(/\n/g, '<br>');
-          } else {
-            td.textContent = text;
           }
         }
+
+        // Enter edit mode on double-click
+        displayEl.ondblclick = () => {
+          // Do not allow editing archived rows
+          if (Boolean(t.frontmatter['archived'])) return;
+          // Prevent multiple editors
+          if (td.querySelector('.kb-cell-editor')) return;
+
+          const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : '';
+          const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(', ') : String(startValueRaw ?? '');
+
+          const editor = td.createDiv({ cls: 'kb-cell-editor' });
+          const finish = async (newVal: any) => {
+            // show saving
+            showSaving();
+            try {
+              if (!(fileObj instanceof TFile)) throw new Error('File not found');
+
+              // Decide whether to patch frontmatter or body
+              const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
+
+              if (inFrontmatter || fieldDef.type !== 'freetext') {
+                // Convert comma-separated values to array for tags/people
+                let payload: any = newVal;
+                if (fieldDef.type === 'tags' || fieldDef.type === 'people') {
+                  if (typeof newVal === 'string') {
+                    payload = newVal.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                  }
+                }
+                // For empty string, send '' to overwrite
+                await updateTaskFrontmatter(this.app, fileObj as TFile, { [key]: payload });
+              } else {
+                // update body section (for freetext stored in body). We'll look for a heading matching the label and replace its block.
+                const label = fieldDef.label || key;
+                const content = await this.app.vault.read(fileObj as TFile);
+                const lines = content.split('\n');
+                // locate frontmatter boundaries
+                const firstFm = lines.indexOf('---');
+                let secondFm = -1;
+                if (firstFm !== -1) {
+                  secondFm = lines.slice(firstFm + 1).indexOf('---');
+                  if (secondFm !== -1) secondFm = secondFm + firstFm + 1;
+                }
+                const bodyStart = secondFm !== -1 ? secondFm + 1 : 0;
+                // find heading
+                const headingIdx = lines.slice(bodyStart).findIndex(l => l.trim().startsWith('###') && l.toLowerCase().includes(label.toLowerCase()));
+                let newLines = lines.slice();
+                const newBlock = (typeof newVal === 'string') ? newVal.split('\n') : String(newVal).split('\n');
+                if (headingIdx !== -1) {
+                  const globalHeading = bodyStart + headingIdx;
+                  // find next heading or EOF
+                  let endIdx = globalHeading + 1;
+                  while (endIdx < newLines.length && !/^#{1,6}\s+/.test(newLines[endIdx])) endIdx++;
+                  // replace lines between heading+1 and endIdx with newBlock
+                  const replaced = [...newLines.slice(0, globalHeading + 1), ...newBlock, ...newLines.slice(endIdx)];
+                  newLines = replaced;
+                } else {
+                  // append at end
+                  if (newLines.length > 0 && newLines[newLines.length - 1].trim() !== '') newLines.push('');
+                  newLines.push('### ' + label);
+                  newLines.push(...newBlock);
+                }
+                await this.app.vault.modify(fileObj as TFile, newLines.join('\n'));
+              }
+
+              // update in-memory representation for immediate UI feedback
+              if (fieldDef.type === 'tags' || fieldDef.type === 'people') {
+                if (typeof newVal === 'string') t.frontmatter[key] = newVal.split(',').map(s => s.trim()).filter(Boolean);
+                else t.frontmatter[key] = newVal;
+              } else {
+                t.frontmatter[key] = newVal;
+              }
+              setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(', ') : String(t.frontmatter[key] ?? ''));
+              showSaved();
+            } catch (err) {
+              new Notice('Failed to save: ' + (err as Error).message);
+              td.removeClass('kb-saving');
+            } finally {
+              const ed = td.querySelector('.kb-cell-editor'); if (ed) ed.remove();
+            }
+          };
+
+          // Render editor based on field type
+          if (fieldDef.type === 'status') {
+            const sel = editor.createEl('select');
+            for (const s of this.settings.statuses) { const o = sel.createEl('option', { text: s }); o.value = s; }
+            sel.value = String(t.frontmatter[key] ?? this.settings.statuses[0] ?? '');
+            sel.onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter') { finish(sel.value); } };
+            sel.onblur = () => finish(sel.value);
+            sel.focus();
+          } else if (fieldDef.type === 'date') {
+            const inp = editor.createEl('input') as HTMLInputElement; inp.type = 'date'; inp.value = String(t.frontmatter[key] ?? ''); inp.onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter') finish(inp.value); };
+            inp.onblur = () => finish(inp.value); inp.focus();
+          } else if (fieldDef.type === 'tags' || fieldDef.type === 'people') {
+            // simple tag/people picker: input plus chips
+            const container = editor.createDiv({ cls: 'kb-tags-input-container' });
+            const input = container.createEl('input') as HTMLInputElement; input.addClass('kb-input'); input.type='text';
+            const chips = container.createDiv({ cls: 'kb-selected-tags' });
+            const selected: string[] = Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].slice() : (t.frontmatter[key] ? String(t.frontmatter[key]).split(',').map(s=>s.trim()).filter(Boolean) : []);
+            const renderChips = () => { chips.empty(); for (const tag of selected) { const el = chips.createDiv({ cls: 'kb-tag' }); el.setText(tag); const rem = el.createSpan({ cls: 'kb-tag-remove' }); rem.setText('×'); rem.onclick = (e) => { e.stopPropagation(); const i = selected.indexOf(tag); if (i>-1) selected.splice(i,1); renderChips(); }; } };
+            renderChips();
+            // suggestions
+            const sugg = container.createDiv({ cls: 'kb-tags-suggestions' }); sugg.style.display='none';
+            let allTags: string[] = [];
+            getAllExistingTags(this.app, this.settings).then(tags => { allTags = tags; renderSuggestions(); }).catch(()=>{});
+            const renderSuggestions = (q?: string) => { sugg.empty(); const ql = (q??'').toLowerCase(); let candidates = allTags.filter(t => !selected.includes(t)); if (ql) candidates = candidates.filter(t => t.toLowerCase().includes(ql)); if (ql && !allTags.map(a=>a.toLowerCase()).includes(ql)) { const addOpt = sugg.createDiv({ cls: 'kb-tag-suggestion' }); addOpt.setText(`Add \"${ql}\"`); addOpt.onclick = () => { selected.push(ql); renderChips(); input.value=''; sugg.style.display='none'; input.focus(); }; }
+              for (const c of candidates) { const el = sugg.createDiv({ cls: 'kb-tag-suggestion' }); el.setText(c); el.onclick = () => { selected.push(c); renderChips(); input.value=''; renderSuggestions(); input.focus(); }; }
+              sugg.style.display = candidates.length>0 || (ql && !allTags.map(a=>a.toLowerCase()).includes(ql)) ? 'block' : 'none'; };
+            input.oninput = () => renderSuggestions(input.value);
+            input.onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); const v = input.value.trim(); if (v) { selected.push(v); input.value=''; renderChips(); } } };
+            input.onblur = () => { setTimeout(()=> { finish(selected); }, 150); };
+            input.focus();
+          } else if (fieldDef.type === 'freetext') {
+            const ta = editor.createEl('textarea') as HTMLTextAreaElement; ta.value = startValue; ta.style.width = '100%'; ta.style.minHeight='80px'; ta.onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter' && (e as KeyboardEvent).ctrlKey) { finish(ta.value); } if ((e as KeyboardEvent).key === 'Escape') { const ed = td.querySelector('.kb-cell-editor'); if (ed) ed.remove(); } };
+            ta.onblur = () => finish(ta.value);
+            ta.focus();
+          } else {
+            const inp = editor.createEl('input') as HTMLInputElement; inp.type = fieldDef.type === 'number' ? 'number' : 'text'; inp.value = startValue; inp.onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter') finish(inp.value); if ((e as KeyboardEvent).key === 'Escape') { const ed = td.querySelector('.kb-cell-editor'); if (ed) ed.remove(); } };
+            inp.onblur = () => finish(inp.value);
+            inp.focus();
+          }
+        };
       }
       // Archived column
       const archivedTd = tr.createEl('td');

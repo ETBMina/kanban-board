@@ -71,6 +71,20 @@
 .kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); }
 .kb-chip { padding: 2px 8px; border-radius: 999px; background: var(--tag-bg); border: 1px solid var(--tag-border-color); }
 
+/* Grid cell editing */
+.kb-grid-cell { position: relative; }
+.kb-cell-display { padding: 4px; border-radius: 4px; min-height: 1.2em; }
+.kb-cell-display:hover { background: var(--background-modifier-hover); cursor: pointer; }
+.kb-cell-empty { color: var(--text-muted); font-style: italic; }
+.kb-cell-editor { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 10; }
+.kb-cell-editor input,
+.kb-cell-editor select,
+.kb-cell-editor textarea { width: 100%; height: 100%; min-width: 120px; box-sizing: border-box; background: var(--background-primary); }
+.kb-saving { opacity: 0.6; }
+.kb-saved { position: relative; }
+.kb-saved::after { content: "✓"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); color: var(--interactive-success); font-size: 14px; animation: fadeOut 0.9s ease; }
+@keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+
 /* Kanban */
 .kb-kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .kb-kanban-horizontal { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
