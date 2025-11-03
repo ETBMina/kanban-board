@@ -1,17 +1,15 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
-import { PluginSettings, Subtask, TaskNoteMeta } from '../models';
+import { PluginSettings, Subtask, TaskNoteMeta, ActiveTab } from '../models';
 import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
-
-type ActiveTab = 'grid' | 'board';
 
 export class BoardTabsView extends ItemView {
   private settings: PluginSettings;
   private tasks: TaskNoteMeta[] = [];
   private filterQuery = '';
-  private active: ActiveTab = 'grid';
+  private active: ActiveTab;
   private persistSettings?: () => void | Promise<void>;
   private async promptText(title: string, placeholder = '', initial = ''): Promise<string | undefined> {
     return new Promise((resolve) => {
@@ -45,6 +43,7 @@ export class BoardTabsView extends ItemView {
   constructor(leaf: WorkspaceLeaf, settings: PluginSettings, persistSettings?: () => void | Promise<void>) {
     super(leaf);
     this.settings = settings;
+    this.active = this.settings.lastActiveTab ?? 'grid';
     this.persistSettings = persistSettings;
   }
 
@@ -73,11 +72,11 @@ export class BoardTabsView extends ItemView {
     const gridBtn = tabs.createEl('button', { text: 'Grid' });
     gridBtn.addClass('kb-tab');
     if (this.active === 'grid') gridBtn.addClass('is-active');
-    gridBtn.onclick = () => { this.active = 'grid'; this.render(); };
+    gridBtn.onclick = () => { this.active = 'grid'; this.settings.lastActiveTab = 'grid'; this.persistSettings?.(); this.render(); };
     const boardBtn = tabs.createEl('button', { text: 'Board' });
     boardBtn.addClass('kb-tab');
     if (this.active === 'board') boardBtn.addClass('is-active');
-    boardBtn.onclick = () => { this.active = 'board'; this.render(); };
+    boardBtn.onclick = () => { this.active = 'board'; this.settings.lastActiveTab = 'board'; this.persistSettings?.(); this.render(); };
 
     const menuBtn = tabs.createEl('button', { text: '⋯' });
     menuBtn.addClass('kb-ellipsis');

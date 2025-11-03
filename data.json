@@ -121,5 +121,6 @@
       "label": "Description",
       "type": "freetext"
     }
-  ]
+  ],
+  "lastActiveTab": "board"
 }

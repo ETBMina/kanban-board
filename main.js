@@ -54,7 +54,8 @@ var DEFAULT_SETTINGS = {
     { key: "emailSubject", label: "Email Subject", type: "text" },
     { key: "solutionDesign", label: "Solution design link", type: "url" },
     { key: "description", label: "Description", type: "freetext" }
-  ]
+  ],
+  lastActiveTab: "grid"
 };
 
 // src/settings.ts
@@ -20765,11 +20766,12 @@ var version = XLSX.version;
 var BOARD_TABS_VIEW_TYPE = "kb-board-tabs-view";
 var BoardTabsView = class extends import_obsidian3.ItemView {
   constructor(leaf, settings, persistSettings) {
+    var _a;
     super(leaf);
     this.tasks = [];
     this.filterQuery = "";
-    this.active = "grid";
     this.settings = settings;
+    this.active = (_a = this.settings.lastActiveTab) != null ? _a : "grid";
     this.persistSettings = persistSettings;
   }
   async promptText(title, placeholder = "", initial = "") {
@@ -20837,14 +20839,20 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     gridBtn.addClass("kb-tab");
     if (this.active === "grid") gridBtn.addClass("is-active");
     gridBtn.onclick = () => {
+      var _a;
       this.active = "grid";
+      this.settings.lastActiveTab = "grid";
+      (_a = this.persistSettings) == null ? void 0 : _a.call(this);
       this.render();
     };
     const boardBtn = tabs.createEl("button", { text: "Board" });
     boardBtn.addClass("kb-tab");
     if (this.active === "board") boardBtn.addClass("is-active");
     boardBtn.onclick = () => {
+      var _a;
       this.active = "board";
+      this.settings.lastActiveTab = "board";
+      (_a = this.persistSettings) == null ? void 0 : _a.call(this);
       this.render();
     };
     const menuBtn = tabs.createEl("button", { text: "\u22EF" });

@@ -1,4 +1,5 @@
 export type FieldType = 'text' | 'number' | 'date' | 'status' | 'tags' | 'url' | 'people' | 'freetext';
+export type ActiveTab = 'grid' | 'board';
 
 export interface TaskFieldDefinition {
   key: string; // frontmatter key
@@ -13,6 +14,7 @@ export interface PluginSettings {
   gridVisibleColumns: string[]; // keys to display
   crFolder?: string;
   crTemplateFields?: TaskFieldDefinition[];
+  lastActiveTab?: ActiveTab;
 }
 
 export interface Subtask {
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     { key: 'emailSubject', label: 'Email Subject', type: 'text' },
     { key: 'solutionDesign', label: 'Solution design link', type: 'url' },
     { key: 'description', label: 'Description', type: 'freetext' }
-  ]
+  ],
+  lastActiveTab: 'grid'
 };
 
