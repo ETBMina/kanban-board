@@ -384,7 +384,8 @@ export class BoardTabsView extends ItemView {
 
   // GRID
   private getFilteredTasks(): TaskNoteMeta[] {
-    let tasks = [...this.tasks]; // Create a copy to sort
+    const taskFolder = normalizePath(this.settings.taskFolder);
+    let tasks = this.tasks.filter(t => t.filePath.startsWith(taskFolder + '/')); // Create a copy to sort
     
     // Sort by createdAt timestamp in descending order (newest first)
     tasks.sort((a, b) => {
