@@ -67,6 +67,34 @@
 .kb-tag-suggestion:hover {
   background: var(--background-modifier-hover);
 }
+/* Inline/tag preview styles for grid */
+.kb-tags-preview { display:flex; gap:8px; align-items:center; }
+.kb-tag-large { padding: 6px 10px; border-radius: 12px; font-size: 13px; }
+.kb-tag-more { padding: 6px 8px; border-radius: 12px; font-size: 13px; background: rgba(0,0,0,0.06); }
+.kb-cell-inline-select { width: 100%; padding: 6px 8px; box-sizing: border-box; }
+.kb-cell-inline-date { padding: 4px 8px; }
+.kb-tag-modal { padding: 12px; }
+.kb-tag-modal-body { display:flex; flex-direction:column; gap:8px; }
+.kb-modal-selected { min-height: 40px; }
+.kb-tag-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+
+/* Tag modal visibility and background to avoid transparency over grid */
+.kb-tag-modal {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-s);
+  min-width: 320px;
+  z-index: 3000;
+}
+.kb-tag-modal .kb-tags-suggestions {
+  position: relative;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: var(--shadow-s);
+  z-index: 3100;
+}
 .kb-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); }
 .kb-chip { padding: 2px 8px; border-radius: 999px; background: var(--tag-bg); border: 1px solid var(--tag-border-color); }

@@ -20920,6 +20920,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     });
   }
   renderGrid(container) {
+    var _a, _b, _c;
     const old = container.querySelector(".kb-grid-wrap");
     if (old) old.remove();
     const wrap = container.createDiv({ cls: "kb-grid-wrap" });
@@ -20978,202 +20979,223 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             };
           }
         }
-        displayEl.ondblclick = () => {
-          var _a, _b, _c;
-          if (Boolean(t.frontmatter["archived"])) return;
-          if (td.querySelector(".kb-cell-editor")) return;
-          const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : "";
-          const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(", ") : String(startValueRaw != null ? startValueRaw : "");
-          const editor = td.createDiv({ cls: "kb-cell-editor" });
-          const finish = async (newVal) => {
-            var _a2;
-            showSaving();
-            try {
-              if (!(fileObj instanceof import_obsidian3.TFile)) throw new Error("File not found");
-              const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
-              if (inFrontmatter || fieldDef.type !== "freetext") {
-                let payload = newVal;
-                if (fieldDef.type === "tags" || fieldDef.type === "people") {
-                  if (typeof newVal === "string") {
-                    payload = newVal.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-                  }
-                }
-                await updateTaskFrontmatter(this.app, fileObj, { [key]: payload });
-              } else {
-                const label = fieldDef.label || key;
-                const content = await this.app.vault.read(fileObj);
-                const lines = content.split("\n");
-                const firstFm = lines.indexOf("---");
-                let secondFm = -1;
-                if (firstFm !== -1) {
-                  secondFm = lines.slice(firstFm + 1).indexOf("---");
-                  if (secondFm !== -1) secondFm = secondFm + firstFm + 1;
-                }
-                const bodyStart = secondFm !== -1 ? secondFm + 1 : 0;
-                const headingIdx = lines.slice(bodyStart).findIndex((l) => l.trim().startsWith("###") && l.toLowerCase().includes(label.toLowerCase()));
-                let newLines = lines.slice();
-                const newBlock = typeof newVal === "string" ? newVal.split("\n") : String(newVal).split("\n");
-                if (headingIdx !== -1) {
-                  const globalHeading = bodyStart + headingIdx;
-                  let endIdx = globalHeading + 1;
-                  while (endIdx < newLines.length && !/^#{1,6}\s+/.test(newLines[endIdx])) endIdx++;
-                  const replaced = [...newLines.slice(0, globalHeading + 1), ...newBlock, ...newLines.slice(endIdx)];
-                  newLines = replaced;
-                } else {
-                  if (newLines.length > 0 && newLines[newLines.length - 1].trim() !== "") newLines.push("");
-                  newLines.push("### " + label);
-                  newLines.push(...newBlock);
-                }
-                await this.app.vault.modify(fileObj, newLines.join("\n"));
-              }
+        const saveValue = async (newVal) => {
+          var _a2;
+          showSaving();
+          try {
+            if (!(fileObj instanceof import_obsidian3.TFile)) throw new Error("File not found");
+            const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
+            if (inFrontmatter || fieldDef.type !== "freetext") {
+              let payload = newVal;
               if (fieldDef.type === "tags" || fieldDef.type === "people") {
-                if (typeof newVal === "string") t.frontmatter[key] = newVal.split(",").map((s) => s.trim()).filter(Boolean);
-                else t.frontmatter[key] = newVal;
+                if (typeof newVal === "string") payload = newVal.split(",").map((s) => s.trim()).filter(Boolean);
+              }
+              await updateTaskFrontmatter(this.app, fileObj, { [key]: payload });
+            } else {
+              const label = fieldDef.label || key;
+              const content = await this.app.vault.read(fileObj);
+              const lines = content.split("\n");
+              const firstFm = lines.indexOf("---");
+              let secondFm = -1;
+              if (firstFm !== -1) {
+                secondFm = lines.slice(firstFm + 1).indexOf("---");
+                if (secondFm !== -1) secondFm = secondFm + firstFm + 1;
+              }
+              const bodyStart = secondFm !== -1 ? secondFm + 1 : 0;
+              const headingIdx = lines.slice(bodyStart).findIndex((l) => l.trim().startsWith("###") && l.toLowerCase().includes(label.toLowerCase()));
+              let newLines = lines.slice();
+              const newBlock = typeof newVal === "string" ? newVal.split("\n") : String(newVal).split("\n");
+              if (headingIdx !== -1) {
+                const globalHeading = bodyStart + headingIdx;
+                let endIdx = globalHeading + 1;
+                while (endIdx < newLines.length && !/^#{1,6}\s+/.test(newLines[endIdx])) endIdx++;
+                newLines = [...newLines.slice(0, globalHeading + 1), ...newBlock, ...newLines.slice(endIdx)];
               } else {
-                t.frontmatter[key] = newVal;
+                if (newLines.length > 0 && newLines[newLines.length - 1].trim() !== "") newLines.push("");
+                newLines.push("### " + label);
+                newLines.push(...newBlock);
               }
-              setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(", ") : String((_a2 = t.frontmatter[key]) != null ? _a2 : ""));
-              showSaved();
-            } catch (err) {
-              new import_obsidian3.Notice("Failed to save: " + err.message);
-              td.removeClass("kb-saving");
-            } finally {
-              const ed = td.querySelector(".kb-cell-editor");
-              if (ed) ed.remove();
+              await this.app.vault.modify(fileObj, newLines.join("\n"));
             }
-          };
-          if (fieldDef.type === "status") {
-            const sel = editor.createEl("select");
-            for (const s of this.settings.statuses) {
-              const o = sel.createEl("option", { text: s });
-              o.value = s;
+            if (fieldDef.type === "tags" || fieldDef.type === "people") {
+              if (typeof newVal === "string") t.frontmatter[key] = newVal.split(",").map((s) => s.trim()).filter(Boolean);
+              else t.frontmatter[key] = newVal;
+            } else {
+              t.frontmatter[key] = newVal;
             }
-            sel.value = String((_b = (_a = t.frontmatter[key]) != null ? _a : this.settings.statuses[0]) != null ? _b : "");
-            sel.onkeydown = (e) => {
-              if (e.key === "Enter") {
-                finish(sel.value);
-              }
-            };
-            sel.onblur = () => finish(sel.value);
-            sel.focus();
-          } else if (fieldDef.type === "date") {
-            const inp = editor.createEl("input");
-            inp.type = "date";
-            inp.value = String((_c = t.frontmatter[key]) != null ? _c : "");
-            inp.onkeydown = (e) => {
-              if (e.key === "Enter") finish(inp.value);
-            };
-            inp.onblur = () => finish(inp.value);
-            inp.focus();
-          } else if (fieldDef.type === "tags" || fieldDef.type === "people") {
-            const container2 = editor.createDiv({ cls: "kb-tags-input-container" });
-            const input = container2.createEl("input");
-            input.addClass("kb-input");
-            input.type = "text";
-            const chips = container2.createDiv({ cls: "kb-selected-tags" });
-            const selected = Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].slice() : t.frontmatter[key] ? String(t.frontmatter[key]).split(",").map((s) => s.trim()).filter(Boolean) : [];
-            const renderChips = () => {
-              chips.empty();
-              for (const tag of selected) {
-                const el = chips.createDiv({ cls: "kb-tag" });
-                el.setText(tag);
-                const rem = el.createSpan({ cls: "kb-tag-remove" });
-                rem.setText("\xD7");
-                rem.onclick = (e) => {
-                  e.stopPropagation();
-                  const i = selected.indexOf(tag);
-                  if (i > -1) selected.splice(i, 1);
-                  renderChips();
-                };
-              }
-            };
-            renderChips();
-            const sugg = container2.createDiv({ cls: "kb-tags-suggestions" });
-            sugg.style.display = "none";
-            let allTags = [];
-            getAllExistingTags(this.app, this.settings).then((tags) => {
-              allTags = tags;
-              renderSuggestions();
-            }).catch(() => {
-            });
-            const renderSuggestions = (q) => {
-              sugg.empty();
-              const ql = (q != null ? q : "").toLowerCase();
-              let candidates = allTags.filter((t2) => !selected.includes(t2));
-              if (ql) candidates = candidates.filter((t2) => t2.toLowerCase().includes(ql));
-              if (ql && !allTags.map((a) => a.toLowerCase()).includes(ql)) {
-                const addOpt = sugg.createDiv({ cls: "kb-tag-suggestion" });
-                addOpt.setText(`Add "${ql}"`);
-                addOpt.onclick = () => {
-                  selected.push(ql);
-                  renderChips();
-                  input.value = "";
-                  sugg.style.display = "none";
-                  input.focus();
-                };
-              }
-              for (const c of candidates) {
-                const el = sugg.createDiv({ cls: "kb-tag-suggestion" });
-                el.setText(c);
-                el.onclick = () => {
-                  selected.push(c);
-                  renderChips();
-                  input.value = "";
-                  renderSuggestions();
-                  input.focus();
-                };
-              }
-              sugg.style.display = candidates.length > 0 || ql && !allTags.map((a) => a.toLowerCase()).includes(ql) ? "block" : "none";
-            };
-            input.oninput = () => renderSuggestions(input.value);
-            input.onkeydown = (e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                const v = input.value.trim();
-                if (v) {
-                  selected.push(v);
-                  input.value = "";
-                  renderChips();
-                }
-              }
-            };
-            input.onblur = () => {
-              setTimeout(() => {
-                finish(selected);
-              }, 150);
-            };
-            input.focus();
-          } else if (fieldDef.type === "freetext") {
-            const ta = editor.createEl("textarea");
-            ta.value = startValue;
-            ta.style.width = "100%";
-            ta.style.minHeight = "80px";
-            ta.onkeydown = (e) => {
-              if (e.key === "Enter" && e.ctrlKey) {
-                finish(ta.value);
-              }
-              if (e.key === "Escape") {
-                const ed = td.querySelector(".kb-cell-editor");
-                if (ed) ed.remove();
-              }
-            };
-            ta.onblur = () => finish(ta.value);
-            ta.focus();
-          } else {
-            const inp = editor.createEl("input");
-            inp.type = fieldDef.type === "number" ? "number" : "text";
-            inp.value = startValue;
-            inp.onkeydown = (e) => {
-              if (e.key === "Enter") finish(inp.value);
-              if (e.key === "Escape") {
-                const ed = td.querySelector(".kb-cell-editor");
-                if (ed) ed.remove();
-              }
-            };
-            inp.onblur = () => finish(inp.value);
-            inp.focus();
+            setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(", ") : String((_a2 = t.frontmatter[key]) != null ? _a2 : ""));
+            showSaved();
+          } catch (err) {
+            new import_obsidian3.Notice("Failed to save: " + err.message);
+            td.removeClass("kb-saving");
           }
         };
+        if (Boolean(t.frontmatter["archived"])) {
+        } else if (fieldDef.type === "status") {
+          displayEl.style.display = "none";
+          const sel = td.createEl("select");
+          sel.addClass("kb-cell-inline-select");
+          for (const s of this.settings.statuses) {
+            const o = sel.createEl("option", { text: s });
+            o.value = s;
+          }
+          sel.value = String((_b = (_a = t.frontmatter[key]) != null ? _a : this.settings.statuses[0]) != null ? _b : "");
+          sel.onchange = () => saveValue(sel.value);
+        } else if (fieldDef.type === "date") {
+          displayEl.style.display = "none";
+          const inp = td.createEl("input");
+          inp.type = "date";
+          inp.value = String((_c = t.frontmatter[key]) != null ? _c : "");
+          inp.addClass("kb-cell-inline-date");
+          inp.onchange = () => saveValue(inp.value);
+        } else if (fieldDef.type === "tags" || fieldDef.type === "people") {
+          displayEl.style.display = "none";
+          const tagsArr = Array.isArray(t.frontmatter[key]) ? t.frontmatter[key] : t.frontmatter[key] ? String(t.frontmatter[key]).split(",").map((s) => s.trim()).filter(Boolean) : [];
+          const preview = td.createDiv({ cls: "kb-tags-preview" });
+          if (tagsArr.length > 0) {
+            const first = preview.createDiv({ cls: "kb-tag kb-tag-large" });
+            first.setText(tagsArr[0]);
+            if (tagsArr.length > 1) {
+              const more = preview.createDiv({ cls: "kb-tag kb-tag-more" });
+              more.setText(`+${tagsArr.length - 1}`);
+            }
+          } else {
+            preview.createDiv({ cls: "kb-cell-empty" }).setText("\u2014");
+          }
+          preview.onclick = (e) => {
+            e.stopPropagation();
+            const outer = this;
+            class TagEditorModal extends import_obsidian3.Modal {
+              constructor() {
+                super(outer.app);
+                this.selected = tagsArr.slice();
+                this.allTags = [];
+              }
+              onOpen() {
+                this.containerEl.empty();
+                this.containerEl.addClass("kb-tag-modal");
+                this.containerEl.createEl("h3", { text: "Edit tags" });
+                this.containerElInner = this.containerEl.createDiv({ cls: "kb-tag-modal-body" });
+                const chips = this.containerElInner.createDiv({ cls: "kb-selected-tags kb-modal-selected" });
+                const input = this.containerElInner.createEl("input");
+                input.placeholder = "Add tag...";
+                input.addClass("kb-input");
+                const sugg = this.containerElInner.createDiv({ cls: "kb-tags-suggestions" });
+                const renderChips = () => {
+                  chips.empty();
+                  for (const tag of this.selected) {
+                    const el = chips.createDiv({ cls: "kb-tag" });
+                    el.setText(tag);
+                    const rem = el.createSpan({ cls: "kb-tag-remove" });
+                    rem.setText("\xD7");
+                    rem.onclick = (ev) => {
+                      ev.stopPropagation();
+                      const i = this.selected.indexOf(tag);
+                      if (i > -1) this.selected.splice(i, 1);
+                      renderChips();
+                    };
+                  }
+                };
+                getAllExistingTags(outer.app, outer.settings).then((tags) => {
+                  this.allTags = tags;
+                  renderSuggestions();
+                }).catch(() => {
+                });
+                const renderSuggestions = (q) => {
+                  sugg.empty();
+                  const ql = (q != null ? q : "").toLowerCase();
+                  let candidates = this.allTags.filter((t2) => !this.selected.includes(t2));
+                  if (ql) candidates = candidates.filter((t2) => t2.toLowerCase().includes(ql));
+                  if (ql && !this.allTags.map((a) => a.toLowerCase()).includes(ql)) {
+                    const addOpt = sugg.createDiv({ cls: "kb-tag-suggestion" });
+                    addOpt.setText(`Add "${ql}"`);
+                    addOpt.onclick = () => {
+                      this.selected.push(ql);
+                      renderChips();
+                      input.value = "";
+                      renderSuggestions();
+                      input.focus();
+                    };
+                  }
+                  for (const c of candidates) {
+                    const el = sugg.createDiv({ cls: "kb-tag-suggestion" });
+                    el.setText(c);
+                    el.onclick = () => {
+                      this.selected.push(c);
+                      renderChips();
+                      input.value = "";
+                      renderSuggestions();
+                      input.focus();
+                    };
+                  }
+                };
+                input.oninput = () => {
+                  renderSuggestions(input.value);
+                };
+                input.onkeydown = (ev) => {
+                  if (ev.key === "Enter") {
+                    ev.preventDefault();
+                    const v = input.value.trim();
+                    if (v) {
+                      this.selected.push(v);
+                      input.value = "";
+                      renderChips();
+                      renderSuggestions();
+                    }
+                  }
+                };
+                renderChips();
+                const actions = this.containerEl.createDiv({ cls: "kb-tag-modal-actions" });
+                const saveBtn = actions.createEl("button", { text: "Save" });
+                const cancelBtn = actions.createEl("button", { text: "Cancel" });
+                saveBtn.onclick = async () => {
+                  await saveValue(this.selected);
+                  this.close();
+                };
+                cancelBtn.onclick = () => this.close();
+              }
+            }
+            const m = new TagEditorModal();
+            m.open();
+          };
+        } else {
+          displayEl.onclick = () => {
+            if (Boolean(t.frontmatter["archived"])) return;
+            if (td.querySelector(".kb-cell-editor")) return;
+            const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : "";
+            const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(", ") : String(startValueRaw != null ? startValueRaw : "");
+            const editor = td.createDiv({ cls: "kb-cell-editor" });
+            if (key === "notes") {
+              const inp = editor.createEl("textarea");
+              inp.value = startValue;
+              inp.onkeydown = (e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  saveValue(inp.value);
+                }
+                if (e.key === "Escape") {
+                  const ed = td.querySelector(".kb-cell-editor");
+                  if (ed) ed.remove();
+                }
+              };
+              inp.onblur = () => saveValue(inp.value);
+              inp.focus();
+            } else {
+              const inp = editor.createEl("input");
+              inp.type = fieldDef.type === "number" ? "number" : "text";
+              inp.value = startValue;
+              inp.onkeydown = (e) => {
+                if (e.key === "Enter") saveValue(inp.value);
+                if (e.key === "Escape") {
+                  const ed = td.querySelector(".kb-cell-editor");
+                  if (ed) ed.remove();
+                }
+              };
+              inp.onblur = () => saveValue(inp.value);
+              inp.focus();
+            }
+          };
+        }
       }
       const archivedTd = tr.createEl("td");
       archivedTd.createSpan({ text: isArchived ? "Yes" : "No" });
