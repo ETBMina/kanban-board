@@ -20881,10 +20881,22 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     const allItems = await readAllItems(this.app, this.settings);
     const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.taskFolder);
     const crFolder = this.settings.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.crFolder) : null;
-    const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => t.frontmatter);
+    const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
+      const frontmatter = t.frontmatter;
+      if (frontmatter && Array.isArray(frontmatter.tags)) {
+        frontmatter.tags = frontmatter.tags.join(", ");
+      }
+      return frontmatter;
+    });
     let crData = [];
     if (crFolder) {
-      crData = allItems.filter((t) => t.filePath.startsWith(crFolder + "/")).map((t) => t.frontmatter);
+      crData = allItems.filter((t) => t.filePath.startsWith(crFolder + "/")).map((t) => {
+        const frontmatter = t.frontmatter;
+        if (frontmatter && Array.isArray(frontmatter.tags)) {
+          frontmatter.tags = frontmatter.tags.join(", ");
+        }
+        return frontmatter;
+      });
     }
     const wb = utils.book_new();
     const wsTasks = utils.json_to_sheet(tasksData);

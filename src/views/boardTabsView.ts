@@ -110,13 +110,25 @@ export class BoardTabsView extends ItemView {
 
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
-      .map(t => t.frontmatter);
+      .map(t => {
+        const frontmatter = t.frontmatter;
+        if (frontmatter && Array.isArray(frontmatter.tags)) {
+          frontmatter.tags = frontmatter.tags.join(', ');
+        }
+        return frontmatter;
+      });
     
     let crData: any[] = [];
     if (crFolder) {
       crData = allItems
         .filter(t => t.filePath.startsWith(crFolder + '/'))
-        .map(t => t.frontmatter);
+        .map(t => {
+          const frontmatter = t.frontmatter;
+          if (frontmatter && Array.isArray(frontmatter.tags)) {
+            frontmatter.tags = frontmatter.tags.join(', ');
+          }
+          return frontmatter;
+        });
     }
 
     const wb = XLSX.utils.book_new();
