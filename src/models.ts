@@ -22,7 +22,10 @@ export interface Subtask {
   completed: boolean;
 }
 
+import { TFile } from "obsidian";
+
 export interface TaskNoteMeta {
+  file: TFile;
   filePath: string;
   fileName: string;
   frontmatter: Record<string, any>;
@@ -47,9 +50,10 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     { key: 'plannedEnd', label: 'Planned end date', type: 'date' },
     { key: 'actualStart', label: 'Actual start date', type: 'date' },
     { key: 'actualEnd', label: 'Actual end date', type: 'date' },
-    { key: 'notes', label: 'Notes', type: 'freetext' }
+    { key: 'notes', label: 'Notes', type: 'freetext' },
+    { key: 'subtasks', label: 'Subtasks', type: 'freetext' }
   ],
-  gridVisibleColumns: ['crNumber', 'taskNumber', 'title', 'service', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags', 'notes'],
+  gridVisibleColumns: ['crNumber', 'taskNumber', 'title', 'service', 'status', 'priority', 'assignee', 'startDate', 'endDate', 'tags', 'notes', 'subtasks'],
   crFolder: 'Change Requests',
   crTemplateFields: [
     { key: 'number', label: 'CR Number', type: 'text' },

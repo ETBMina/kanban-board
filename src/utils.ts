@@ -93,7 +93,7 @@ export async function readAllItems(app: App, settings: PluginSettings): Promise<
         }
       }
     }
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
+    results.push({ file, filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
   }
   return results;
 }
@@ -121,7 +121,7 @@ export async function readAllTasks(app: App, settings: PluginSettings): Promise<
         }
       }
     }
-    results.push({ filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
+    results.push({ file, filePath: file.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: fm, subtasks });
   }
   return results;
 }

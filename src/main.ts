@@ -32,7 +32,15 @@ export default class KanbanPlugin extends Plugin {
       callback: () => this.createCrFromTemplate(),
     });
 
-    this.addRibbonIcon('sheets-in-box', 'Open Tasks (Tabs)', () => this.activateTabsView());
+    this.addCommand({
+      id: 'import-csv',
+      name: 'Import from CSV',
+      callback: () => this.app.workspace.getLeavesOfType(BOARD_TABS_VIEW_TYPE).forEach(leaf => {
+        if (leaf.view instanceof BoardTabsView) {
+          leaf.view.importFromCsv();
+        }
+      }),
+    });
 
     // Global listener: if a task's status becomes Completed/Done, set endDate automatically
     this.registerEvent(this.app.metadataCache.on('changed', async (file) => {

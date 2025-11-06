@@ -1,7 +1,7 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
 import { PluginSettings, Subtask, TaskNoteMeta, ActiveTab } from '../models';
-import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems } from '../utils';
+import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -59,7 +59,7 @@ export class BoardTabsView extends ItemView {
   }
 
   async reload() {
-    this.tasks = await readAllTasks(this.app, this.settings);
+    this.tasks = await readAllItems(this.app, this.settings);
     this.render();
   }
 
@@ -82,7 +82,12 @@ export class BoardTabsView extends ItemView {
     menuBtn.addClass('kb-ellipsis');
     menuBtn.onclick = (ev) => {
       const menu = new Menu();
+      menu.addItem((i) => i.setTitle('Export to CSV').onClick(() => this.exportToCsv()));
       menu.addItem((i) => i.setTitle('Export to Excel').onClick(() => this.exportToExcel()));
+      menu.addItem((i) => i.setTitle('Export to JSON').onClick(() => this.exportToJson()));
+      menu.addItem((i) => i.setTitle('Import from CSV').onClick(() => this.importFromCsv()));
+      menu.addItem((i) => i.setTitle('Import from Excel').onClick(() => this.importFromExcel()));
+      menu.addItem((i) => i.setTitle('Import from JSON').onClick(() => this.importFromJson()));
       const e = ev as MouseEvent;
       menu.showAtPosition({ x: e.clientX, y: e.clientY });
     };
@@ -103,7 +108,143 @@ export class BoardTabsView extends ItemView {
     if (this.active === 'grid') this.renderGrid(c); else this.renderBoard(c);
   }
 
-  private async exportToExcel() {
+  public async importFromJson() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string);
+          if (data.tasks) {
+            await this.processImportData(data.tasks, 'task');
+          }
+          if (data.crs) {
+            await this.processImportData(data.crs, 'cr');
+          }
+          new Notice('Import complete');
+          await this.reload();
+        } catch (error) {
+          new Notice('Failed to import file: ' + (error as Error).message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  public async exportToJson() {
+    const allItems = await readAllItems(this.app, this.settings);
+    const taskFolder = normalizePath(this.settings.taskFolder);
+    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+
+    const tasksData = allItems
+      .filter(t => t.filePath.startsWith(taskFolder + '/'))
+      .map(t => t.frontmatter);
+    
+    let crData: any[] = [];
+    if (crFolder) {
+      crData = allItems
+        .filter(t => t.filePath.startsWith(crFolder + '/'))
+        .map(t => t.frontmatter);
+    }
+
+    const data = { tasks: tasksData, crs: crData };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const fileName = `Kanban-Export-${new Date().toISOString().slice(0, 10)}.json`;
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  public async importFromCsv() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result as string;
+          const workbook = XLSX.read(data, { type: 'string' });
+
+          // Process Tasks
+          const taskSheet = workbook.Sheets[workbook.SheetNames[0]];
+          if (taskSheet) {
+            const taskData = XLSX.utils.sheet_to_json(taskSheet);
+            await this.processImportData(taskData, 'task');
+          }
+
+          // Process Change Requests
+          const crSheet = workbook.Sheets[workbook.SheetNames[1]];
+          if (crSheet) {
+            const crData = XLSX.utils.sheet_to_json(crSheet);
+            await this.processImportData(crData, 'cr');
+          }
+
+          new Notice('Import complete');
+          await this.reload();
+        } catch (error) {
+          new Notice('Failed to import file: ' + (error as Error).message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  public async importFromExcel() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result;
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          // Process Tasks
+          const taskSheet = workbook.Sheets['Tasks'];
+          if (taskSheet) {
+            const taskData = XLSX.utils.sheet_to_json(taskSheet);
+            await this.processImportData(taskData, 'task');
+          }
+
+          // Process Change Requests
+          const crSheet = workbook.Sheets['Change Requests'];
+          if (crSheet) {
+            const crData = XLSX.utils.sheet_to_json(crSheet);
+            await this.processImportData(crData, 'cr');
+          }
+
+          new Notice('Import complete');
+          await this.reload();
+        } catch (error) {
+          new Notice('Failed to import file: ' + (error as Error).message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    };
+    input.click();
+  }
+
+
+  public async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
     const taskFolder = normalizePath(this.settings.taskFolder);
     const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
@@ -115,6 +256,7 @@ export class BoardTabsView extends ItemView {
         if (frontmatter && Array.isArray(frontmatter.tags)) {
           frontmatter.tags = frontmatter.tags.join(', ');
         }
+        frontmatter.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
         return frontmatter;
       });
     
@@ -148,6 +290,96 @@ export class BoardTabsView extends ItemView {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  public async exportToCsv() {
+    const allItems = await readAllItems(this.app, this.settings);
+    const taskFolder = normalizePath(this.settings.taskFolder);
+    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+
+    const tasksData = allItems
+      .filter(t => t.filePath.startsWith(taskFolder + '/'))
+      .map(t => t.frontmatter);
+    
+    let crData: any[] = [];
+    if (crFolder) {
+      crData = allItems
+        .filter(t => t.filePath.startsWith(crFolder + '/'))
+        .map(t => t.frontmatter);
+    }
+
+    const wb = XLSX.utils.book_new();
+    const wsTasks = XLSX.utils.json_to_sheet(tasksData);
+    const wsCr = XLSX.utils.json_to_sheet(crData);
+
+    XLSX.utils.book_append_sheet(wb, wsTasks, 'Tasks');
+    XLSX.utils.book_append_sheet(wb, wsCr, 'Change Requests');
+
+    const wbout = XLSX.write(wb, { bookType: 'csv', type: 'array' });
+    const blob = new Blob([wbout], { type: 'text/csv;charset=utf-8;' });
+    const fileName = `Kanban-Export-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+
+
+  private async processImportData(data: any[], type: 'task' | 'cr') {
+    const allItems = await readAllItems(this.app, this.settings);
+    const folder = type === 'cr' ? this.settings.crFolder : this.settings.taskFolder;
+    if (!folder) {
+      new Notice(`Folder for ${type}s is not configured.`);
+      return;
+    }
+
+    for (const item of data) {
+      const numberField = type === 'cr' ? 'number' : 'taskNumber';
+      const number = item[numberField];
+      if (!number) continue;
+
+      if (item.tags && typeof item.tags === 'string') {
+        item.tags = item.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+      }
+
+      if (type === 'task' && !item.crLink && item.crNumber) {
+        const cr = allItems.find(i => i.frontmatter.number === item.crNumber);
+        if (cr) {
+          item.crLink = `[[${cr.filePath}]]`;
+        }
+      }
+
+      const existingFile = allItems.find(i => i.frontmatter[numberField] === number);
+
+      if (existingFile) {
+        // Update existing
+        await updateTaskFrontmatter(this.app, existingFile.file, item);
+
+      } else {
+        // Create new
+        let fileName = '';
+        if (type === 'cr') {
+          const title = item.title || `CR-${number}`;
+          fileName = `${folder}/${number} - ${title}.md`;
+        } else {
+          const title = item.title || `T-${number}`;
+          fileName = `${folder}/${title}.md`;
+        }
+
+        const frontmatter = item;
+
+        let content = buildFrontmatterYAML(frontmatter);
+        if (item.subtasks) {
+          content += '\n### Subtasks\n';
+          content += item.subtasks;
+        }
+        await this.app.vault.create(fileName, content);
+      }
+    }
   }
 
   // GRID
@@ -691,9 +923,11 @@ export class BoardTabsView extends ItemView {
           let draggedTask = tasksInCol.find(t => t.filePath === payload.path);
           if (!draggedTask) {
             const cache = this.app.metadataCache.getFileCache(file);
-            draggedTask = { filePath: payload.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: cache?.frontmatter ?? {}, subtasks: [] };
+            draggedTask = { file, filePath: payload.path, fileName: file.name.replace(/\.md$/, ''), frontmatter: cache?.frontmatter ?? {}, subtasks: [] };
           }
-          tasksInCol.splice(insertIndex, 0, draggedTask);
+          if (draggedTask) {
+            tasksInCol.splice(insertIndex, 0, draggedTask);
+          }
 
           // If status changed, we will patch status and potentially dates
           const isCompleted = /^(completed|done)$/i.test(status);
