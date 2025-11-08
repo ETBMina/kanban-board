@@ -252,12 +252,14 @@ export class BoardTabsView extends ItemView {
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
       .map(t => {
-        const frontmatter = t.frontmatter;
-        if (frontmatter && Array.isArray(frontmatter.tags)) {
-          frontmatter.tags = frontmatter.tags.join(', ');
-        }
-        frontmatter.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
-        return frontmatter;
+        // Build a clean export object so we don't mutate in-memory frontmatter
+        const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
+        if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
+        fm.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
+        // Ensure archived presence and a human-friendly Archived column
+        fm.archived = Boolean(fm.archived);
+        fm.Archived = fm.archived ? 'Yes' : 'No';
+        return fm;
       });
     
     let crData: any[] = [];
@@ -265,12 +267,12 @@ export class BoardTabsView extends ItemView {
       crData = allItems
         .filter(t => t.filePath.startsWith(crFolder + '/'))
         .map(t => {
-          const frontmatter = t.frontmatter;
-          if (frontmatter && Array.isArray(frontmatter.tags)) {
-            frontmatter.tags = frontmatter.tags.join(', ');
-          }
-          return frontmatter;
-        });
+            const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
+            if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
+            fm.archived = Boolean(fm.archived);
+            fm.Archived = fm.archived ? 'Yes' : 'No';
+            return fm;
+          });
     }
 
     const wb = XLSX.utils.book_new();
@@ -299,13 +301,26 @@ export class BoardTabsView extends ItemView {
 
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
-      .map(t => t.frontmatter);
+      .map(t => {
+        const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
+        if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
+        fm.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
+        fm.archived = Boolean(fm.archived);
+        fm.Archived = fm.archived ? 'Yes' : 'No';
+        return fm;
+      });
     
     let crData: any[] = [];
     if (crFolder) {
       crData = allItems
         .filter(t => t.filePath.startsWith(crFolder + '/'))
-        .map(t => t.frontmatter);
+        .map(t => {
+          const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
+          if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
+          fm.archived = Boolean(fm.archived);
+          fm.Archived = fm.archived ? 'Yes' : 'No';
+          return fm;
+        });
     }
 
     const wb = XLSX.utils.book_new();
@@ -342,10 +357,27 @@ export class BoardTabsView extends ItemView {
       const number = item[numberField];
       if (!number) continue;
 
+      // Normalize tags from CSV/Excel string into array
       if (item.tags && typeof item.tags === 'string') {
         item.tags = item.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
       }
 
+      // Normalize archived value coming from various export formats
+      if (item.hasOwnProperty('Archived') || item.hasOwnProperty('archived')) {
+        const raw = item.hasOwnProperty('Archived') ? item['Archived'] : item['archived'];
+        const parsed = (v: any) => {
+          if (v === undefined || v === null) return undefined;
+          if (typeof v === 'boolean') return v;
+          const s = String(v).trim().toLowerCase();
+          if (['yes', 'y', 'true', '1'].includes(s)) return true;
+          if (['no', 'n', 'false', '0'].includes(s)) return false;
+          return Boolean(s);
+        };
+        const val = parsed(raw);
+        if (val !== undefined) item.archived = val;
+      }
+
+      // Prefer to auto-link CR if crLink missing but crNumber provided
       if (type === 'task' && !item.crLink && item.crNumber) {
         const cr = allItems.find(i => i.frontmatter.number === item.crNumber);
         if (cr) {
@@ -356,8 +388,12 @@ export class BoardTabsView extends ItemView {
       const existingFile = allItems.find(i => i.frontmatter[numberField] === number);
 
       if (existingFile) {
-        // Update existing
-        await updateTaskFrontmatter(this.app, existingFile.file, item);
+        // Update existing: remove any human-friendly 'Archived' column key to avoid creating extraneous frontmatter keys
+        const patch = Object.assign({}, item) as Record<string, any>;
+        if (patch.hasOwnProperty('Archived')) delete patch['Archived'];
+        // ensure archived is boolean if present
+        if (patch.hasOwnProperty('archived')) patch.archived = Boolean(patch.archived);
+        await updateTaskFrontmatter(this.app, existingFile.file, patch);
 
       } else {
         // Create new
@@ -370,7 +406,10 @@ export class BoardTabsView extends ItemView {
           fileName = `${folder}/${title}.md`;
         }
 
-        const frontmatter = item;
+        // Prepare frontmatter for new file
+        const frontmatter = Object.assign({}, item) as Record<string, any>;
+        if (frontmatter.hasOwnProperty('Archived')) delete frontmatter['Archived'];
+        if (frontmatter.hasOwnProperty('archived')) frontmatter.archived = Boolean(frontmatter.archived);
 
         let content = buildFrontmatterYAML(frontmatter);
         if (item.subtasks) {
