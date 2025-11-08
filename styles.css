@@ -95,8 +95,13 @@
   box-shadow: var(--shadow-s);
   z-index: 3100;
 }
-.kb-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-.kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); }
+.kb-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb-table th { position: relative; user-select: none; }
+.kb-table th::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; }
+.kb-table th:hover::after { background: var(--interactive-accent); opacity: 0.2; }
+.kb-grid-wrap { overflow-x: auto; }
+.kb-resizing th::after { background: var(--interactive-accent) !important; opacity: 0.4; }
 .kb-chip { padding: 2px 8px; border-radius: 999px; background: var(--tag-bg); border: 1px solid var(--tag-border-color); }
 
 /* Grid cell editing */

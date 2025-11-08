@@ -29,6 +29,10 @@ var import_obsidian4 = require("obsidian");
 var DEFAULT_SETTINGS = {
   taskFolder: "Tasks",
   statuses: ["Backlog", "In Progress", "Blocked", "Review", "Done"],
+  gridColumnWidths: {
+    "status": 150,
+    "priority": 120
+  },
   templateFields: [
     { key: "title", label: "Title", type: "text" },
     { key: "status", label: "Status", type: "status" },
@@ -32338,7 +32342,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     });
   }
   renderGrid(container) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const old = container.querySelector(".kb-grid-wrap");
     if (old) old.remove();
     const wrap = container.createDiv({ cls: "kb-grid-wrap" });
@@ -32346,9 +32350,75 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     table.addClass("kb-table");
     const thead = table.createEl("thead");
     const trh = thead.createEl("tr");
-    for (const key of this.settings.gridVisibleColumns) trh.createEl("th", { text: key });
-    trh.createEl("th", { text: "Archived" });
-    trh.createEl("th", { text: "Open" });
+    let isResizing = false;
+    let currentTh = null;
+    let startX = 0;
+    let startWidth = 0;
+    const setupColumnResize = (th, key) => {
+      const savedWidth = this.settings.gridColumnWidths[key];
+      if (savedWidth) {
+        th.style.width = `${savedWidth}px`;
+      }
+      th.onmousedown = (e) => {
+        const rect = th.getBoundingClientRect();
+        if (e.clientX >= rect.right - 10) {
+          isResizing = true;
+          currentTh = th;
+          startX = e.clientX;
+          startWidth = rect.width;
+          table.addClass("kb-resizing");
+          const onMouseMove = (e2) => {
+            if (!isResizing) return;
+            const width = startWidth + (e2.clientX - startX);
+            if (width >= 50) {
+              currentTh.style.width = `${width}px`;
+              this.settings.gridColumnWidths[key] = width;
+            }
+          };
+          const onMouseUp = () => {
+            var _a2;
+            isResizing = false;
+            currentTh = null;
+            table.removeClass("kb-resizing");
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+            (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
+          };
+          document.addEventListener("mousemove", onMouseMove);
+          document.addEventListener("mouseup", onMouseUp);
+          e.preventDefault();
+        }
+      };
+    };
+    const calculateMaxWidth = (key) => {
+      const fieldDef = this.settings.templateFields.find((f) => f.key === key);
+      if (!fieldDef) return 120;
+      let maxContent = key;
+      if (fieldDef.type === "status" && key === "status") {
+        maxContent = this.settings.statuses.reduce((a, b) => a.length > b.length ? a : b);
+      } else if (fieldDef.type === "status" && key === "priority") {
+        const allPriorities = new Set(this.tasks.map((t) => {
+          var _a2;
+          return String((_a2 = t.frontmatter["priority"]) != null ? _a2 : "");
+        }).filter(Boolean));
+        if (allPriorities.size > 0) {
+          maxContent = Array.from(allPriorities).reduce((a, b) => a.length > b.length ? a : b);
+        }
+      }
+      return Math.max(120, maxContent.length * 8 + 40);
+    };
+    for (const key of this.settings.gridVisibleColumns) {
+      const th = trh.createEl("th", { text: key });
+      if ((key === "status" || key === "priority") && !this.settings.gridColumnWidths[key]) {
+        this.settings.gridColumnWidths[key] = calculateMaxWidth(key);
+        (_a = this.persistSettings) == null ? void 0 : _a.call(this);
+      }
+      setupColumnResize(th, key);
+    }
+    const archivedTh = trh.createEl("th", { text: "Archived" });
+    setupColumnResize(archivedTh, "archived");
+    const openTh = trh.createEl("th", { text: "Open" });
+    setupColumnResize(openTh, "open");
     const tbody = table.createEl("tbody");
     for (const t of this.getFilteredTasks()) {
       const tr = tbody.createEl("tr");
@@ -32457,13 +32527,13 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             const o = sel.createEl("option", { text: s });
             o.value = s;
           }
-          sel.value = String((_b = (_a = t.frontmatter[key]) != null ? _a : this.settings.statuses[0]) != null ? _b : "");
+          sel.value = String((_c = (_b = t.frontmatter[key]) != null ? _b : this.settings.statuses[0]) != null ? _c : "");
           sel.onchange = () => saveValue(sel.value);
         } else if (fieldDef.type === "date") {
           displayEl.style.display = "none";
           const inp = td.createEl("input");
           inp.type = "date";
-          inp.value = String((_c = t.frontmatter[key]) != null ? _c : "");
+          inp.value = String((_d = t.frontmatter[key]) != null ? _d : "");
           inp.addClass("kb-cell-inline-date");
           inp.onchange = () => saveValue(inp.value);
         } else if (fieldDef.type === "tags" || fieldDef.type === "people") {

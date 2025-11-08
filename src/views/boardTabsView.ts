@@ -451,9 +451,95 @@ export class BoardTabsView extends ItemView {
 
     const thead = table.createEl('thead');
     const trh = thead.createEl('tr');
-    for (const key of this.settings.gridVisibleColumns) trh.createEl('th', { text: key });
-    trh.createEl('th', { text: 'Archived' });
-    trh.createEl('th', { text: 'Open' });
+    
+    // Track resize state
+    let isResizing = false;
+    let currentTh: HTMLElement | null = null;
+    let startX = 0;
+    let startWidth = 0;
+    
+    const setupColumnResize = (th: HTMLElement, key: string) => {
+      // Set initial width from settings or compute based on content
+      const savedWidth = this.settings.gridColumnWidths[key];
+      if (savedWidth) {
+        th.style.width = `${savedWidth}px`;
+      }
+      
+      th.onmousedown = (e: MouseEvent) => {
+        // Only start resize if clicking near the right edge
+        const rect = th.getBoundingClientRect();
+        if (e.clientX >= rect.right - 10) {
+          isResizing = true;
+          currentTh = th;
+          startX = e.clientX;
+          startWidth = rect.width;
+          table.addClass('kb-resizing');
+          
+          const onMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+            const width = startWidth + (e.clientX - startX);
+            if (width >= 50) { // Minimum width
+              currentTh!.style.width = `${width}px`;
+              // Store the new width in settings
+              this.settings.gridColumnWidths[key] = width;
+            }
+          };
+          
+          const onMouseUp = () => {
+            isResizing = false;
+            currentTh = null;
+            table.removeClass('kb-resizing');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            // Persist settings when done resizing
+            this.persistSettings?.();
+          };
+          
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+          e.preventDefault();
+        }
+      };
+    };
+
+    // Calculate initial widths for status and priority columns if not set
+    const calculateMaxWidth = (key: string): number => {
+      // Get field definition to know the type
+      const fieldDef = this.settings.templateFields.find(f => f.key === key);
+      if (!fieldDef) return 120; // Default width
+      
+      let maxContent = key; // Start with header text
+      if (fieldDef.type === 'status' && key === 'status') {
+        // For status, check all possible status values
+        maxContent = this.settings.statuses.reduce((a, b) => a.length > b.length ? a : b);
+      } else if (fieldDef.type === 'status' && key === 'priority') {
+        // For priority, check all tasks' priority values
+        const allPriorities = new Set(this.tasks.map(t => String(t.frontmatter['priority'] ?? '')).filter(Boolean));
+        if (allPriorities.size > 0) {
+          maxContent = Array.from(allPriorities).reduce((a, b) => a.length > b.length ? a : b);
+        }
+      }
+      
+      // Calculate width based on content (roughly 8px per character plus padding)
+      return Math.max(120, maxContent.length * 8 + 40);
+    };
+
+    // Create headers with resize handlers
+    for (const key of this.settings.gridVisibleColumns) {
+      const th = trh.createEl('th', { text: key });
+      
+      // Set initial width for status and priority if not already set
+      if ((key === 'status' || key === 'priority') && !this.settings.gridColumnWidths[key]) {
+        this.settings.gridColumnWidths[key] = calculateMaxWidth(key);
+        this.persistSettings?.();
+      }
+      
+      setupColumnResize(th, key);
+    }
+    const archivedTh = trh.createEl('th', { text: 'Archived' });
+    setupColumnResize(archivedTh, 'archived');
+    const openTh = trh.createEl('th', { text: 'Open' });
+    setupColumnResize(openTh, 'open');
 
     const tbody = table.createEl('tbody');
     for (const t of this.getFilteredTasks()) {

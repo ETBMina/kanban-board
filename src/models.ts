@@ -12,6 +12,7 @@ export interface PluginSettings {
   statuses: string[];
   templateFields: TaskFieldDefinition[];
   gridVisibleColumns: string[]; // keys to display
+  gridColumnWidths: Record<string, number>; // store column widths in pixels
   crFolder?: string;
   crTemplateFields?: TaskFieldDefinition[];
   lastActiveTab?: ActiveTab;
@@ -35,6 +36,10 @@ export interface TaskNoteMeta {
 export const DEFAULT_SETTINGS: PluginSettings = {
   taskFolder: 'Tasks',
   statuses: ['Backlog', 'In Progress', 'Blocked', 'Review', 'Done'],
+  gridColumnWidths: {
+    'status': 150,
+    'priority': 120
+  },
   templateFields: [
     { key: 'title', label: 'Title', type: 'text' },
     { key: 'status', label: 'Status', type: 'status' },
