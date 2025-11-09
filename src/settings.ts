@@ -20,10 +20,10 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc('Folder where task notes are stored')
       .addText((text) => {
         text.setPlaceholder('Tasks')
-          .setValue(this.plugin.settings.taskFolder)
+          .setValue(this.plugin.config.paths.taskFolder)
           .onChange(async (value) => {
-            this.plugin.settings.taskFolder = value || 'Tasks';
-            await this.plugin.saveSettings();
+            this.plugin.config.paths.taskFolder = value || 'Tasks';
+            await this.plugin.saveConfig();
           });
       });
 
@@ -33,10 +33,10 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc('Folder where CR notes are stored')
       .addText((text) => {
         text.setPlaceholder('Change Requests')
-          .setValue(this.plugin.settings.crFolder ?? '')
+          .setValue(this.plugin.config.paths.crFolder ?? '')
           .onChange(async (value) => {
-            this.plugin.settings.crFolder = value || 'Change Requests';
-            await this.plugin.saveSettings();
+            this.plugin.config.paths.crFolder = value || 'Change Requests';
+            await this.plugin.saveConfig();
           });
       });
 
@@ -46,10 +46,10 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc('Columns shown in the Kanban view')
       .addText((text) => {
         text.setPlaceholder('Backlog, In Progress, Blocked, Review, Done')
-          .setValue(this.plugin.settings.statuses.join(', '))
+          .setValue(this.plugin.config.statusConfig.statuses.join(', '))
           .onChange(async (value) => {
-            this.plugin.settings.statuses = value.split(',').map(s => s.trim()).filter(Boolean);
-            await this.plugin.saveSettings();
+            this.plugin.config.statusConfig.statuses = value.split(',').map(s => s.trim()).filter(Boolean);
+            await this.plugin.saveConfig();
           });
       });
 
@@ -59,14 +59,14 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc('Which fields to display in the grid')
       .addText((text) => {
         text.setPlaceholder('title, status, priority, assignee, due, tags')
-          .setValue(this.plugin.settings.gridVisibleColumns.join(', '))
+          .setValue(this.plugin.config.gridConfig.visibleColumns.join(', '))
           .onChange(async (value) => {
-            this.plugin.settings.gridVisibleColumns = value.split(',').map(s => s.trim()).filter(Boolean);
-            await this.plugin.saveSettings();
+            this.plugin.config.gridConfig.visibleColumns = value.split(',').map(s => s.trim()).filter(Boolean);
+            await this.plugin.saveConfig();
           });
       });
 
-    containerEl.createEl('p', { text: 'Template fields can be edited in JSON within your data.json for now. A richer editor will be added.' });
+    containerEl.createEl('p', { text: 'Template fields can be edited in JSON within your configuration.json for now. A richer editor will be added.' });
   }
 }
 

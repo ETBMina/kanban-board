@@ -1,18 +1,164 @@
 import { App, Modal, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
-import { DEFAULT_SETTINGS, PluginSettings, TaskFieldDefinition } from './models';
+import { PluginConfiguration, TaskFieldDefinition } from './models';
 import { KanbanSettingTab } from './settings';
 import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter, getAllExistingTags} from './utils';
 import { BoardTabsView, BOARD_TABS_VIEW_TYPE } from './views/boardTabsView';
 
 export default class KanbanPlugin extends Plugin {
-  settings: PluginSettings = DEFAULT_SETTINGS;
+  config!: PluginConfiguration;
+
+  async saveConfig() {
+    await this.app.vault.adapter.write(
+      `${this.manifest.dir}/configuration.json`,
+      JSON.stringify(this.config, null, 2)
+    );
+  }
+
+  private async validateAndPromptForSettings() {
+    // Create a modal to prompt for missing settings
+    const modal = new Modal(this.app);
+    modal.titleEl.setText('Configure Kanban Board');
+    const { contentEl } = modal;
+
+    const requiredSettings: Array<[string, string[]]> = [
+      ['Task Folder', ['paths', 'taskFolder']],
+      ['Change Request Folder', ['paths', 'crFolder']],
+      ['Statuses', ['statusConfig', 'statuses']],
+      ['Priorities', ['priorities']],
+    ];
+
+    const missing: Array<[string, string[]]> = []; // [label, path]
+
+    for (const [label, path] of requiredSettings) {
+      let current: any = this.config;
+      let isMissing = false;
+      
+      for (const key of path) {
+        if (!current || !current[key]) {
+          isMissing = true;
+          break;
+        }
+        current = current[key];
+      }
+
+      if (isMissing || (Array.isArray(current) && current.length === 0)) {
+        missing.push([label, path]);
+      }
+    }
+
+    if (missing.length === 0) return true;
+
+    return new Promise<boolean>((resolve) => {
+      contentEl.empty();
+      contentEl.createEl('p', { text: 'Please provide the following required settings:' });
+
+      const inputs = new Map<string, HTMLInputElement>();
+
+      for (const [label, path] of missing) {
+        const setting = contentEl.createDiv();
+        setting.createEl('label', { text: label });
+        const input = setting.createEl('input');
+        input.type = 'text';
+        input.value = '';
+        input.placeholder = `Enter ${label.toLowerCase()}`;
+        inputs.set(label, input);
+      }
+
+      const buttonDiv = contentEl.createDiv({ cls: 'modal-button-container' });
+      buttonDiv.style.marginTop = '20px';
+      buttonDiv.style.display = 'flex';
+      buttonDiv.style.justifyContent = 'flex-end';
+      buttonDiv.style.gap = '10px';
+      
+      const cancelButton = buttonDiv.createEl('button', { text: 'Cancel' });
+      const saveButton = buttonDiv.createEl('button', { text: 'Save', cls: 'mod-cta' });
+      
+      cancelButton.onclick = () => {
+        modal.close();
+        resolve(false);
+      };
+      
+      saveButton.onclick = async () => {
+        for (const [label, path] of missing) {
+          const value = inputs.get(label)?.value.trim();
+          if (!value) {
+            new Notice(`${label} is required`);
+            return;
+          }
+
+          // Update config at path
+          let current = this.config as any;
+          for (let i = 0; i < path.length - 1; i++) {
+            if (!current[path[i]]) current[path[i]] = {};
+            current = current[path[i]];
+          }
+          
+          const lastKey = path[path.length - 1];
+          if (label === 'Statuses' || label === 'Priorities') {
+            current[lastKey] = value.split(',').map(s => s.trim()).filter(Boolean);
+          } else {
+            current[lastKey] = value;
+          }
+        }
+
+        await this.saveConfig();
+        modal.close();
+        resolve(true);
+      };
+
+      modal.open();
+    });
+  }
+
+  private async loadConfiguration() {
+    try {
+      const rawData = await this.app.vault.adapter.read(`${this.manifest.dir}/configuration.json`).catch(() => '{}');
+      this.config = JSON.parse(rawData) || {};
+      
+      // Ensure basic structure exists
+      if (!this.config.paths) this.config.paths = { taskFolder: '', crFolder: '' };
+      if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: '^(completed|done)$', inProgressPattern: 'in\\s*progress' };
+      if (!this.config.priorities) this.config.priorities = [];
+      if (!this.config.gridConfig) this.config.gridConfig = {
+        columnWidths: {},
+        minColumnWidth: 50,
+        defaultColumnWidth: 120,
+        characterWidthPixels: 8,
+        columnPadding: 40,
+        visibleColumns: []
+      };
+      if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: '^CR-\\d+$', taskNumberPattern: '^T-\\d+$' };
+      if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
+
+      // Validate and prompt for required settings
+      if (!(await this.validateAndPromptForSettings())) {
+        throw new Error('Required settings not configured');
+      }
+    } catch (err) {
+      console.error('Failed to load configuration:', err);
+      throw err;
+    }
+  }
+
+
 
   async onload() {
-    await this.loadSettings();
-    await this.migrateSettingsIfNeeded();
+    try {
+      await this.loadConfiguration();
+    } catch (err) {
+      console.error('Failed to load configuration:', err);
+      new Notice('Failed to load configuration. Please check settings or recreate configuration.json. Error: ' + (err as Error).message);
+      
+      // Still add settings tab so user can configure plugin
+      this.addSettingTab(new KanbanSettingTab(this.app, this));
+      return;
+    }
     this.addSettingTab(new KanbanSettingTab(this.app, this));
 
-    this.registerView(BOARD_TABS_VIEW_TYPE, (leaf) => new BoardTabsView(leaf, this.settings, () => this.saveSettings()));
+    this.registerView(
+      BOARD_TABS_VIEW_TYPE,
+      (leaf) => new BoardTabsView(leaf, this.config, () => this.saveConfig())
+    );
 
     this.addCommand({
       id: 'open-tasks-pane',
@@ -46,7 +192,7 @@ export default class KanbanPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on('changed', async (file) => {
       if (!(file instanceof TFile)) return;
       // Only operate within task folder
-      const folder = this.settings.taskFolder || 'Tasks';
+      const folder = this.config.paths.taskFolder || 'Tasks';
       if (!file.path.startsWith(folder + '/')) return;
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
       if (!fm) return;
@@ -71,42 +217,34 @@ export default class KanbanPlugin extends Plugin {
   private async migrateSettingsIfNeeded() {
     let changed = false;
     // Remove 'due' from templateFields and add startDate/endDate if missing
-    const tf = this.settings.templateFields ?? [];
+    const tf = this.config.templateConfig.fields ?? [];
     const beforeLen = tf.length;
-    this.settings.templateFields = tf.filter(f => f.key !== 'due');
-    if (this.settings.templateFields.length !== beforeLen) changed = true;
-    const hasStart = this.settings.templateFields.some(f => f.key === 'startDate');
-    const hasEnd = this.settings.templateFields.some(f => f.key === 'endDate');
-    const hasNotes = this.settings.templateFields.some(f => f.key === 'notes');
-    if (!hasStart) { this.settings.templateFields.splice(5, 0, { key: 'startDate', label: 'Start Date', type: 'date' }); changed = true; }
-    if (!hasEnd) { this.settings.templateFields.splice(6, 0, { key: 'endDate', label: 'End Date', type: 'date' }); changed = true; }
-    if (!hasNotes) { this.settings.templateFields.push({ key: 'notes', label: 'Notes', type: 'freetext' }); changed = true; }
+    this.config.templateConfig.fields = tf.filter((f: TaskFieldDefinition) => f.key !== 'due');
+    if (this.config.templateConfig.fields.length !== beforeLen) changed = true;
+    const hasStart = this.config.templateConfig.fields.some((f: TaskFieldDefinition) => f.key === 'startDate');
+    const hasEnd = this.config.templateConfig.fields.some((f: TaskFieldDefinition) => f.key === 'endDate');
+    const hasNotes = this.config.templateConfig.fields.some((f: TaskFieldDefinition) => f.key === 'notes');
+    if (!hasStart) { this.config.templateConfig.fields.splice(5, 0, { key: 'startDate', label: 'Start Date', type: 'date' }); changed = true; }
+    if (!hasEnd) { this.config.templateConfig.fields.splice(6, 0, { key: 'endDate', label: 'End Date', type: 'date' }); changed = true; }
+    if (!hasNotes) { this.config.templateConfig.fields.push({ key: 'notes', label: 'Notes', type: 'freetext' }); changed = true; }
 
     // Grid columns: replace 'due' with 'startDate' and 'endDate' if present, and add notes if missing
-    const cols = this.settings.gridVisibleColumns ?? [];
+    const cols = this.config.gridConfig.visibleColumns ?? [];
     const dueIdx = cols.indexOf('due');
     if (dueIdx !== -1) {
       cols.splice(dueIdx, 1, 'startDate', 'endDate');
-      this.settings.gridVisibleColumns = cols;
+      this.config.gridConfig.visibleColumns = cols;
       changed = true;
     }
     if (!cols.includes('notes')) {
-      this.settings.gridVisibleColumns.push('notes');
+      this.config.gridConfig.visibleColumns.push('notes');
       changed = true;
     }
-    if (changed) await this.saveSettings();
+    if (changed) await this.saveConfig();
   }
 
   onunload() {
     // views auto-clean up
-  }
-
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-
-  async saveSettings() {
-    await this.saveData(this.settings);
   }
 
   private async activateTabsView() {
@@ -122,8 +260,8 @@ export default class KanbanPlugin extends Plugin {
   }
 
   private async createTaskFromTemplate() {
-    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, this.settings, async (data: Record<string, any>) => {
-      const folder = this.settings.taskFolder || 'Tasks';
+    const modal = new TaskTemplateModal(this.app, this.config, async (data: Record<string, any>) => {
+      const folder = this.config.paths.taskFolder || 'Tasks';
       await ensureFolder(this.app, folder);
       // Derive title from CR title + task number + service name
       const crNumInput = String(data['crNumber'] || '').trim();
@@ -131,7 +269,7 @@ export default class KanbanPlugin extends Plugin {
       const serviceInput = String(data['service'] || '').trim();
       let crTitle = '';
       if (crNumInput) {
-        const crFile = await findCrFileByNumber(this.app, this.settings, crNumInput);
+        const crFile = await findCrFileByNumber(this.app, this.config, crNumInput);
         if (crFile) {
           const fm = this.app.metadataCache.getFileCache(crFile)?.frontmatter;
           crTitle = String(fm?.['title'] ?? '');
@@ -165,7 +303,7 @@ export default class KanbanPlugin extends Plugin {
       }
       
       // Then, add placeholders for any missing template fields
-      for (const field of this.settings.templateFields) {
+      for (const field of this.config.templateConfig.fields) {
         if (!(field.key in clean)) {
           // Add placeholder based on field type. For dates, leave unset so the date picker is available in editors.
           if (field.type === 'freetext') {
@@ -190,7 +328,7 @@ export default class KanbanPlugin extends Plugin {
       const crNum = clean['crNumber'];
       if (crNum) {
         try {
-          const crFile = await findCrFileByNumber(this.app, this.settings, crNum);
+          const crFile = await findCrFileByNumber(this.app, this.config, crNum);
           if (crFile) clean['crLink'] = buildWikiLink(crFile.path);
         } catch { /* ignore */ }
       }
@@ -208,7 +346,7 @@ export default class KanbanPlugin extends Plugin {
   }
 
   private async createCrFromTemplate() {
-    const fields = this.settings.crTemplateFields ?? [
+    const fields = this.config.templateConfig.crFields ?? [
       { key: 'number', label: 'CR Number', type: 'text' },
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'emailSubject', label: 'Email Subject', type: 'text' },
@@ -216,10 +354,10 @@ export default class KanbanPlugin extends Plugin {
       { key: 'description', label: 'Description', type: 'text' }
     ];
     const modal = new CrTemplateModal(this.app, fields, async (data) => {
-      const folder = this.settings.crFolder || 'Change Requests';
+      const folder = this.config.paths.crFolder || 'Change Requests';
       await ensureFolder(this.app, folder);
       let crNumber = (data['number'] || '').trim();
-      if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.settings);
+      if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.config);
       if (!/^CR-\d+$/i.test(crNumber)) crNumber = 'CR-' + crNumber.replace(/[^0-9]/g, '');
       const title = (data['title'] || '').trim() || crNumber;
       const fileName = `${crNumber} - ${title}.md`;
@@ -270,16 +408,14 @@ export default class KanbanPlugin extends Plugin {
 
 class TaskTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
-  private statuses: string[];
-  private settings: PluginSettings;
+  private config: PluginConfiguration;
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
   private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-  constructor(app: App, fields: TaskFieldDefinition[], statuses: string[], settings: PluginSettings, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, config: PluginConfiguration, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
-    this.fields = fields;
-    this.statuses = statuses;
-    this.settings = settings;
+    this.fields = config.templateConfig.fields;
+    this.config = config;
     this.onSubmit = onSubmit;
   }
 
@@ -294,11 +430,11 @@ class TaskTemplateModal extends Modal {
     statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
     const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
     const statusSelect = statusControl.createEl('select');
-    for (const s of this.statuses) {
+    for (const s of this.config.statusConfig.statuses) {
       const opt = statusSelect.createEl('option', { text: s });
       opt.value = s;
     }
-    statusSelect.value = this.statuses[0] ?? '';
+    statusSelect.value = this.config.statusConfig.statuses[0] ?? '';
     this.inputs.set('status', statusSelect);
 
     // CR Number (required to derive the title/link)
@@ -342,13 +478,15 @@ class TaskTemplateModal extends Modal {
           const select = control.createEl('select');
           select.addClass('kb-input');
           // Use different options list based on whether this is the status field or the priority field
-          const options = field.key === 'status' ? this.statuses : ['Urgent', 'High', 'Medium', 'Low'];
+          const options = field.key === 'status' ? this.config.statusConfig.statuses : this.config.priorities;
           for (const o of options) {
             const opt = select.createEl('option', { text: o });
             opt.value = o;
           }
           // Default to first status for status field, Medium for priority
-          select.value = field.key === 'status' ? (this.statuses[0] ?? '') : 'Medium';
+          select.value = field.key === 'status' ? 
+            (this.config.statusConfig.statuses[0] ?? '') : 
+            this.config.defaultPriority;
           this.inputs.set(field.key, select);
         } else if (field.type === 'tags') {
           // Create container for tags input and suggestions
@@ -370,7 +508,7 @@ class TaskTemplateModal extends Modal {
           let allTags: string[] = [];
           const loadAllTags = async () => {
             try {
-              allTags = await getAllExistingTags(this.app, this.settings);
+              allTags = await getAllExistingTags(this.app, this.config);
             } catch {
               allTags = [];
             }
@@ -556,7 +694,7 @@ class TaskTemplateModal extends Modal {
         data[key] = val;
       }
       data['subtasks'] = subtasks;
-      if (!data['status']) data['status'] = this.statuses[0] ?? 'Backlog';
+      if (!data['status']) data['status'] = this.config.statusConfig.statuses[0] ?? 'Backlog';
       // Always ensure we have a priority value
       data['priority'] = data['priority'] || 'Medium';
       // Title is derived from CR and inputs; no manual title

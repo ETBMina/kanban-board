@@ -25,44 +25,6 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian4 = require("obsidian");
 
-// src/models.ts
-var DEFAULT_SETTINGS = {
-  taskFolder: "Tasks",
-  statuses: ["Backlog", "In Progress", "Blocked", "Review", "Done"],
-  gridColumnWidths: {
-    "status": 150,
-    "priority": 120
-  },
-  templateFields: [
-    { key: "title", label: "Title", type: "text" },
-    { key: "status", label: "Status", type: "status" },
-    { key: "priority", label: "Priority", type: "status" },
-    { key: "assignee", label: "Assignee", type: "people" },
-    { key: "startDate", label: "Start Date", type: "date" },
-    { key: "endDate", label: "End Date", type: "date" },
-    { key: "tags", label: "Tags", type: "tags" },
-    { key: "crNumber", label: "CR Number", type: "text" },
-    { key: "taskNumber", label: "Task Number", type: "text" },
-    { key: "service", label: "Service", type: "text" },
-    { key: "plannedStart", label: "Planned start date", type: "date" },
-    { key: "plannedEnd", label: "Planned end date", type: "date" },
-    { key: "actualStart", label: "Actual start date", type: "date" },
-    { key: "actualEnd", label: "Actual end date", type: "date" },
-    { key: "notes", label: "Notes", type: "freetext" },
-    { key: "subtasks", label: "Subtasks", type: "freetext" }
-  ],
-  gridVisibleColumns: ["crNumber", "taskNumber", "title", "service", "status", "priority", "assignee", "startDate", "endDate", "tags", "notes", "subtasks"],
-  crFolder: "Change Requests",
-  crTemplateFields: [
-    { key: "number", label: "CR Number", type: "text" },
-    { key: "title", label: "Title", type: "text" },
-    { key: "emailSubject", label: "Email Subject", type: "text" },
-    { key: "solutionDesign", label: "Solution design link", type: "url" },
-    { key: "description", label: "Description", type: "freetext" }
-  ],
-  lastActiveTab: "grid"
-};
-
 // src/settings.ts
 var import_obsidian = require("obsidian");
 var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
@@ -75,31 +37,31 @@ var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "Kanban Board & Task Grid" });
     new import_obsidian.Setting(containerEl).setName("Task folder").setDesc("Folder where task notes are stored").addText((text) => {
-      text.setPlaceholder("Tasks").setValue(this.plugin.settings.taskFolder).onChange(async (value) => {
-        this.plugin.settings.taskFolder = value || "Tasks";
-        await this.plugin.saveSettings();
+      text.setPlaceholder("Tasks").setValue(this.plugin.config.paths.taskFolder).onChange(async (value) => {
+        this.plugin.config.paths.taskFolder = value || "Tasks";
+        await this.plugin.saveConfig();
       });
     });
     new import_obsidian.Setting(containerEl).setName("Change Request folder").setDesc("Folder where CR notes are stored").addText((text) => {
       var _a;
-      text.setPlaceholder("Change Requests").setValue((_a = this.plugin.settings.crFolder) != null ? _a : "").onChange(async (value) => {
-        this.plugin.settings.crFolder = value || "Change Requests";
-        await this.plugin.saveSettings();
+      text.setPlaceholder("Change Requests").setValue((_a = this.plugin.config.paths.crFolder) != null ? _a : "").onChange(async (value) => {
+        this.plugin.config.paths.crFolder = value || "Change Requests";
+        await this.plugin.saveConfig();
       });
     });
     new import_obsidian.Setting(containerEl).setName("Statuses (comma-separated)").setDesc("Columns shown in the Kanban view").addText((text) => {
-      text.setPlaceholder("Backlog, In Progress, Blocked, Review, Done").setValue(this.plugin.settings.statuses.join(", ")).onChange(async (value) => {
-        this.plugin.settings.statuses = value.split(",").map((s) => s.trim()).filter(Boolean);
-        await this.plugin.saveSettings();
+      text.setPlaceholder("Backlog, In Progress, Blocked, Review, Done").setValue(this.plugin.config.statusConfig.statuses.join(", ")).onChange(async (value) => {
+        this.plugin.config.statusConfig.statuses = value.split(",").map((s) => s.trim()).filter(Boolean);
+        await this.plugin.saveConfig();
       });
     });
     new import_obsidian.Setting(containerEl).setName("Grid visible columns (keys, comma-separated)").setDesc("Which fields to display in the grid").addText((text) => {
-      text.setPlaceholder("title, status, priority, assignee, due, tags").setValue(this.plugin.settings.gridVisibleColumns.join(", ")).onChange(async (value) => {
-        this.plugin.settings.gridVisibleColumns = value.split(",").map((s) => s.trim()).filter(Boolean);
-        await this.plugin.saveSettings();
+      text.setPlaceholder("title, status, priority, assignee, due, tags").setValue(this.plugin.config.gridConfig.visibleColumns.join(", ")).onChange(async (value) => {
+        this.plugin.config.gridConfig.visibleColumns = value.split(",").map((s) => s.trim()).filter(Boolean);
+        await this.plugin.saveConfig();
       });
     });
-    containerEl.createEl("p", { text: "Template fields can be edited in JSON within your data.json for now. A richer editor will be added." });
+    containerEl.createEl("p", { text: "Template fields can be edited in JSON within your configuration.json for now. A richer editor will be added." });
   }
 };
 
@@ -161,8 +123,8 @@ function escapeYamlInline(value) {
 }
 async function readAllItems(app, settings) {
   var _a;
-  const taskFolder = (0, import_obsidian2.normalizePath)(settings.taskFolder);
-  const crFolder = settings.crFolder ? (0, import_obsidian2.normalizePath)(settings.crFolder) : null;
+  const taskFolder = (0, import_obsidian2.normalizePath)(settings.paths.taskFolder);
+  const crFolder = settings.paths.crFolder ? (0, import_obsidian2.normalizePath)(settings.paths.crFolder) : null;
   const results = [];
   const files = app.vault.getMarkdownFiles().filter((f) => {
     if (f.path.startsWith(taskFolder + "/")) return true;
@@ -194,7 +156,7 @@ async function readAllItems(app, settings) {
 }
 async function readAllTasks(app, settings) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.taskFolder);
+  const folder = (0, import_obsidian2.normalizePath)(settings.paths.taskFolder);
   const results = [];
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   for (const file of files) {
@@ -248,7 +210,7 @@ function buildWikiLink(path) {
 }
 async function findCrFileByNumber(app, settings, crNumber) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.crFolder || "Change Requests");
+  const folder = (0, import_obsidian2.normalizePath)(settings.paths.crFolder || "Change Requests");
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   for (const file of files) {
     const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -261,7 +223,7 @@ async function findCrFileByNumber(app, settings, crNumber) {
 }
 async function generateNextCrNumber(app, settings) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.crFolder || "Change Requests");
+  const folder = (0, import_obsidian2.normalizePath)(settings.paths.crFolder || "Change Requests");
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   let max = 0;
   const rx = /^CR-(\d+)/i;
@@ -32103,8 +32065,8 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   async exportToJson() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.crFolder) : null;
+    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => t.frontmatter);
     let crData = [];
     if (crFolder) {
@@ -32190,8 +32152,8 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.crFolder) : null;
+    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -32227,8 +32189,8 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   async exportToCsv() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.crFolder) : null;
+    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian3.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -32264,7 +32226,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   async processImportData(data, type) {
     const allItems = await readAllItems(this.app, this.settings);
-    const folder = type === "cr" ? this.settings.crFolder : this.settings.taskFolder;
+    const folder = type === "cr" ? this.settings.paths.crFolder : this.settings.paths.taskFolder;
     if (!folder) {
       new import_obsidian3.Notice(`Folder for ${type}s is not configured.`);
       return;
@@ -32324,7 +32286,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
   }
   // GRID
   getFilteredTasks() {
-    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.taskFolder);
+    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter((t) => t.filePath.startsWith(taskFolder + "/"));
     tasks.sort((a, b) => {
       const timestampA = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
@@ -32335,7 +32297,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     if (!q) return tasks;
     return tasks.filter((t) => {
       if (t.fileName.toLowerCase().includes(q)) return true;
-      return this.settings.gridVisibleColumns.some((key) => {
+      return this.settings.gridConfig.visibleColumns.some((key) => {
         var _a;
         return String((_a = t.frontmatter[key]) != null ? _a : "").toLowerCase().includes(q);
       });
@@ -32355,7 +32317,8 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     let startX = 0;
     let startWidth = 0;
     const setupColumnResize = (th, key) => {
-      const savedWidth = this.settings.gridColumnWidths[key];
+      var _a2;
+      const savedWidth = (_a2 = this.settings.gridConfig.columnWidths[key]) != null ? _a2 : this.settings.gridConfig.defaultColumnWidth;
       if (savedWidth) {
         th.style.width = `${savedWidth}px`;
       }
@@ -32372,17 +32335,17 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             const width = startWidth + (e2.clientX - startX);
             if (width >= 50) {
               currentTh.style.width = `${width}px`;
-              this.settings.gridColumnWidths[key] = width;
+              this.settings.gridConfig.columnWidths[key] = width;
             }
           };
           const onMouseUp = () => {
-            var _a2;
+            var _a3;
             isResizing = false;
             currentTh = null;
             table.removeClass("kb-resizing");
             document.removeEventListener("mousemove", onMouseMove);
             document.removeEventListener("mouseup", onMouseUp);
-            (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
+            (_a3 = this.persistSettings) == null ? void 0 : _a3.call(this);
           };
           document.addEventListener("mousemove", onMouseMove);
           document.addEventListener("mouseup", onMouseUp);
@@ -32391,11 +32354,11 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       };
     };
     const calculateMaxWidth = (key) => {
-      const fieldDef = this.settings.templateFields.find((f) => f.key === key);
+      const fieldDef = this.settings.templateConfig.fields.find((f) => f.key === key);
       if (!fieldDef) return 120;
       let maxContent = key;
       if (fieldDef.type === "status" && key === "status") {
-        maxContent = this.settings.statuses.reduce((a, b) => a.length > b.length ? a : b);
+        maxContent = this.settings.statusConfig.statuses.reduce((a, b) => a.length > b.length ? a : b);
       } else if (fieldDef.type === "status" && key === "priority") {
         const allPriorities = new Set(this.tasks.map((t) => {
           var _a2;
@@ -32407,10 +32370,10 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       }
       return Math.max(120, maxContent.length * 8 + 40);
     };
-    for (const key of this.settings.gridVisibleColumns) {
+    for (const key of this.settings.gridConfig.visibleColumns) {
       const th = trh.createEl("th", { text: key });
-      if ((key === "status" || key === "priority") && !this.settings.gridColumnWidths[key]) {
-        this.settings.gridColumnWidths[key] = calculateMaxWidth(key);
+      if ((key === "status" || key === "priority") && !this.settings.gridConfig.columnWidths[key]) {
+        this.settings.gridConfig.columnWidths[key] = calculateMaxWidth(key);
         (_a = this.persistSettings) == null ? void 0 : _a.call(this);
       }
       setupColumnResize(th, key);
@@ -32424,8 +32387,8 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       const tr = tbody.createEl("tr");
       const isArchived = Boolean(t.frontmatter["archived"]);
       if (isArchived) tr.addClass("kb-row-archived");
-      for (const key of this.settings.gridVisibleColumns) {
-        const fieldDef = this.settings.templateFields.find((f) => f.key === key) || { key, label: key, type: "text" };
+      for (const key of this.settings.gridConfig.visibleColumns) {
+        const fieldDef = this.settings.templateConfig.fields.find((f) => f.key === key) || { key, label: key, type: "text" };
         const val = t.frontmatter[key];
         const td = tr.createEl("td");
         td.addClass("kb-grid-cell");
@@ -32523,11 +32486,11 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           displayEl.style.display = "none";
           const sel = td.createEl("select");
           sel.addClass("kb-cell-inline-select");
-          for (const s of this.settings.statuses) {
+          for (const s of this.settings.statusConfig.statuses) {
             const o = sel.createEl("option", { text: s });
             o.value = s;
           }
-          sel.value = String((_c = (_b = t.frontmatter[key]) != null ? _b : this.settings.statuses[0]) != null ? _c : "");
+          sel.value = String((_c = (_b = t.frontmatter[key]) != null ? _b : this.settings.statusConfig.statuses[0]) != null ? _c : "");
           sel.onchange = () => saveValue(sel.value);
         } else if (fieldDef.type === "date") {
           displayEl.style.display = "none";
@@ -32703,10 +32666,10 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
     if (existing) existing.remove();
     const board = container.createDiv({ cls: "kb-kanban kb-kanban-horizontal", attr: { draggable: "false" } });
     const byStatus = /* @__PURE__ */ new Map();
-    for (const status of this.settings.statuses) byStatus.set(status, []);
+    for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
     for (const t of this.getFilteredTasks()) {
-      const status = (_a = t.frontmatter["status"]) != null ? _a : this.settings.statuses[0];
-      ((_b = byStatus.get(status)) != null ? _b : byStatus.get(this.settings.statuses[0])).push(t);
+      const status = (_a = t.frontmatter["status"]) != null ? _a : this.settings.statusConfig.statuses[0];
+      ((_b = byStatus.get(status)) != null ? _b : byStatus.get(this.settings.statusConfig.statuses[0])).push(t);
     }
     for (const [k, arr] of Array.from(byStatus.entries())) {
       arr.sort((a, b) => {
@@ -32732,14 +32695,14 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         const from = handleColumnDrag.dragIndex;
         const to = idx;
         if (from < 0 || to < 0 || from === to) return;
-        const arr = this.settings.statuses;
+        const arr = this.settings.statusConfig.statuses;
         const [moved] = arr.splice(from, 1);
         arr.splice(to, 0, moved);
         await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
         this.renderBoard(container);
       }
     };
-    this.settings.statuses.forEach((status, idx) => {
+    this.settings.statusConfig.statuses.forEach((status, idx) => {
       var _a2, _b2, _c, _d, _e;
       const col = board.createDiv({ cls: "kb-column", attr: { "data-col-index": String(idx) } });
       col.ondragover = (e) => {
@@ -32782,7 +32745,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
           var _a3, _b3, _c2;
           const newName = (_a3 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a3.trim();
           if (!newName || newName === status) return;
-          this.settings.statuses[idx] = newName;
+          this.settings.statusConfig.statuses[idx] = newName;
           await ((_b3 = this.persistSettings) == null ? void 0 : _b3.call(this));
           const tasksInCol = (_c2 = byStatus.get(status)) != null ? _c2 : [];
           const updates = [];
@@ -32801,13 +32764,13 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         }));
         menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
           var _a3;
-          this.settings.statuses.splice(idx, 1);
+          this.settings.statusConfig.statuses.splice(idx, 1);
           await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
           this.renderBoard(container);
         }));
         menu.addItem((i) => i.setTitle("Move right").onClick(async () => {
           var _a3;
-          const arr = this.settings.statuses;
+          const arr = this.settings.statusConfig.statuses;
           if (idx >= arr.length - 1) return;
           [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
           await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
@@ -32815,7 +32778,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         }));
         menu.addItem((i) => i.setTitle("Move left").onClick(async () => {
           var _a3;
-          const arr = this.settings.statuses;
+          const arr = this.settings.statusConfig.statuses;
           if (idx === 0) return;
           [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
           await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
@@ -33113,7 +33076,7 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
       var _a2, _b2;
       const name = (_a2 = await this.promptText("New column", "Column name")) == null ? void 0 : _a2.trim();
       if (!name) return;
-      this.settings.statuses.push(name);
+      this.settings.statusConfig.statuses.push(name);
       await ((_b2 = this.persistSettings) == null ? void 0 : _b2.call(this));
       this.renderBoard(container);
     };
@@ -33138,11 +33101,11 @@ var EditTaskModal = class extends import_obsidian3.Modal {
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
     const statusSelect = statusControl.createEl("select");
-    for (const s of this.settings.statuses) {
+    for (const s of this.settings.statusConfig.statuses) {
       const opt = statusSelect.createEl("option", { text: s });
       opt.value = s;
     }
-    statusSelect.value = String((_c = (_b = fm["status"]) != null ? _b : this.settings.statuses[0]) != null ? _c : "");
+    statusSelect.value = String((_c = (_b = fm["status"]) != null ? _b : this.settings.statusConfig.statuses[0]) != null ? _c : "");
     this.inputs.set("status", statusSelect);
     const crRow = contentEl.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
@@ -33171,19 +33134,19 @@ var EditTaskModal = class extends import_obsidian3.Modal {
     svcInput.type = "text";
     svcInput.value = String((_f = fm["service"]) != null ? _f : "");
     this.inputs.set("service", svcInput);
-    for (const field of this.settings.templateFields.filter((f) => !["status", "crNumber", "taskNumber", "service"].includes(f.key))) {
+    for (const field of this.settings.templateConfig.fields.filter((f) => !["status", "crNumber", "taskNumber", "service"].includes(f.key))) {
       const row = contentEl.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status" || field.key === "priority") {
         const select = control.createEl("select");
         select.addClass("kb-input");
-        const options = field.key === "status" ? this.settings.statuses : ["Urgent", "High", "Medium", "Low"];
+        const options = field.key === "status" ? this.settings.statusConfig.statuses : this.settings.priorities;
         for (const o of options) {
           const opt = select.createEl("option", { text: o });
           opt.value = o;
         }
-        select.value = String((_h = fm[field.key]) != null ? _h : field.key === "status" ? (_g = this.settings.statuses[0]) != null ? _g : "" : "Medium");
+        select.value = String((_h = fm[field.key]) != null ? _h : field.key === "status" ? (_g = this.settings.statusConfig.statuses[0]) != null ? _g : "" : this.settings.defaultPriority);
         this.inputs.set(field.key, select);
       } else if (field.type === "tags") {
         const tagsContainer = control.createDiv({ cls: "kb-tags-input-container" });
@@ -33374,15 +33337,128 @@ var EditTaskModal = class extends import_obsidian3.Modal {
 
 // src/main.ts
 var KanbanPlugin = class extends import_obsidian4.Plugin {
-  constructor() {
-    super(...arguments);
-    this.settings = DEFAULT_SETTINGS;
+  async saveConfig() {
+    await this.app.vault.adapter.write(
+      `${this.manifest.dir}/configuration.json`,
+      JSON.stringify(this.config, null, 2)
+    );
+  }
+  async validateAndPromptForSettings() {
+    const modal = new import_obsidian4.Modal(this.app);
+    modal.titleEl.setText("Configure Kanban Board");
+    const { contentEl } = modal;
+    const requiredSettings = [
+      ["Task Folder", ["paths", "taskFolder"]],
+      ["Change Request Folder", ["paths", "crFolder"]],
+      ["Statuses", ["statusConfig", "statuses"]],
+      ["Priorities", ["priorities"]]
+    ];
+    const missing = [];
+    for (const [label, path] of requiredSettings) {
+      let current = this.config;
+      let isMissing = false;
+      for (const key of path) {
+        if (!current || !current[key]) {
+          isMissing = true;
+          break;
+        }
+        current = current[key];
+      }
+      if (isMissing || Array.isArray(current) && current.length === 0) {
+        missing.push([label, path]);
+      }
+    }
+    if (missing.length === 0) return true;
+    return new Promise((resolve) => {
+      contentEl.empty();
+      contentEl.createEl("p", { text: "Please provide the following required settings:" });
+      const inputs = /* @__PURE__ */ new Map();
+      for (const [label, path] of missing) {
+        const setting = contentEl.createDiv();
+        setting.createEl("label", { text: label });
+        const input = setting.createEl("input");
+        input.type = "text";
+        input.value = "";
+        input.placeholder = `Enter ${label.toLowerCase()}`;
+        inputs.set(label, input);
+      }
+      const buttonDiv = contentEl.createDiv({ cls: "modal-button-container" });
+      buttonDiv.style.marginTop = "20px";
+      buttonDiv.style.display = "flex";
+      buttonDiv.style.justifyContent = "flex-end";
+      buttonDiv.style.gap = "10px";
+      const cancelButton = buttonDiv.createEl("button", { text: "Cancel" });
+      const saveButton = buttonDiv.createEl("button", { text: "Save", cls: "mod-cta" });
+      cancelButton.onclick = () => {
+        modal.close();
+        resolve(false);
+      };
+      saveButton.onclick = async () => {
+        var _a;
+        for (const [label, path] of missing) {
+          const value = (_a = inputs.get(label)) == null ? void 0 : _a.value.trim();
+          if (!value) {
+            new import_obsidian4.Notice(`${label} is required`);
+            return;
+          }
+          let current = this.config;
+          for (let i = 0; i < path.length - 1; i++) {
+            if (!current[path[i]]) current[path[i]] = {};
+            current = current[path[i]];
+          }
+          const lastKey = path[path.length - 1];
+          if (label === "Statuses" || label === "Priorities") {
+            current[lastKey] = value.split(",").map((s) => s.trim()).filter(Boolean);
+          } else {
+            current[lastKey] = value;
+          }
+        }
+        await this.saveConfig();
+        modal.close();
+        resolve(true);
+      };
+      modal.open();
+    });
+  }
+  async loadConfiguration() {
+    try {
+      const rawData = await this.app.vault.adapter.read(`${this.manifest.dir}/configuration.json`).catch(() => "{}");
+      this.config = JSON.parse(rawData) || {};
+      if (!this.config.paths) this.config.paths = { taskFolder: "", crFolder: "" };
+      if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: "^(completed|done)$", inProgressPattern: "in\\s*progress" };
+      if (!this.config.priorities) this.config.priorities = [];
+      if (!this.config.gridConfig) this.config.gridConfig = {
+        columnWidths: {},
+        minColumnWidth: 50,
+        defaultColumnWidth: 120,
+        characterWidthPixels: 8,
+        columnPadding: 40,
+        visibleColumns: []
+      };
+      if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: "^CR-\\d+$", taskNumberPattern: "^T-\\d+$" };
+      if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
+      if (!await this.validateAndPromptForSettings()) {
+        throw new Error("Required settings not configured");
+      }
+    } catch (err) {
+      console.error("Failed to load configuration:", err);
+      throw err;
+    }
   }
   async onload() {
-    await this.loadSettings();
-    await this.migrateSettingsIfNeeded();
+    try {
+      await this.loadConfiguration();
+    } catch (err) {
+      console.error("Failed to load configuration:", err);
+      new import_obsidian4.Notice("Failed to load configuration. Please check settings or recreate configuration.json. Error: " + err.message);
+      this.addSettingTab(new KanbanSettingTab(this.app, this));
+      return;
+    }
     this.addSettingTab(new KanbanSettingTab(this.app, this));
-    this.registerView(BOARD_TABS_VIEW_TYPE, (leaf) => new BoardTabsView(leaf, this.settings, () => this.saveSettings()));
+    this.registerView(
+      BOARD_TABS_VIEW_TYPE,
+      (leaf) => new BoardTabsView(leaf, this.config, () => this.saveConfig())
+    );
     this.addCommand({
       id: "open-tasks-pane",
       name: "Open Tasks (Grid/Board Tabs)",
@@ -33410,7 +33486,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
     this.registerEvent(this.app.metadataCache.on("changed", async (file) => {
       var _a;
       if (!(file instanceof import_obsidian4.TFile)) return;
-      const folder = this.settings.taskFolder || "Tasks";
+      const folder = this.config.paths.taskFolder || "Tasks";
       if (!file.path.startsWith(folder + "/")) return;
       const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
       if (!fm) return;
@@ -33436,45 +33512,39 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
   async migrateSettingsIfNeeded() {
     var _a, _b;
     let changed = false;
-    const tf = (_a = this.settings.templateFields) != null ? _a : [];
+    const tf = (_a = this.config.templateConfig.fields) != null ? _a : [];
     const beforeLen = tf.length;
-    this.settings.templateFields = tf.filter((f) => f.key !== "due");
-    if (this.settings.templateFields.length !== beforeLen) changed = true;
-    const hasStart = this.settings.templateFields.some((f) => f.key === "startDate");
-    const hasEnd = this.settings.templateFields.some((f) => f.key === "endDate");
-    const hasNotes = this.settings.templateFields.some((f) => f.key === "notes");
+    this.config.templateConfig.fields = tf.filter((f) => f.key !== "due");
+    if (this.config.templateConfig.fields.length !== beforeLen) changed = true;
+    const hasStart = this.config.templateConfig.fields.some((f) => f.key === "startDate");
+    const hasEnd = this.config.templateConfig.fields.some((f) => f.key === "endDate");
+    const hasNotes = this.config.templateConfig.fields.some((f) => f.key === "notes");
     if (!hasStart) {
-      this.settings.templateFields.splice(5, 0, { key: "startDate", label: "Start Date", type: "date" });
+      this.config.templateConfig.fields.splice(5, 0, { key: "startDate", label: "Start Date", type: "date" });
       changed = true;
     }
     if (!hasEnd) {
-      this.settings.templateFields.splice(6, 0, { key: "endDate", label: "End Date", type: "date" });
+      this.config.templateConfig.fields.splice(6, 0, { key: "endDate", label: "End Date", type: "date" });
       changed = true;
     }
     if (!hasNotes) {
-      this.settings.templateFields.push({ key: "notes", label: "Notes", type: "freetext" });
+      this.config.templateConfig.fields.push({ key: "notes", label: "Notes", type: "freetext" });
       changed = true;
     }
-    const cols = (_b = this.settings.gridVisibleColumns) != null ? _b : [];
+    const cols = (_b = this.config.gridConfig.visibleColumns) != null ? _b : [];
     const dueIdx = cols.indexOf("due");
     if (dueIdx !== -1) {
       cols.splice(dueIdx, 1, "startDate", "endDate");
-      this.settings.gridVisibleColumns = cols;
+      this.config.gridConfig.visibleColumns = cols;
       changed = true;
     }
     if (!cols.includes("notes")) {
-      this.settings.gridVisibleColumns.push("notes");
+      this.config.gridConfig.visibleColumns.push("notes");
       changed = true;
     }
-    if (changed) await this.saveSettings();
+    if (changed) await this.saveConfig();
   }
   onunload() {
-  }
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-  async saveSettings() {
-    await this.saveData(this.settings);
   }
   async activateTabsView() {
     const leaf = this.getRightLeaf();
@@ -33488,16 +33558,16 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
     return (_a = this.app.workspace.getRightLeaf(false)) != null ? _a : this.app.workspace.getLeaf(true);
   }
   async createTaskFromTemplate() {
-    const modal = new TaskTemplateModal(this.app, this.settings.templateFields, this.settings.statuses, this.settings, async (data) => {
+    const modal = new TaskTemplateModal(this.app, this.config, async (data) => {
       var _a, _b;
-      const folder = this.settings.taskFolder || "Tasks";
+      const folder = this.config.paths.taskFolder || "Tasks";
       await ensureFolder(this.app, folder);
       const crNumInput = String(data["crNumber"] || "").trim();
       const taskNumInput = String(data["taskNumber"] || "").trim();
       const serviceInput = String(data["service"] || "").trim();
       let crTitle = "";
       if (crNumInput) {
-        const crFile = await findCrFileByNumber(this.app, this.settings, crNumInput);
+        const crFile = await findCrFileByNumber(this.app, this.config, crNumInput);
         if (crFile) {
           const fm2 = (_a = this.app.metadataCache.getFileCache(crFile)) == null ? void 0 : _a.frontmatter;
           crTitle = String((_b = fm2 == null ? void 0 : fm2["title"]) != null ? _b : "");
@@ -33524,7 +33594,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
           clean[k] = v;
         }
       }
-      for (const field of this.settings.templateFields) {
+      for (const field of this.config.templateConfig.fields) {
         if (!(field.key in clean)) {
           if (field.type === "freetext") {
             clean[field.key] = "";
@@ -33543,7 +33613,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
       const crNum = clean["crNumber"];
       if (crNum) {
         try {
-          const crFile = await findCrFileByNumber(this.app, this.settings, crNum);
+          const crFile = await findCrFileByNumber(this.app, this.config, crNum);
           if (crFile) clean["crLink"] = buildWikiLink(crFile.path);
         } catch (e) {
         }
@@ -33564,7 +33634,7 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
   }
   async createCrFromTemplate() {
     var _a;
-    const fields = (_a = this.settings.crTemplateFields) != null ? _a : [
+    const fields = (_a = this.config.templateConfig.crFields) != null ? _a : [
       { key: "number", label: "CR Number", type: "text" },
       { key: "title", label: "Title", type: "text" },
       { key: "emailSubject", label: "Email Subject", type: "text" },
@@ -33572,10 +33642,10 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
       { key: "description", label: "Description", type: "text" }
     ];
     const modal = new CrTemplateModal(this.app, fields, async (data) => {
-      const folder = this.settings.crFolder || "Change Requests";
+      const folder = this.config.paths.crFolder || "Change Requests";
       await ensureFolder(this.app, folder);
       let crNumber = (data["number"] || "").trim();
-      if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.settings);
+      if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.config);
       if (!/^CR-\d+$/i.test(crNumber)) crNumber = "CR-" + crNumber.replace(/[^0-9]/g, "");
       const title = (data["title"] || "").trim() || crNumber;
       const fileName = `${crNumber} - ${title}.md`;
@@ -33617,12 +33687,11 @@ var KanbanPlugin = class extends import_obsidian4.Plugin {
   }
 };
 var TaskTemplateModal = class extends import_obsidian4.Modal {
-  constructor(app, fields, statuses, settings, onSubmit) {
+  constructor(app, config, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
-    this.fields = fields;
-    this.statuses = statuses;
-    this.settings = settings;
+    this.fields = config.templateConfig.fields;
+    this.config = config;
     this.onSubmit = onSubmit;
   }
   onOpen() {
@@ -33635,11 +33704,11 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
     const statusSelect = statusControl.createEl("select");
-    for (const s of this.statuses) {
+    for (const s of this.config.statusConfig.statuses) {
       const opt = statusSelect.createEl("option", { text: s });
       opt.value = s;
     }
-    statusSelect.value = (_a = this.statuses[0]) != null ? _a : "";
+    statusSelect.value = (_a = this.config.statusConfig.statuses[0]) != null ? _a : "";
     this.inputs.set("status", statusSelect);
     const crRow = contentEl.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
@@ -33673,12 +33742,12 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
       if (field.type === "status" || field.key === "priority") {
         const select = control.createEl("select");
         select.addClass("kb-input");
-        const options = field.key === "status" ? this.statuses : ["Urgent", "High", "Medium", "Low"];
+        const options = field.key === "status" ? this.config.statusConfig.statuses : this.config.priorities;
         for (const o of options) {
           const opt = select.createEl("option", { text: o });
           opt.value = o;
         }
-        select.value = field.key === "status" ? (_b = this.statuses[0]) != null ? _b : "" : "Medium";
+        select.value = field.key === "status" ? (_b = this.config.statusConfig.statuses[0]) != null ? _b : "" : this.config.defaultPriority;
         this.inputs.set(field.key, select);
       } else if (field.type === "tags") {
         const tagsContainer = control.createDiv({ cls: "kb-tags-input-container" });
@@ -33693,7 +33762,7 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         let allTags = [];
         const loadAllTags = async () => {
           try {
-            allTags = await getAllExistingTags(this.app, this.settings);
+            allTags = await getAllExistingTags(this.app, this.config);
           } catch (e) {
             allTags = [];
           }
@@ -33850,7 +33919,7 @@ var TaskTemplateModal = class extends import_obsidian4.Modal {
         data[key] = val;
       }
       data["subtasks"] = subtasks;
-      if (!data["status"]) data["status"] = (_a2 = this.statuses[0]) != null ? _a2 : "Backlog";
+      if (!data["status"]) data["status"] = (_a2 = this.config.statusConfig.statuses[0]) != null ? _a2 : "Backlog";
       data["priority"] = data["priority"] || "Medium";
       await this.onSubmit(data);
       this.close();

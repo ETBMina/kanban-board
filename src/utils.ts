@@ -1,5 +1,5 @@
 import { App, normalizePath, TFile } from 'obsidian';
-import { PluginSettings, TaskNoteMeta } from './models';
+import { PluginConfiguration, TaskNoteMeta } from './models';
 
 export async function ensureFolder(app: App, folderPath: string): Promise<void> {
   const path = normalizePath(folderPath);
@@ -65,9 +65,9 @@ function escapeYamlInline(value: unknown): string {
   return s;
 }
 
-export async function readAllItems(app: App, settings: PluginSettings): Promise<TaskNoteMeta[]> {
-  const taskFolder = normalizePath(settings.taskFolder);
-  const crFolder = settings.crFolder ? normalizePath(settings.crFolder) : null;
+export async function readAllItems(app: App, settings: PluginConfiguration): Promise<TaskNoteMeta[]> {
+  const taskFolder = normalizePath(settings.paths.taskFolder);
+  const crFolder = settings.paths.crFolder ? normalizePath(settings.paths.crFolder) : null;
   const results: TaskNoteMeta[] = [];
   const files = app.vault.getMarkdownFiles().filter(f => {
     if (f.path.startsWith(taskFolder + '/')) return true;
@@ -98,8 +98,8 @@ export async function readAllItems(app: App, settings: PluginSettings): Promise<
   return results;
 }
 
-export async function readAllTasks(app: App, settings: PluginSettings): Promise<TaskNoteMeta[]> {
-  const folder = normalizePath(settings.taskFolder);
+export async function readAllTasks(app: App, settings: PluginConfiguration): Promise<TaskNoteMeta[]> {
+  const folder = normalizePath(settings.paths.taskFolder);
   const results: TaskNoteMeta[] = [];
   const files = app.vault.getMarkdownFiles().filter(f => f.path.startsWith(folder + '/'));
   for (const file of files) {
@@ -126,7 +126,7 @@ export async function readAllTasks(app: App, settings: PluginSettings): Promise<
   return results;
 }
 
-export async function getAllExistingTags(app: App, settings: PluginSettings): Promise<string[]> {
+export async function getAllExistingTags(app: App, settings: PluginConfiguration): Promise<string[]> {
   const tasks = await readAllTasks(app, settings);
   const tagSet = new Set<string>();
   
@@ -158,8 +158,8 @@ export function buildWikiLink(path: string): string {
   return `[[${p}]]`;
 }
 
-export async function findCrFileByNumber(app: App, settings: PluginSettings, crNumber: string): Promise<TFile | null> {
-  const folder = normalizePath(settings.crFolder || 'Change Requests');
+export async function findCrFileByNumber(app: App, settings: PluginConfiguration, crNumber: string): Promise<TFile | null> {
+  const folder = normalizePath(settings.paths.crFolder || 'Change Requests');
   const files = app.vault.getMarkdownFiles().filter(f => f.path.startsWith(folder + '/'));
   for (const file of files) {
     const fm = app.metadataCache.getFileCache(file)?.frontmatter;
@@ -172,8 +172,8 @@ export async function findCrFileByNumber(app: App, settings: PluginSettings, crN
   return null;
 }
 
-export async function generateNextCrNumber(app: App, settings: PluginSettings): Promise<string> {
-  const folder = normalizePath(settings.crFolder || 'Change Requests');
+export async function generateNextCrNumber(app: App, settings: PluginConfiguration): Promise<string> {
+  const folder = normalizePath(settings.paths.crFolder || 'Change Requests');
   const files = app.vault.getMarkdownFiles().filter(f => f.path.startsWith(folder + '/'));
   let max = 0;
   const rx = /^CR-(\d+)/i;

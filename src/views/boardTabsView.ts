@@ -1,12 +1,12 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
-import { PluginSettings, Subtask, TaskNoteMeta, ActiveTab } from '../models';
+import { PluginConfiguration, Subtask, TaskNoteMeta, ActiveTab, TaskFieldDefinition, FieldType } from '../models';
 import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML } from '../utils';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
 export class BoardTabsView extends ItemView {
-  private settings: PluginSettings;
+  private settings: PluginConfiguration;
   private tasks: TaskNoteMeta[] = [];
   private filterQuery = '';
   private active: ActiveTab;
@@ -40,7 +40,7 @@ export class BoardTabsView extends ItemView {
     });
   }
 
-  constructor(leaf: WorkspaceLeaf, settings: PluginSettings, persistSettings?: () => void | Promise<void>) {
+  constructor(leaf: WorkspaceLeaf, settings: PluginConfiguration, persistSettings?: () => void | Promise<void>) {
     super(leaf);
     this.settings = settings;
     this.active = this.settings.lastActiveTab ?? 'grid';
@@ -139,8 +139,8 @@ export class BoardTabsView extends ItemView {
 
   public async exportToJson() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = normalizePath(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+    const taskFolder = normalizePath(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? normalizePath(this.settings.paths.crFolder) : null;
 
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
@@ -246,8 +246,8 @@ export class BoardTabsView extends ItemView {
 
   public async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = normalizePath(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+    const taskFolder = normalizePath(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? normalizePath(this.settings.paths.crFolder) : null;
 
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
@@ -296,8 +296,8 @@ export class BoardTabsView extends ItemView {
 
   public async exportToCsv() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = normalizePath(this.settings.taskFolder);
-    const crFolder = this.settings.crFolder ? normalizePath(this.settings.crFolder) : null;
+    const taskFolder = normalizePath(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? normalizePath(this.settings.paths.crFolder) : null;
 
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
@@ -346,7 +346,7 @@ export class BoardTabsView extends ItemView {
 
   private async processImportData(data: any[], type: 'task' | 'cr') {
     const allItems = await readAllItems(this.app, this.settings);
-    const folder = type === 'cr' ? this.settings.crFolder : this.settings.taskFolder;
+    const folder = type === 'cr' ? this.settings.paths.crFolder : this.settings.paths.taskFolder;
     if (!folder) {
       new Notice(`Folder for ${type}s is not configured.`);
       return;
@@ -423,7 +423,7 @@ export class BoardTabsView extends ItemView {
 
   // GRID
   private getFilteredTasks(): TaskNoteMeta[] {
-    const taskFolder = normalizePath(this.settings.taskFolder);
+    const taskFolder = normalizePath(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter(t => t.filePath.startsWith(taskFolder + '/')); // Create a copy to sort
     
     // Sort by createdAt timestamp in descending order (newest first)
@@ -438,7 +438,7 @@ export class BoardTabsView extends ItemView {
     if (!q) return tasks;
     return tasks.filter(t => {
       if (t.fileName.toLowerCase().includes(q)) return true;
-      return this.settings.gridVisibleColumns.some((key) => String(t.frontmatter[key] ?? '').toLowerCase().includes(q));
+      return this.settings.gridConfig.visibleColumns.some((key: string) => String(t.frontmatter[key] ?? '').toLowerCase().includes(q));
     });
   }
 
@@ -460,7 +460,7 @@ export class BoardTabsView extends ItemView {
     
     const setupColumnResize = (th: HTMLElement, key: string) => {
       // Set initial width from settings or compute based on content
-      const savedWidth = this.settings.gridColumnWidths[key];
+      const savedWidth = this.settings.gridConfig.columnWidths[key] ?? this.settings.gridConfig.defaultColumnWidth;
       if (savedWidth) {
         th.style.width = `${savedWidth}px`;
       }
@@ -481,7 +481,7 @@ export class BoardTabsView extends ItemView {
             if (width >= 50) { // Minimum width
               currentTh!.style.width = `${width}px`;
               // Store the new width in settings
-              this.settings.gridColumnWidths[key] = width;
+              this.settings.gridConfig.columnWidths[key] = width;
             }
           };
           
@@ -505,13 +505,13 @@ export class BoardTabsView extends ItemView {
     // Calculate initial widths for status and priority columns if not set
     const calculateMaxWidth = (key: string): number => {
       // Get field definition to know the type
-      const fieldDef = this.settings.templateFields.find(f => f.key === key);
+      const fieldDef = this.settings.templateConfig.fields.find(f => f.key === key);
       if (!fieldDef) return 120; // Default width
       
       let maxContent = key; // Start with header text
       if (fieldDef.type === 'status' && key === 'status') {
         // For status, check all possible status values
-        maxContent = this.settings.statuses.reduce((a, b) => a.length > b.length ? a : b);
+        maxContent = this.settings.statusConfig.statuses.reduce((a: string, b: string) => a.length > b.length ? a : b);
       } else if (fieldDef.type === 'status' && key === 'priority') {
         // For priority, check all tasks' priority values
         const allPriorities = new Set(this.tasks.map(t => String(t.frontmatter['priority'] ?? '')).filter(Boolean));
@@ -525,12 +525,12 @@ export class BoardTabsView extends ItemView {
     };
 
     // Create headers with resize handlers
-    for (const key of this.settings.gridVisibleColumns) {
+    for (const key of this.settings.gridConfig.visibleColumns) {
       const th = trh.createEl('th', { text: key });
       
       // Set initial width for status and priority if not already set
-      if ((key === 'status' || key === 'priority') && !this.settings.gridColumnWidths[key]) {
-        this.settings.gridColumnWidths[key] = calculateMaxWidth(key);
+      if ((key === 'status' || key === 'priority') && !this.settings.gridConfig.columnWidths[key]) {
+        this.settings.gridConfig.columnWidths[key] = calculateMaxWidth(key);
         this.persistSettings?.();
       }
       
@@ -547,8 +547,8 @@ export class BoardTabsView extends ItemView {
       // Add archived styling
       const isArchived = Boolean(t.frontmatter['archived']);
       if (isArchived) tr.addClass('kb-row-archived');
-      for (const key of this.settings.gridVisibleColumns) {
-        const fieldDef = this.settings.templateFields.find(f => f.key === key) || { key, label: key, type: 'text' } as any;
+      for (const key of this.settings.gridConfig.visibleColumns) {
+        const fieldDef = this.settings.templateConfig.fields.find((f: TaskFieldDefinition) => f.key === key) || { key, label: key, type: 'text' as FieldType };
         const val = t.frontmatter[key];
         const td = tr.createEl('td');
         td.addClass('kb-grid-cell');
@@ -657,8 +657,8 @@ export class BoardTabsView extends ItemView {
           // hide the plain text display and show inline select
           displayEl.style.display = 'none';
           const sel = td.createEl('select'); sel.addClass('kb-cell-inline-select');
-          for (const s of this.settings.statuses) { const o = sel.createEl('option', { text: s }); o.value = s; }
-          sel.value = String(t.frontmatter[key] ?? this.settings.statuses[0] ?? '');
+          for (const s of this.settings.statusConfig.statuses) { const o = sel.createEl('option', { text: s }); o.value = s; }
+          sel.value = String(t.frontmatter[key] ?? this.settings.statusConfig.statuses[0] ?? '');
           sel.onchange = () => saveValue(sel.value);
         } else if (fieldDef.type === 'date') {
           // hide the plain text display and show inline date input
@@ -777,10 +777,10 @@ export class BoardTabsView extends ItemView {
     const board = container.createDiv({ cls: 'kb-kanban kb-kanban-horizontal', attr: { draggable: 'false' } });
 
     const byStatus = new Map<string, TaskNoteMeta[]>();
-    for (const status of this.settings.statuses) byStatus.set(status, []);
+    for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
     for (const t of this.getFilteredTasks()) {
-      const status = (t.frontmatter['status'] ?? this.settings.statuses[0]) as string;
-      (byStatus.get(status) ?? byStatus.get(this.settings.statuses[0])!)!.push(t);
+      const status = (t.frontmatter['status'] ?? this.settings.statusConfig.statuses[0]) as string;
+      (byStatus.get(status) ?? byStatus.get(this.settings.statusConfig.statuses[0])!)!.push(t);
     }
     // Sort tasks in each column by explicit 'order' frontmatter if present, falling back to createdAt
     for (const [k, arr] of Array.from(byStatus.entries())) {
@@ -806,7 +806,7 @@ export class BoardTabsView extends ItemView {
         const from = handleColumnDrag.dragIndex;
         const to = idx;
         if (from < 0 || to < 0 || from === to) return;
-        const arr = this.settings.statuses;
+        const arr = this.settings.statusConfig.statuses;
         const [moved] = arr.splice(from, 1);
         arr.splice(to, 0, moved);
         await this.persistSettings?.();
@@ -814,7 +814,7 @@ export class BoardTabsView extends ItemView {
       }
     };
 
-    this.settings.statuses.forEach((status, idx) => {
+    this.settings.statusConfig.statuses.forEach((status: string, idx: number) => {
       const col = board.createDiv({ cls: 'kb-column', attr: { 'data-col-index': String(idx) } });
       // Column acts as dropzone for both column drags (reorder) and card drags (move)
       col.ondragover = (e) => {
@@ -855,7 +855,7 @@ export class BoardTabsView extends ItemView {
           const newName = (await this.promptText('Rename column', 'Column name', status))?.trim();
           if (!newName || newName === status) return;
           // Update settings
-          this.settings.statuses[idx] = newName;
+          this.settings.statusConfig.statuses[idx] = newName;
           await this.persistSettings?.();
           // Update all tasks currently in this status
           const tasksInCol = byStatus.get(status) ?? [];
@@ -874,15 +874,15 @@ export class BoardTabsView extends ItemView {
           await this.reload();
         }));
         menu.addItem((i) => i.setTitle('Delete').onClick(async () => {
-          this.settings.statuses.splice(idx, 1);
+          this.settings.statusConfig.statuses.splice(idx, 1);
           await this.persistSettings?.();
           this.renderBoard(container);
         }));
         menu.addItem((i) => i.setTitle('Move right').onClick(async () => {
-          const arr = this.settings.statuses; if (idx >= arr.length - 1) return; [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]]; await this.persistSettings?.(); this.renderBoard(container);
+          const arr = this.settings.statusConfig.statuses; if (idx >= arr.length - 1) return; [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]]; await this.persistSettings?.(); this.renderBoard(container);
         }));
         menu.addItem((i) => i.setTitle('Move left').onClick(async () => {
-          const arr = this.settings.statuses; if (idx === 0) return; [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]; await this.persistSettings?.(); this.renderBoard(container);
+          const arr = this.settings.statusConfig.statuses; if (idx === 0) return; [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]; await this.persistSettings?.(); this.renderBoard(container);
         }));
         const e = ev as MouseEvent;
         menu.showAtPosition({ x: e.clientX, y: e.clientY });
@@ -1223,7 +1223,7 @@ export class BoardTabsView extends ItemView {
     addBtn.onclick = async () => {
       const name = (await this.promptText('New column', 'Column name'))?.trim();
       if (!name) return;
-      this.settings.statuses.push(name);
+      this.settings.statusConfig.statuses.push(name);
       await this.persistSettings?.();
       this.renderBoard(container);
     };
@@ -1232,12 +1232,12 @@ export class BoardTabsView extends ItemView {
 
 // Modal for editing an existing task. Reuses templateFields from settings to avoid duplication.
 class EditTaskModal extends Modal {
-  private settings: PluginSettings;
+  private settings: PluginConfiguration;
   private task: TaskNoteMeta;
   private onSubmit: (patch: Record<string, any>) => void | Promise<void>;
   private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-  constructor(app: App, settings: PluginSettings, task: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, settings: PluginConfiguration, task: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void | Promise<void>) {
     super(app);
     this.settings = settings;
     this.task = task;
@@ -1257,11 +1257,11 @@ class EditTaskModal extends Modal {
     statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
     const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
     const statusSelect = statusControl.createEl('select');
-    for (const s of this.settings.statuses) {
+    for (const s of this.settings.statusConfig.statuses) {
       const opt = statusSelect.createEl('option', { text: s });
       opt.value = s;
     }
-    statusSelect.value = String(fm['status'] ?? this.settings.statuses[0] ?? '');
+    statusSelect.value = String(fm['status'] ?? this.settings.statusConfig.statuses[0] ?? '');
     this.inputs.set('status', statusSelect);
 
     // CR Number
@@ -1298,7 +1298,7 @@ class EditTaskModal extends Modal {
     this.inputs.set('service', svcInput);
 
     // Render remaining template fields
-    for (const field of this.settings.templateFields.filter(f => !['status', 'crNumber', 'taskNumber', 'service'].includes(f.key))) {
+    for (const field of this.settings.templateConfig.fields.filter((f: TaskFieldDefinition) => !['status', 'crNumber', 'taskNumber', 'service'].includes(f.key))) {
       const row = contentEl.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
@@ -1306,11 +1306,11 @@ class EditTaskModal extends Modal {
       if (field.type === 'status' || field.key === 'priority') {
         const select = control.createEl('select');
         select.addClass('kb-input');
-        const options = field.key === 'status' ? this.settings.statuses : ['Urgent', 'High', 'Medium', 'Low'];
+        const options = field.key === 'status' ? this.settings.statusConfig.statuses : this.settings.priorities;
         for (const o of options) {
           const opt = select.createEl('option', { text: o }); opt.value = o;
         }
-        select.value = String(fm[field.key] ?? (field.key === 'status' ? this.settings.statuses[0] ?? '' : 'Medium'));
+        select.value = String(fm[field.key] ?? (field.key === 'status' ? this.settings.statusConfig.statuses[0] ?? '' : this.settings.defaultPriority));
         this.inputs.set(field.key, select);
       } else if (field.type === 'tags') {
         // Reuse the same tags input UI as creation modal

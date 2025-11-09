@@ -1,0 +1,166 @@
+{
+  "paths": {
+    "taskFolder": "Tasks",
+    "crFolder": "Change Requests"
+  },
+  "statusConfig": {
+    "statuses": [
+      "Backlog",
+      "Blocked",
+      "In Progress",
+      "Review",
+      "Unit Testing",
+      "Completed",
+      "test2"
+    ],
+    "completedPattern": "^(completed|done)$",
+    "inProgressPattern": "in\\s*progress"
+  },
+  "gridConfig": {
+    "columnWidths": {
+      "status": 124,
+      "priority": 120,
+      "startDate": 152.20833587646484,
+      "endDate": 154.70833587646484,
+      "crNumber": 164.70833587646484,
+      "taskNumber": 124.70833587646484,
+      "archived": 91.5625,
+      "notes": 165.57291793823242,
+      "title": 399.1666679382324
+    },
+    "minColumnWidth": 50,
+    "defaultColumnWidth": 120,
+    "characterWidthPixels": 8,
+    "columnPadding": 40,
+    "visibleColumns": [
+      "crNumber",
+      "taskNumber",
+      "title",
+      "service",
+      "status",
+      "priority",
+      "startDate",
+      "endDate",
+      "notes"
+    ]
+  },
+  "priorities": [
+    "Urgent",
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "defaultPriority": "Medium",
+  "fieldPatterns": {
+    "crNumberPattern": "^CR-\\d+$",
+    "taskNumberPattern": "^T-\\d+$"
+  },
+  "templateConfig": {
+    "fields": [
+      {
+        "key": "title",
+        "label": "Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "status",
+        "label": "Status",
+        "type": "status",
+        "required": true,
+        "useValues": "statuses"
+      },
+      {
+        "key": "priority",
+        "label": "Priority",
+        "type": "status",
+        "required": true,
+        "useValues": "priorities",
+        "default": "Medium"
+      },
+      {
+        "key": "assignee",
+        "label": "Assignee",
+        "type": "people"
+      },
+      {
+        "key": "startDate",
+        "label": "Start Date",
+        "type": "date"
+      },
+      {
+        "key": "endDate",
+        "label": "End Date",
+        "type": "date"
+      },
+      {
+        "key": "tags",
+        "label": "Tags",
+        "type": "tags"
+      },
+      {
+        "key": "crNumber",
+        "label": "CR Number",
+        "type": "text"
+      },
+      {
+        "key": "taskNumber",
+        "label": "Task Number",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "Service",
+        "type": "text"
+      },
+      {
+        "key": "notes",
+        "label": "Notes",
+        "type": "freetext"
+      }
+    ],
+    "crFields": [
+      {
+        "key": "number",
+        "label": "CR Number",
+        "type": "text"
+      },
+      {
+        "key": "title",
+        "label": "Title",
+        "type": "text"
+      },
+      {
+        "key": "priority",
+        "label": "Priority",
+        "type": "status"
+      },
+      {
+        "key": "plannedStart",
+        "label": "Planned start date",
+        "type": "date"
+      },
+      {
+        "key": "plannedEnd",
+        "label": "Planned end date",
+        "type": "date"
+      },
+      {
+        "key": "emailSubject",
+        "label": "Email Subject",
+        "type": "text"
+      },
+      {
+        "key": "solutionDesign",
+        "label": "Solution design link",
+        "type": "url"
+      },
+      {
+        "key": "description",
+        "label": "Description",
+        "type": "freetext"
+      }
+    ]
+  },
+  "lastActiveTab": "grid"
+}
