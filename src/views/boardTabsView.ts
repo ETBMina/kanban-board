@@ -657,8 +657,18 @@ export class BoardTabsView extends ItemView {
           // hide the plain text display and show inline select
           displayEl.style.display = 'none';
           const sel = td.createEl('select'); sel.addClass('kb-cell-inline-select');
-          for (const s of this.settings.statusConfig.statuses) { const o = sel.createEl('option', { text: s }); o.value = s; }
-          sel.value = String(t.frontmatter[key] ?? this.settings.statusConfig.statuses[0] ?? '');
+          
+          // Determine options based on field config
+          const options = fieldDef.useValues === 'priorities' 
+            ? this.settings.priorities 
+            : this.settings.statusConfig.statuses;
+          
+          for (const s of options) { 
+            const o = sel.createEl('option', { text: s }); 
+            o.value = s; 
+          }
+          
+          sel.value = String(t.frontmatter[key] ?? options[0] ?? '');
           sel.onchange = () => saveValue(sel.value);
         } else if (fieldDef.type === 'date') {
           // hide the plain text display and show inline date input
@@ -1303,14 +1313,16 @@ class EditTaskModal extends Modal {
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
 
-      if (field.type === 'status' || field.key === 'priority') {
+      if (field.type === 'status') {
         const select = control.createEl('select');
         select.addClass('kb-input');
-        const options = field.key === 'status' ? this.settings.statusConfig.statuses : this.settings.priorities;
+        const options = field.useValues === 'priorities' 
+          ? this.settings.priorities 
+          : this.settings.statusConfig.statuses;
         for (const o of options) {
           const opt = select.createEl('option', { text: o }); opt.value = o;
         }
-        select.value = String(fm[field.key] ?? (field.key === 'status' ? this.settings.statusConfig.statuses[0] ?? '' : this.settings.defaultPriority));
+        select.value = String(fm[field.key] ?? options[0] ?? '');
         this.inputs.set(field.key, select);
       } else if (field.type === 'tags') {
         // Reuse the same tags input UI as creation modal

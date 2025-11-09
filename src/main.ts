@@ -474,19 +474,20 @@ class TaskTemplateModal extends Modal {
         row.createDiv({ cls: 'setting-item-name', text: field.label });
         const control = row.createDiv({ cls: 'setting-item-control' });
         // Render selects for true status fields or for the special 'priority' key
-        if (field.type === 'status' || field.key === 'priority') {
+        if (field.type === 'status') {
           const select = control.createEl('select');
           select.addClass('kb-input');
-          // Use different options list based on whether this is the status field or the priority field
-          const options = field.key === 'status' ? this.config.statusConfig.statuses : this.config.priorities;
+          const options = field.useValues === 'priorities' 
+            ? this.config.priorities 
+            : this.config.statusConfig.statuses;
           for (const o of options) {
             const opt = select.createEl('option', { text: o });
             opt.value = o;
           }
-          // Default to first status for status field, Medium for priority
-          select.value = field.key === 'status' ? 
-            (this.config.statusConfig.statuses[0] ?? '') : 
-            this.config.defaultPriority;
+          select.value = options[0] ?? '';
+          if (field.useValues === 'priorities') {
+            select.value = this.config.defaultPriority;
+          }
           this.inputs.set(field.key, select);
         } else if (field.type === 'tags') {
           // Create container for tags input and suggestions
