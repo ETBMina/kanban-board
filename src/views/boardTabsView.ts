@@ -2,10 +2,12 @@ import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, nor
 import * as XLSX from 'xlsx';
 import { PluginConfiguration, Subtask, TaskNoteMeta, ActiveTab, TaskFieldDefinition, FieldType } from '../models';
 import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML } from '../utils';
+import KanbanPlugin from '../main';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
 export class BoardTabsView extends ItemView {
+  private plugin: KanbanPlugin;
   private settings: PluginConfiguration;
   private tasks: TaskNoteMeta[] = [];
   private filterQuery = '';
@@ -40,8 +42,9 @@ export class BoardTabsView extends ItemView {
     });
   }
 
-  constructor(leaf: WorkspaceLeaf, settings: PluginConfiguration, persistSettings?: () => void | Promise<void>) {
+  constructor(leaf: WorkspaceLeaf, plugin: KanbanPlugin, settings: PluginConfiguration, persistSettings?: () => void | Promise<void>) {
     super(leaf);
+    this.plugin = plugin;
     this.settings = settings;
     this.active = this.settings.lastActiveTab ?? 'grid';
     this.persistSettings = persistSettings;
@@ -674,7 +677,12 @@ export class BoardTabsView extends ItemView {
           // hide the plain text display and show inline date input
           displayEl.style.display = 'none';
           const inp = td.createEl('input') as HTMLInputElement; inp.type = 'date'; inp.value = String(t.frontmatter[key] ?? ''); inp.addClass('kb-cell-inline-date'); inp.onchange = () => saveValue(inp.value);
-        } else if (fieldDef.type === 'tags' || fieldDef.type === 'people') {
+        } else if (fieldDef.type === 'people') {
+          displayEl.style.display = 'none';
+          this.createPeopleDropdown(td, String(t.frontmatter[key] ?? ''), (newValue) => {
+            saveValue(newValue);
+          });
+        } else if (fieldDef.type === 'tags') {
           // render first tag and +N
           // hide display text and render preview
           displayEl.style.display = 'none';
@@ -778,6 +786,79 @@ export class BoardTabsView extends ItemView {
         if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
       };
     }
+  }
+
+  private createPeopleDropdown(parentElement: HTMLElement, initialValue: string, saveCallback: (value: string) => void) {
+    const peopleInputContainer = parentElement.createDiv({ cls: 'kb-people-input-container' });
+    const peopleInput = peopleInputContainer.createEl('input');
+    peopleInput.addClass('kb-input');
+    peopleInput.placeholder = 'Type to select a person...';
+    peopleInput.type = 'text';
+    peopleInput.value = initialValue;
+
+    const suggestionsContainer = peopleInputContainer.createDiv({ cls: 'kb-people-suggestions' });
+    suggestionsContainer.style.display = 'none';
+
+    let allPeople = this.settings.people || [];
+
+    const renderSuggestions = (query?: string) => {
+      suggestionsContainer.empty();
+      const q = (query ?? '').trim().toLowerCase();
+      let candidates = allPeople.filter(p => q ? p.toLowerCase().includes(q) : true);
+
+      if (q && !allPeople.map(p => p.toLowerCase()).includes(q)) {
+        const addOption = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+        addOption.setText(`Add "${query}"`);
+        addOption.onclick = async () => {
+          await this.plugin.addPerson(query!);
+          allPeople = this.settings.people || [];
+          selectPerson(query!);
+        };
+      }
+
+      for (const person of candidates) {
+        const option = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+        option.setText(person);
+        option.onclick = () => selectPerson(person);
+      }
+
+      suggestionsContainer.style.display = 'block';
+    };
+
+    const selectPerson = (person: string) => {
+      peopleInput.value = person;
+      suggestionsContainer.style.display = 'none';
+      saveCallback(person);
+    };
+
+    peopleInput.oninput = () => renderSuggestions(peopleInput.value);
+    peopleInput.onfocus = () => renderSuggestions('');
+    peopleInput.onkeydown = async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = peopleInput.value.trim();
+        if (value) {
+          if (!allPeople.includes(value)) {
+            await this.plugin.addPerson(value);
+            allPeople = this.settings.people || [];
+          }
+          selectPerson(value);
+        }
+      }
+    };
+    peopleInput.onblur = () => {
+      // Save the value on blur, but with a small delay to allow for clicks on suggestions
+      setTimeout(() => {
+        if (suggestionsContainer.style.display === 'none') {
+          saveCallback(peopleInput.value);
+        }
+      }, 200);
+    };
+    document.addEventListener('click', (e) => {
+      if (!peopleInputContainer.contains(e.target as Node)) {
+        suggestionsContainer.style.display = 'none';
+      }
+    });
   }
 
   // BOARD
@@ -1324,6 +1405,58 @@ class EditTaskModal extends Modal {
         }
         select.value = String(fm[field.key] ?? options[0] ?? '');
         this.inputs.set(field.key, select);
+      } else if (field.type === 'people') {
+        const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
+        const peopleInput = peopleInputContainer.createEl('input');
+        peopleInput.addClass('kb-input');
+        peopleInput.placeholder = 'Type to select a person...';
+        peopleInput.type = 'text';
+        peopleInput.value = String(fm[field.key] ?? '');
+
+        const suggestionsContainer = peopleInputContainer.createDiv({ cls: 'kb-people-suggestions' });
+        suggestionsContainer.style.display = 'none';
+
+        let allPeople = this.settings.people || [];
+
+        const renderSuggestions = (query?: string) => {
+          suggestionsContainer.empty();
+          const q = (query ?? '').trim().toLowerCase();
+          let candidates = allPeople.filter(p => q ? p.toLowerCase().includes(q) : true);
+
+          if (q && !allPeople.map(p => p.toLowerCase()).includes(q)) {
+            const addOption = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+            addOption.setText(`Add "${query}"`);
+            addOption.onclick = async () => {
+              // This is a bit tricky because we don't have access to the plugin instance here to call addPerson
+              // For now, we just update the local list and the input value
+              allPeople.push(query!);
+              selectPerson(query!);
+            };
+          }
+
+          for (const person of candidates) {
+            const option = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+            option.setText(person);
+            option.onclick = () => selectPerson(person);
+          }
+
+          suggestionsContainer.style.display = 'block';
+        };
+
+        const selectPerson = (person: string) => {
+          peopleInput.value = person;
+          suggestionsContainer.style.display = 'none';
+        };
+
+        peopleInput.oninput = () => renderSuggestions(peopleInput.value);
+        peopleInput.onfocus = () => renderSuggestions('');
+        document.addEventListener('click', (e) => {
+          if (!peopleInputContainer.contains(e.target as Node)) {
+            suggestionsContainer.style.display = 'none';
+          }
+        });
+
+        this.inputs.set(field.key, peopleInput);
       } else if (field.type === 'tags') {
         // Reuse the same tags input UI as creation modal
         const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });

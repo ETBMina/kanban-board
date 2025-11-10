@@ -14,6 +14,19 @@ export default class KanbanPlugin extends Plugin {
     );
   }
 
+  async addPerson(person: string) {
+    if (!this.config.people) {
+      this.config.people = [];
+    }
+    if (!this.config.people.includes(person)) {
+      this.config.people.push(person);
+      await this.app.vault.adapter.write(
+        `${this.manifest.dir}/userConfiguration.json`,
+        JSON.stringify({ people: this.config.people }, null, 2)
+      );
+    }
+  }
+
   private async validateAndPromptForSettings() {
     // Create a modal to prompt for missing settings
     const modal = new Modal(this.app);
@@ -114,6 +127,16 @@ export default class KanbanPlugin extends Plugin {
     try {
       const rawData = await this.app.vault.adapter.read(`${this.manifest.dir}/configuration.json`).catch(() => '{}');
       this.config = JSON.parse(rawData) || {};
+
+      // Load user configuration
+      const userConfigPath = `${this.manifest.dir}/userConfiguration.json`;
+      const userConfigData = await this.app.vault.adapter.read(userConfigPath).catch(() => '{}');
+      const userConfig = JSON.parse(userConfigData) || {};
+      if (!userConfig.people) {
+        userConfig.people = [];
+        await this.app.vault.adapter.write(userConfigPath, JSON.stringify(userConfig, null, 2));
+      }
+      this.config.people = userConfig.people;
       
       // Ensure basic structure exists
       if (!this.config.paths) this.config.paths = { taskFolder: '', crFolder: '' };
@@ -157,7 +180,7 @@ export default class KanbanPlugin extends Plugin {
 
     this.registerView(
       BOARD_TABS_VIEW_TYPE,
-      (leaf) => new BoardTabsView(leaf, this.config, () => this.saveConfig())
+      (leaf) => new BoardTabsView(leaf, this, this.config, () => this.saveConfig())
     );
 
     this.addCommand({
@@ -260,7 +283,7 @@ export default class KanbanPlugin extends Plugin {
   }
 
   private async createTaskFromTemplate() {
-    const modal = new TaskTemplateModal(this.app, this.config, async (data: Record<string, any>) => {
+    const modal = new TaskTemplateModal(this.app, this, async (data: Record<string, any>) => {
       const folder = this.config.paths.taskFolder || 'Tasks';
       await ensureFolder(this.app, folder);
       // Derive title from CR title + task number + service name
@@ -408,14 +431,14 @@ export default class KanbanPlugin extends Plugin {
 
 class TaskTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
-  private config: PluginConfiguration;
+  private plugin: KanbanPlugin;
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
   private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-  constructor(app: App, config: PluginConfiguration, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, plugin: KanbanPlugin, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
-    this.fields = config.templateConfig.fields;
-    this.config = config;
+    this.fields = plugin.config.templateConfig.fields;
+    this.plugin = plugin;
     this.onSubmit = onSubmit;
   }
 
@@ -430,11 +453,11 @@ class TaskTemplateModal extends Modal {
     statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
     const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
     const statusSelect = statusControl.createEl('select');
-    for (const s of this.config.statusConfig.statuses) {
+    for (const s of this.plugin.config.statusConfig.statuses) {
       const opt = statusSelect.createEl('option', { text: s });
       opt.value = s;
     }
-    statusSelect.value = this.config.statusConfig.statuses[0] ?? '';
+    statusSelect.value = this.plugin.config.statusConfig.statuses[0] ?? '';
     this.inputs.set('status', statusSelect);
 
     // CR Number (required to derive the title/link)
@@ -478,17 +501,78 @@ class TaskTemplateModal extends Modal {
           const select = control.createEl('select');
           select.addClass('kb-input');
           const options = field.useValues === 'priorities' 
-            ? this.config.priorities 
-            : this.config.statusConfig.statuses;
+            ? this.plugin.config.priorities 
+            : this.plugin.config.statusConfig.statuses;
           for (const o of options) {
             const opt = select.createEl('option', { text: o });
             opt.value = o;
           }
           select.value = options[0] ?? '';
           if (field.useValues === 'priorities') {
-            select.value = this.config.defaultPriority;
+            select.value = this.plugin.config.defaultPriority;
           }
           this.inputs.set(field.key, select);
+        } else if (field.type === 'people') {
+          const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
+          const peopleInput = peopleInputContainer.createEl('input');
+          peopleInput.addClass('kb-input');
+          peopleInput.placeholder = 'Type to select a person...';
+          peopleInput.type = 'text';
+
+          const suggestionsContainer = peopleInputContainer.createDiv({ cls: 'kb-people-suggestions' });
+          suggestionsContainer.style.display = 'none';
+
+          let allPeople = this.plugin.config.people || [];
+
+          const renderSuggestions = (query?: string) => {
+            suggestionsContainer.empty();
+            const q = (query ?? '').trim().toLowerCase();
+            let candidates = allPeople.filter(p => q ? p.toLowerCase().includes(q) : true);
+
+            if (q && !allPeople.map(p => p.toLowerCase()).includes(q)) {
+              const addOption = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+              addOption.setText(`Add "${query}"`);
+              addOption.onclick = async () => {
+                await this.plugin.addPerson(query!);
+                allPeople = this.plugin.config.people || [];
+                selectPerson(query!);
+              };
+            }
+
+            for (const person of candidates) {
+              const option = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+              option.setText(person);
+              option.onclick = () => selectPerson(person);
+            }
+
+            suggestionsContainer.style.display = 'block';
+          };
+
+          const selectPerson = (person: string) => {
+            peopleInput.value = person;
+            suggestionsContainer.style.display = 'none';
+          };
+
+          peopleInput.oninput = () => renderSuggestions(peopleInput.value);
+          peopleInput.onfocus = () => renderSuggestions('');
+          peopleInput.onkeydown = async (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const value = peopleInput.value.trim();
+              if (value) {
+                await this.plugin.addPerson(value);
+                allPeople = this.plugin.config.people || []; // Refresh the list
+                selectPerson(value); // Select the newly added person
+              }
+            }
+          };
+          document.addEventListener('click', (e) => {
+            if (!peopleInputContainer.contains(e.target as Node)) {
+              suggestionsContainer.style.display = 'none';
+            }
+          });
+
+          this.inputs.set(field.key, peopleInput);
         } else if (field.type === 'tags') {
           // Create container for tags input and suggestions
           const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });
@@ -509,7 +593,7 @@ class TaskTemplateModal extends Modal {
           let allTags: string[] = [];
           const loadAllTags = async () => {
             try {
-              allTags = await getAllExistingTags(this.app, this.config);
+              allTags = await getAllExistingTags(this.app, this.plugin.config);
             } catch {
               allTags = [];
             }
@@ -695,7 +779,7 @@ class TaskTemplateModal extends Modal {
         data[key] = val;
       }
       data['subtasks'] = subtasks;
-      if (!data['status']) data['status'] = this.config.statusConfig.statuses[0] ?? 'Backlog';
+      if (!data['status']) data['status'] = this.plugin.config.statusConfig.statuses[0] ?? 'Backlog';
       // Always ensure we have a priority value
       data['priority'] = data['priority'] || 'Medium';
       // Title is derived from CR and inputs; no manual title

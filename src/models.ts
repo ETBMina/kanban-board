@@ -49,6 +49,7 @@ export interface PluginConfiguration {
   fieldPatterns: FieldPatterns;
   templateConfig: TemplateConfig;
   lastActiveTab?: ActiveTab;
+  people?: string[];
 }
 
 export interface Subtask {

@@ -26,7 +26,9 @@
       "taskNumber": 124.70833587646484,
       "archived": 91.5625,
       "notes": 165.57291793823242,
-      "title": 399.1666679382324
+      "title": 382.16668701171875,
+      "designer": 183,
+      "developer": 197
     },
     "minColumnWidth": 50,
     "defaultColumnWidth": 120,
@@ -39,6 +41,8 @@
       "service",
       "status",
       "priority",
+      "designer",
+      "developer",
       "startDate",
       "endDate",
       "notes"
@@ -79,8 +83,13 @@
         "default": "Medium"
       },
       {
-        "key": "assignee",
-        "label": "Assignee",
+        "key": "designer",
+        "label": "Designer",
+        "type": "people"
+      },
+      {
+        "key": "developer",
+        "label": "Developer",
         "type": "people"
       },
       {
@@ -162,5 +171,15 @@
       }
     ]
   },
-  "lastActiveTab": "grid"
+  "lastActiveTab": "grid",
+  "people": [
+    "Mina Talaat Hakim",
+    "Ahmed Mohamed Hussien Abdelaal",
+    "Nada Fathy",
+    "Nada Fathy",
+    "Nada Fathy",
+    "Nada Fathy",
+    "Test",
+    "Test2"
+  ]
 }
