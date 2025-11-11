@@ -152,6 +152,8 @@ export default class KanbanPlugin extends Plugin {
       };
       if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: '^CR-\\d+$', taskNumberPattern: '^T-\\d+$' };
       if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
+      if (!this.config.taskFilenameFormat) this.config.taskFilenameFormat = '{{crNumber}} {{taskNumber}} : {{title}} - {{service}}.md';
+      if (!this.config.crFilenameFormat) this.config.crFilenameFormat = '{{number}} - {{title}}.md';
 
       // Validate and prompt for required settings
       if (!(await this.validateAndPromptForSettings())) {
@@ -302,11 +304,12 @@ export default class KanbanPlugin extends Plugin {
           }
         }
       }
-      const prefixParts = [crNumInput, taskNumInput].filter(Boolean).join(' ');
-      const serviceBracket = serviceInput ? ` - [${serviceInput}]` : '';
-      const coreTitle = crTitle.trim() || `Task ${new Date().toISOString().slice(0, 10)}`;
-      const title = prefixParts ? `[${prefixParts}] ${coreTitle}${serviceBracket}` : `${coreTitle}${serviceBracket}`;
-      const fileName = `${title}.md`;
+      const title = crTitle.trim() || `Task ${new Date().toISOString().slice(0, 10)}`;
+      const format = this.config.taskFilenameFormat || '{{title}}.md';
+      const fileName = format.replace('{{title}}', title)
+        .replace('{{crNumber}}', crNumInput)
+        .replace('{{taskNumber}}', taskNumInput)
+        .replace('{{service}}', serviceInput);
       const path = `${folder}/${fileName}`;
       // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};
@@ -343,7 +346,7 @@ export default class KanbanPlugin extends Plugin {
         }
       }
       // Title is derived; ensure it is set and not editable via template
-      clean['title'] = title;
+      clean['title'] = crTitle ? crTitle.trim() : title;
       // add createdAt timestamp
       clean['createdAt'] = new Date().toISOString();
 
@@ -383,7 +386,8 @@ export default class KanbanPlugin extends Plugin {
       if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.config);
       if (!/^CR-\d+$/i.test(crNumber)) crNumber = 'CR-' + crNumber.replace(/[^0-9]/g, '');
       const title = (data['title'] || '').trim() || crNumber;
-      const fileName = `${crNumber} - ${title}.md`;
+      const format = this.config.crFilenameFormat || '{{number}} - {{title}}.md';
+      const fileName = format.replace('{{number}}', crNumber).replace('{{title}}', title);
       const path = `${folder}/${fileName}`;
       // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};

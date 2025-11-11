@@ -50,6 +50,8 @@ export interface PluginConfiguration {
   templateConfig: TemplateConfig;
   lastActiveTab?: ActiveTab;
   people?: string[];
+  taskFilenameFormat?: string;
+  crFilenameFormat?: string;
 }
 
 export interface Subtask {
@@ -63,7 +65,12 @@ export interface TaskNoteMeta {
   file: TFile;
   filePath: string;
   fileName: string;
-  frontmatter: Record<string, any>;
+  frontmatter: {
+    cr?: {
+      title: string;
+    };
+    [key: string]: any;
+  };
   subtasks: Subtask[];
 }
 

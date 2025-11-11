@@ -402,11 +402,17 @@ export class BoardTabsView extends ItemView {
         // Create new
         let fileName = '';
         if (type === 'cr') {
+          const format = this.settings.crFilenameFormat || '{{number}} - {{title}}.md';
           const title = item.title || `CR-${number}`;
-          fileName = `${folder}/${number} - ${title}.md`;
+          fileName = format.replace('{{number}}', number).replace('{{title}}', title);
+          fileName = `${folder}/${fileName}`;
         } else {
+          const format = this.settings.taskFilenameFormat || '{{title}}.md';
           const title = item.title || `T-${number}`;
-          fileName = `${folder}/${title}.md`;
+          const updatedTitle = item.cr?.title || item.title || `T-${number}`;
+          item.title = updatedTitle;
+          fileName = format.replace('{{title}}', updatedTitle);
+          fileName = `${folder}/${fileName}`;
         }
 
         // Prepare frontmatter for new file
@@ -1213,7 +1219,7 @@ export class BoardTabsView extends ItemView {
         };
         // Card header: title and menu button positioned top-right
         const cardHeader = card.createDiv({ cls: 'kb-card-header' });
-        cardHeader.createDiv({ cls: 'kb-card-title', text: task.frontmatter['title'] ?? task.fileName });
+        cardHeader.createDiv({ cls: 'kb-card-title', text: task.fileName });
         const menuBtn = cardHeader.createEl('button', { text: '⋯' });
         menuBtn.classList.add('kb-ellipsis', 'kb-card-menu-btn');
 
