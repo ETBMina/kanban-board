@@ -131,7 +131,7 @@
 .kb-table th { position: relative; user-select: none; }
 .kb-table th::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; }
 .kb-table th:hover::after { background: var(--interactive-accent); opacity: 0.2; }
-.kb-grid-wrap { overflow-x: auto; }
+.kb-grid-wrap { overflow-x: scroll; height: calc(100vh - 220px); overflow-y: auto; }
 .kb-resizing th::after { background: var(--interactive-accent) !important; opacity: 0.4; }
 .kb-chip { padding: 2px 8px; border-radius: 999px; background: var(--tag-bg); border: 1px solid var(--tag-border-color); }
 
