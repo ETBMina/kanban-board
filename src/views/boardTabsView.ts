@@ -660,9 +660,7 @@ export class BoardTabsView extends ItemView {
         };
 
         // Render inline controls for certain field types (status, date) and tag preview
-        if (Boolean(t.frontmatter['archived'])) {
-          // do not allow editing archived rows
-        } else if (fieldDef.type === 'status') {
+        if (fieldDef.type === 'status') {
           // hide the plain text display and show inline select
           displayEl.style.display = 'none';
           const sel = td.createEl('select'); sel.addClass('kb-cell-inline-select');
@@ -743,7 +741,6 @@ export class BoardTabsView extends ItemView {
         } else {
           // Fallback: open a small inline editor on single click
           displayEl.onclick = () => {
-            if (Boolean(t.frontmatter['archived'])) return;
             if (td.querySelector('.kb-cell-editor')) return;
             const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : '';
             const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(', ') : String(startValueRaw ?? '');
