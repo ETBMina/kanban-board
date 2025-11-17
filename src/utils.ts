@@ -189,3 +189,32 @@ export async function generateNextCrNumber(app: App, settings: PluginConfigurati
   return `CR-${next}`;
 }
 
+export function sanitizeFileName(name: string): string {
+  // 1. Remove ALL reserved/illegal characters and replace with a hyphen (-)
+  // Illegal characters: < > : " / \ | ? * and control characters (0-31).
+  let sanitized = name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '-');
+
+  // 2. Remove characters that can cause issues but aren't strictly illegal
+  // (e.g., #, ^, [], which can break linking/shell scripts)
+  sanitized = sanitized.replace(/[#^\[\]]/g, '');
+
+  // 3. Remove Windows reserved device names (case-insensitive)
+  const reserved = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+  if (reserved.test(sanitized)) {
+    sanitized = `file-${sanitized}`;
+  }
+
+  // 4. Trim leading/trailing spaces and dots, and collapse consecutive hyphens
+  sanitized = sanitized.trim()
+                       .replace(/\.+$/g, '') // Remove trailing dots
+                       .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+                       .replace(/--+/g, '-'); // Collapse multiple hyphens
+
+  // Fallback: If after all sanitization the name is empty, provide a default
+  if (sanitized === '') {
+    return 'untitled';
+  }
+
+  return sanitized;
+}
+

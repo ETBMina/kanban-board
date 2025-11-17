@@ -142,6 +142,7 @@ export default class KanbanPlugin extends Plugin {
       if (!this.config.paths) this.config.paths = { taskFolder: '', crFolder: '' };
       if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: '^(completed|done)$', inProgressPattern: 'in\\s*progress' };
       if (!this.config.priorities) this.config.priorities = [];
+      if (!this.config.defaultPriority) this.config.defaultPriority = 'Medium';
       if (!this.config.gridConfig) this.config.gridConfig = {
         columnWidths: {},
         minColumnWidth: 50,

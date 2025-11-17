@@ -1,7 +1,7 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
 import { PluginConfiguration, Subtask, TaskNoteMeta, ActiveTab, TaskFieldDefinition, FieldType } from '../models';
-import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML } from '../utils';
+import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML, sanitizeFileName } from '../utils';
 import KanbanPlugin from '../main';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
@@ -221,18 +221,18 @@ export class BoardTabsView extends ItemView {
           const data = event.target?.result;
           const workbook = XLSX.read(data, { type: 'array' });
 
-          // Process Tasks
-          const taskSheet = workbook.Sheets['Tasks'];
-          if (taskSheet) {
-            const taskData = XLSX.utils.sheet_to_json(taskSheet);
-            await this.processImportData(taskData, 'task');
-          }
-
-          // Process Change Requests
+          // Process Change Requests first
           const crSheet = workbook.Sheets['Change Requests'];
           if (crSheet) {
             const crData = XLSX.utils.sheet_to_json(crSheet);
             await this.processImportData(crData, 'cr');
+          }
+
+          // Then Process Tasks
+          const taskSheet = workbook.Sheets['Tasks'];
+          if (taskSheet) {
+            const taskData = XLSX.utils.sheet_to_json(taskSheet);
+            await this.processImportData(taskData, 'task');
           }
 
           new Notice('Import complete');
@@ -388,6 +388,10 @@ export class BoardTabsView extends ItemView {
         }
       }
 
+      if (type === 'task' && !item.priority) {
+        item.priority = this.settings.defaultPriority;
+      }
+
       const existingFile = allItems.find(i => i.frontmatter[numberField] === number);
 
       if (existingFile) {
@@ -405,14 +409,21 @@ export class BoardTabsView extends ItemView {
           const format = this.settings.crFilenameFormat || '{{number}} - {{title}}.md';
           const title = item.title || `CR-${number}`;
           fileName = format.replace('{{number}}', number).replace('{{title}}', title);
-          fileName = `${folder}/${fileName}`;
+          fileName = `${folder}/${sanitizeFileName(fileName)}`;
         } else {
-          const format = this.settings.taskFilenameFormat || '{{title}}.md';
-          const title = item.title || `T-${number}`;
-          const updatedTitle = item.cr?.title || item.title || `T-${number}`;
-          item.title = updatedTitle;
-          fileName = format.replace('{{title}}', updatedTitle);
-          fileName = `${folder}/${fileName}`;
+            const format = this.settings.taskFilenameFormat || '{{crNumber}} {{taskNumber}}.md';
+            const crNumber = item.crNumber || '';
+            const taskNumber = item.taskNumber || '';
+            const title = item.title || '';
+            const service = item.service || '';
+  
+            fileName = format
+            .replace('{{crNumber}}', crNumber)
+            .replace('{{taskNumber}}', taskNumber)
+            .replace('{{title}}', title)
+            .replace('{{service}}', service);
+  
+            fileName = `${folder}/${sanitizeFileName(fileName)}`;
         }
 
         // Prepare frontmatter for new file
@@ -425,7 +436,11 @@ export class BoardTabsView extends ItemView {
           content += '\n### Subtasks\n';
           content += item.subtasks;
         }
-        await this.app.vault.create(fileName, content);
+        try {
+          await this.app.vault.create(fileName, content);
+        } catch (error) {
+          new Notice(`Failed to create file: "${fileName}". Please check for unsupported characters.`);
+        }
       }
     }
   }
