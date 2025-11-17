@@ -610,13 +610,14 @@ export class BoardTabsView extends ItemView {
             displayEl.empty();
             const link = displayEl.createEl('a', { text: String(val) });
             link.href = '#';
-            link.onclick = async (e) => {
-              e.preventDefault();
-              if (e.ctrlKey) {
+
+            const openFile = async () => {
                 const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
                 const file = this.app.vault.getAbstractFileByPath(path);
                 if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-              } else {
+            };
+
+            const openEditor = () => {
                 if (td.querySelector('.kb-cell-editor')) return;
                 displayEl.style.display = 'none';
                 const startValue = String(t.frontmatter[key] ?? '');
@@ -625,6 +626,7 @@ export class BoardTabsView extends ItemView {
                 inp.type = 'text';
                 inp.value = startValue;
                 const finishEdit = async (doSave: boolean) => {
+                  inp.onblur = null;
                   if (doSave) {
                     await saveValue(inp.value);
                   }
@@ -633,12 +635,20 @@ export class BoardTabsView extends ItemView {
                 };
                 inp.onkeydown = (e_inp) => {
                   if (e_inp.key === 'Enter') { e_inp.preventDefault(); finishEdit(true); }
-                  if (e_inp.key === 'Escape') { e_inp.preventDefault(); finishEdit(false); }
+                  if (e_inp.key === 'Escape') { e_inp.preventDefault(); e_inp.stopPropagation(); finishEdit(false); }
                 };
                 inp.onblur = () => finishEdit(true);
                 inp.focus();
-              }
             };
+
+            this.registerDomEvent(link, 'mousedown', (e: MouseEvent) => {
+                e.preventDefault();
+                if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
+                    openFile();
+                } else if (e.button === 0) { // Primary button only
+                    openEditor();
+                }
+            });
           }
         }
 
@@ -781,6 +791,7 @@ export class BoardTabsView extends ItemView {
           // Fallback: open a small inline editor on single click
           displayEl.onclick = () => {
             if (td.querySelector('.kb-cell-editor')) return;
+            displayEl.style.display = 'none';
             const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : '';
             const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(', ') : String(startValueRaw ?? '');
             const editor = td.createDiv({ cls: 'kb-cell-editor' });
@@ -788,30 +799,47 @@ export class BoardTabsView extends ItemView {
             if (key === 'notes') {
               const inp = editor.createEl('textarea') as HTMLTextAreaElement; 
               inp.value = startValue; 
-              inp.onkeydown = (e) => { 
-                if ((e as KeyboardEvent).key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  saveValue(inp.value); 
-                }
-                if ((e as KeyboardEvent).key === 'Escape') { 
-                  const ed = td.querySelector('.kb-cell-editor'); 
-                  if (ed) ed.remove(); 
-                } 
+              const finishEdit = async (doSave: boolean) => {
+                inp.onblur = null;
+                if (doSave) await saveValue(inp.value);
+                editor.remove();
+                displayEl.style.display = '';
               };
-              inp.onblur = () => saveValue(inp.value);
+              inp.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  finishEdit(true); 
+                }
+                if (e.key === 'Escape') { 
+                  e.preventDefault();
+                  e.stopPropagation();
+                  finishEdit(false);
+                } 
+              }, true);
+              inp.onblur = () => finishEdit(true);
               inp.focus();
             } else {
               const inp = editor.createEl('input') as HTMLInputElement; 
               inp.type = fieldDef.type === 'number' ? 'number' : 'text'; 
               inp.value = startValue; 
-              inp.onkeydown = (e) => { 
-                if ((e as KeyboardEvent).key === 'Enter') saveValue(inp.value); 
-                if ((e as KeyboardEvent).key === 'Escape') { 
-                  const ed = td.querySelector('.kb-cell-editor'); 
-                  if (ed) ed.remove(); 
-                } 
+              const finishEdit = async (doSave: boolean) => {
+                inp.onblur = null;
+                if (doSave) await saveValue(inp.value);
+                editor.remove();
+                displayEl.style.display = '';
               };
-              inp.onblur = () => saveValue(inp.value);
+              inp.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  finishEdit(true);
+                }
+                if (e.key === 'Escape') { 
+                  e.preventDefault();
+                  e.stopPropagation();
+                  finishEdit(false);
+                } 
+              }, true);
+              inp.onblur = () => finishEdit(true);
               inp.focus();
             }
           };

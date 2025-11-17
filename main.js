@@ -34128,42 +34128,50 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
             displayEl.empty();
             const link = displayEl.createEl("a", { text: String(val) });
             link.href = "#";
-            link.onclick = async (e) => {
-              var _a2;
-              e.preventDefault();
-              if (e.ctrlKey) {
-                const path = crLink.replace(/^\||\[/, "").replace(/\||\]$/, "");
-                const file = this.app.vault.getAbstractFileByPath(path);
-                if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
-              } else {
-                if (td.querySelector(".kb-cell-editor")) return;
-                displayEl.style.display = "none";
-                const startValue = String((_a2 = t.frontmatter[key]) != null ? _a2 : "");
-                const editor = td.createDiv({ cls: "kb-cell-editor" });
-                const inp = editor.createEl("input");
-                inp.type = "text";
-                inp.value = startValue;
-                const finishEdit = async (doSave) => {
-                  if (doSave) {
-                    await saveValue(inp.value);
-                  }
-                  editor.remove();
-                  displayEl.style.display = "";
-                };
-                inp.onkeydown = (e_inp) => {
-                  if (e_inp.key === "Enter") {
-                    e_inp.preventDefault();
-                    finishEdit(true);
-                  }
-                  if (e_inp.key === "Escape") {
-                    e_inp.preventDefault();
-                    finishEdit(false);
-                  }
-                };
-                inp.onblur = () => finishEdit(true);
-                inp.focus();
-              }
+            const openFile = async () => {
+              const path = crLink.replace(/^\||\[/, "").replace(/\||\]$/, "");
+              const file = this.app.vault.getAbstractFileByPath(path);
+              if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
             };
+            const openEditor = () => {
+              var _a2;
+              if (td.querySelector(".kb-cell-editor")) return;
+              displayEl.style.display = "none";
+              const startValue = String((_a2 = t.frontmatter[key]) != null ? _a2 : "");
+              const editor = td.createDiv({ cls: "kb-cell-editor" });
+              const inp = editor.createEl("input");
+              inp.type = "text";
+              inp.value = startValue;
+              const finishEdit = async (doSave) => {
+                inp.onblur = null;
+                if (doSave) {
+                  await saveValue(inp.value);
+                }
+                editor.remove();
+                displayEl.style.display = "";
+              };
+              inp.onkeydown = (e_inp) => {
+                if (e_inp.key === "Enter") {
+                  e_inp.preventDefault();
+                  finishEdit(true);
+                }
+                if (e_inp.key === "Escape") {
+                  e_inp.preventDefault();
+                  e_inp.stopPropagation();
+                  finishEdit(false);
+                }
+              };
+              inp.onblur = () => finishEdit(true);
+              inp.focus();
+            };
+            this.registerDomEvent(link, "mousedown", (e) => {
+              e.preventDefault();
+              if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+                openFile();
+              } else if (e.button === 0) {
+                openEditor();
+              }
+            });
           }
         }
         const saveValue = async (newVal) => {
@@ -34353,36 +34361,54 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         } else {
           displayEl.onclick = () => {
             if (td.querySelector(".kb-cell-editor")) return;
+            displayEl.style.display = "none";
             const startValueRaw = t.frontmatter.hasOwnProperty(key) ? t.frontmatter[key] : "";
             const startValue = Array.isArray(startValueRaw) ? startValueRaw.join(", ") : String(startValueRaw != null ? startValueRaw : "");
             const editor = td.createDiv({ cls: "kb-cell-editor" });
             if (key === "notes") {
               const inp = editor.createEl("textarea");
               inp.value = startValue;
-              inp.onkeydown = (e) => {
+              const finishEdit = async (doSave) => {
+                inp.onblur = null;
+                if (doSave) await saveValue(inp.value);
+                editor.remove();
+                displayEl.style.display = "";
+              };
+              inp.addEventListener("keydown", (e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  saveValue(inp.value);
+                  finishEdit(true);
                 }
                 if (e.key === "Escape") {
-                  const ed = td.querySelector(".kb-cell-editor");
-                  if (ed) ed.remove();
+                  e.preventDefault();
+                  e.stopPropagation();
+                  finishEdit(false);
                 }
-              };
-              inp.onblur = () => saveValue(inp.value);
+              }, true);
+              inp.onblur = () => finishEdit(true);
               inp.focus();
             } else {
               const inp = editor.createEl("input");
               inp.type = fieldDef.type === "number" ? "number" : "text";
               inp.value = startValue;
-              inp.onkeydown = (e) => {
-                if (e.key === "Enter") saveValue(inp.value);
-                if (e.key === "Escape") {
-                  const ed = td.querySelector(".kb-cell-editor");
-                  if (ed) ed.remove();
-                }
+              const finishEdit = async (doSave) => {
+                inp.onblur = null;
+                if (doSave) await saveValue(inp.value);
+                editor.remove();
+                displayEl.style.display = "";
               };
-              inp.onblur = () => saveValue(inp.value);
+              inp.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  finishEdit(true);
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  finishEdit(false);
+                }
+              }, true);
+              inp.onblur = () => finishEdit(true);
               inp.focus();
             }
           };
