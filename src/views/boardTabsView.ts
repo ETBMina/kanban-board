@@ -607,13 +607,37 @@ export class BoardTabsView extends ItemView {
         if (key === 'crNumber' && val) {
           const crLink = t.frontmatter['crLink'];
           if (crLink) {
+            displayEl.empty();
             const link = displayEl.createEl('a', { text: String(val) });
             link.href = '#';
             link.onclick = async (e) => {
               e.preventDefault();
-              const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
-              const file = this.app.vault.getAbstractFileByPath(path);
-              if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+              if (e.ctrlKey) {
+                const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
+                const file = this.app.vault.getAbstractFileByPath(path);
+                if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+              } else {
+                if (td.querySelector('.kb-cell-editor')) return;
+                displayEl.style.display = 'none';
+                const startValue = String(t.frontmatter[key] ?? '');
+                const editor = td.createDiv({ cls: 'kb-cell-editor' });
+                const inp = editor.createEl('input') as HTMLInputElement;
+                inp.type = 'text';
+                inp.value = startValue;
+                const finishEdit = async (doSave: boolean) => {
+                  if (doSave) {
+                    await saveValue(inp.value);
+                  }
+                  editor.remove();
+                  displayEl.style.display = '';
+                };
+                inp.onkeydown = (e_inp) => {
+                  if (e_inp.key === 'Enter') { e_inp.preventDefault(); finishEdit(true); }
+                  if (e_inp.key === 'Escape') { e_inp.preventDefault(); finishEdit(false); }
+                };
+                inp.onblur = () => finishEdit(true);
+                inp.focus();
+              }
             };
           }
         }

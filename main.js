@@ -34125,13 +34125,44 @@ var BoardTabsView = class extends import_obsidian3.ItemView {
         if (key === "crNumber" && val) {
           const crLink = t.frontmatter["crLink"];
           if (crLink) {
+            displayEl.empty();
             const link = displayEl.createEl("a", { text: String(val) });
             link.href = "#";
             link.onclick = async (e) => {
+              var _a2;
               e.preventDefault();
-              const path = crLink.replace(/^\||\[/, "").replace(/\||\]$/, "");
-              const file = this.app.vault.getAbstractFileByPath(path);
-              if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+              if (e.ctrlKey) {
+                const path = crLink.replace(/^\||\[/, "").replace(/\||\]$/, "");
+                const file = this.app.vault.getAbstractFileByPath(path);
+                if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+              } else {
+                if (td.querySelector(".kb-cell-editor")) return;
+                displayEl.style.display = "none";
+                const startValue = String((_a2 = t.frontmatter[key]) != null ? _a2 : "");
+                const editor = td.createDiv({ cls: "kb-cell-editor" });
+                const inp = editor.createEl("input");
+                inp.type = "text";
+                inp.value = startValue;
+                const finishEdit = async (doSave) => {
+                  if (doSave) {
+                    await saveValue(inp.value);
+                  }
+                  editor.remove();
+                  displayEl.style.display = "";
+                };
+                inp.onkeydown = (e_inp) => {
+                  if (e_inp.key === "Enter") {
+                    e_inp.preventDefault();
+                    finishEdit(true);
+                  }
+                  if (e_inp.key === "Escape") {
+                    e_inp.preventDefault();
+                    finishEdit(false);
+                  }
+                };
+                inp.onblur = () => finishEdit(true);
+                inp.focus();
+              }
             };
           }
         }

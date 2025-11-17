@@ -230,3 +230,8 @@
   margin-left: 10px;
   margin-right: 10px;
 }
+
+.kb-row-archived .kb-grid-cell .kb-cell-display {
+  white-space: normal;
+  word-break: break-word;
+}
