@@ -15,7 +15,7 @@
     "tasks",
     "grid"
   ],
-  "author": "Your Name",
+  "author": "Mina Talaat Hakim",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.10.1",

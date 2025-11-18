@@ -710,8 +710,6 @@ export class BoardTabsView extends ItemView {
     }
     const archivedTh = trh.createEl('th', { text: 'Archived' });
     setupColumnResize(archivedTh, 'archived');
-    const openTh = trh.createEl('th', { text: 'Open' });
-    setupColumnResize(openTh, 'open');
 
     const tbody = table.createEl('tbody');
     for (const t of this.getFilteredTasks()) {
@@ -832,11 +830,16 @@ export class BoardTabsView extends ItemView {
             const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
 
             if (inFrontmatter || fieldDef.type !== 'freetext') {
-              let payload: any = newVal;
+              let payload: any = { [key]: newVal };
               if (fieldDef.type === 'tags' || fieldDef.type === 'people') {
-                if (typeof newVal === 'string') payload = newVal.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (typeof newVal === 'string') payload[key] = newVal.split(',').map((s: string) => s.trim()).filter(Boolean);
               }
-              await updateTaskFrontmatter(this.app, fileObj as TFile, { [key]: payload });
+
+              if (key === 'status' && /in\s*progress/i.test(newVal) && !t.frontmatter['startDate']) {
+                payload['startDate'] = new Date().toISOString().slice(0, 10);
+              }
+
+              await updateTaskFrontmatter(this.app, fileObj as TFile, payload);
             } else {
               // freetext in body: replace or append under heading
               const label = fieldDef.label || key;
@@ -871,6 +874,9 @@ export class BoardTabsView extends ItemView {
               else t.frontmatter[key] = newVal;
             } else {
               t.frontmatter[key] = newVal;
+            }
+            if (key === 'status' && /in\s*progress/i.test(newVal) && !t.frontmatter['startDate']) {
+              t.frontmatter['startDate'] = new Date().toISOString().slice(0, 10);
             }
             setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(', ') : String(t.frontmatter[key] ?? ''));
             showSaved();
@@ -1020,13 +1026,6 @@ export class BoardTabsView extends ItemView {
       // Archived column
       const archivedTd = tr.createEl('td');
       archivedTd.createSpan({ text: isArchived ? 'Yes' : 'No' });
-      const openTd = tr.createEl('td');
-      const btn = openTd.createEl('button', { text: 'Open' });
-      btn.addClass('kb-card-btn');
-      btn.onclick = async () => {
-        const file = this.app.vault.getAbstractFileByPath(t.filePath);
-        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-      };
     }
   }
 
@@ -1404,7 +1403,7 @@ export class BoardTabsView extends ItemView {
               if (String(t.frontmatter['status'] ?? '') !== status) {
                 patch['status'] = status;
                 if (isCompleted) patch['endDate'] = new Date().toISOString().slice(0, 10);
-                if (isInProgress) patch['startDate'] = new Date().toISOString().slice(0, 10);
+                if (isInProgress && !t.frontmatter['startDate']) patch['startDate'] = new Date().toISOString().slice(0, 10);
               }
             }
             updates.push(updateTaskFrontmatter(this.app, f, patch));
@@ -1809,6 +1808,10 @@ class EditTaskModal extends Modal {
         const val = el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
         if (val !== '' && val != null) patch[key] = val;
         else patch[key] = val === '' ? '' : undefined;
+      }
+
+      if (patch['status'] && /in\s*progress/i.test(patch['status']) && !this.task.frontmatter['startDate']) {
+        patch['startDate'] = new Date().toISOString().slice(0, 10);
       }
 
       const file = this.app.vault.getAbstractFileByPath(this.task.filePath);

@@ -187,7 +187,7 @@
   },
   "taskFilenameFormat": "{{crNumber}} {{taskNumber}} - {{title}} - {{service}}.md",
   "crFilenameFormat": "{{number}} - {{title}}.md",
-  "lastActiveTab": "board",
+  "lastActiveTab": "grid",
   "people": [
     "Mina Talaat Hakim",
     "Ahmed Mohamed Hussien Abdelaal",
