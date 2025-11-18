@@ -172,6 +172,20 @@ export async function findCrFileByNumber(app: App, settings: PluginConfiguration
   return null;
 }
 
+export async function findTaskFileByNumber(app: App, settings: PluginConfiguration, taskNumber: string): Promise<TFile | null> {
+  const folder = normalizePath(settings.paths.taskFolder || 'Tasks');
+  const files = app.vault.getMarkdownFiles().filter(f => f.path.startsWith(folder + '/'));
+  for (const file of files) {
+    const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+    if (fm && String(fm['taskNumber'] || '').toLowerCase() === taskNumber.toLowerCase()) {
+      return file;
+    }
+    // Fallback: match by filename prefix
+    if (file.name.toLowerCase().includes(taskNumber.toLowerCase())) return file;
+  }
+  return null;
+}
+
 export async function generateNextCrNumber(app: App, settings: PluginConfiguration): Promise<string> {
   const folder = normalizePath(settings.paths.crFolder || 'Change Requests');
   const files = app.vault.getMarkdownFiles().filter(f => f.path.startsWith(folder + '/'));

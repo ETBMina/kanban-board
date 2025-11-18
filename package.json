@@ -18,11 +18,14 @@
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.11.30",
-    "@types/xlsx": "^0.0.35",
-    "esbuild": "^0.25.11",
-    "obsidian": "^1.5.7",
-    "typescript": "^5.4.5",
+    "@types/node": "^24.10.1",
+    "@types/xlsx": "^0.0.36",
+    "esbuild": "^0.27.0",
+    "obsidian": "^1.10.3",
+    "typescript": "^5.9.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
+  },
+  "dependencies": {
+    "npm-check-updates": "^19.1.2"
   }
 }

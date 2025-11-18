@@ -28,6 +28,7 @@ export interface GridConfig {
   characterWidthPixels: number;
   columnPadding: number;
   visibleColumns: string[];
+  showArchived?: boolean;
 }
 
 export interface FieldPatterns {
@@ -38,6 +39,10 @@ export interface FieldPatterns {
 export interface TemplateConfig {
   fields: TaskFieldDefinition[];
   crFields: TaskFieldDefinition[];
+}
+
+export interface FilterState {
+  [fieldKey: string]: any; // fieldKey -> filter value (varies by field type)
 }
 
 export interface PluginConfiguration {
@@ -52,6 +57,7 @@ export interface PluginConfiguration {
   people?: string[];
   taskFilenameFormat?: string;
   crFilenameFormat?: string;
+  filterState?: FilterState;
 }
 
 export interface Subtask {

@@ -10,8 +10,7 @@
       "In Progress",
       "Review",
       "Unit Testing",
-      "Completed",
-      "test2"
+      "Completed"
     ],
     "completedPattern": "^(completed|done)$",
     "inProgressPattern": "in\\s*progress"
@@ -47,8 +46,22 @@
       "startDate",
       "endDate",
       "notes"
-    ]
+    ],
+    "showArchived": false
   },
+  "filterFields": [
+    "crNumber",
+    "taskNumber",
+    "title",
+    "service",
+    "status",
+    "priority",
+    "designer",
+    "developer",
+    "startDate",
+    "endDate",
+    "notes"
+  ],
   "priorities": [
     "Urgent",
     "High",
@@ -174,7 +187,7 @@
   },
   "taskFilenameFormat": "{{crNumber}} {{taskNumber}} - {{title}} - {{service}}.md",
   "crFilenameFormat": "{{number}} - {{title}}.md",
-  "lastActiveTab": "grid",
+  "lastActiveTab": "board",
   "people": [
     "Mina Talaat Hakim",
     "Ahmed Mohamed Hussien Abdelaal",
@@ -186,5 +199,6 @@
     "Test2",
     "Test 5",
     "Test 6"
-  ]
+  ],
+  "filterState": {}
 }

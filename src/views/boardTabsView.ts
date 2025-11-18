@@ -1,8 +1,9 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, debounce, Modal, App, normalizePath } from 'obsidian';
 import * as XLSX from 'xlsx';
 import { PluginConfiguration, Subtask, TaskNoteMeta, ActiveTab, TaskFieldDefinition, FieldType } from '../models';
-import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML, sanitizeFileName } from '../utils';
+import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML, sanitizeFileName, findCrFileByNumber, findTaskFileByNumber } from '../utils';
 import KanbanPlugin from '../main';
+import { FilterPanel } from './filterModal';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -13,6 +14,7 @@ export class BoardTabsView extends ItemView {
   private filterQuery = '';
   private active: ActiveTab;
   private persistSettings?: () => void | Promise<void>;
+  private filterState: Record<string, any> = {};
   private async promptText(title: string, placeholder = '', initial = ''): Promise<string | undefined> {
     return new Promise((resolve) => {
       const self = this;
@@ -63,6 +65,7 @@ export class BoardTabsView extends ItemView {
 
   async reload() {
     this.tasks = await readAllItems(this.app, this.settings);
+    this.filterState = this.settings.filterState ?? {};
     this.render();
   }
 
@@ -107,6 +110,47 @@ export class BoardTabsView extends ItemView {
       if (this.active === 'grid') this.renderGrid(c);
       else this.renderBoard(c);
     };
+
+    const rightGroup = bar.createDiv({ cls: 'kb-toolbar-right-group' });
+
+    if (this.active === 'grid') {
+      // Archived toggle (left of filter button)
+      const archivedToggle = rightGroup.createEl('label');
+      archivedToggle.addClass('kb-switch');
+      archivedToggle.createSpan({ text: 'Show archived', cls: 'kb-switch-text' });
+      const archivedInput = archivedToggle.createEl('input');
+      archivedInput.type = 'checkbox';
+      archivedInput.checked = this.settings.gridConfig.showArchived ?? false;
+      archivedInput.onchange = async () => {
+        this.settings.gridConfig.showArchived = archivedInput.checked;
+        await this.persistSettings?.();
+        this.render();
+      };
+      archivedToggle.createSpan({ cls: 'kb-slider round' });
+    }
+
+    // Filter button (right side)
+    const filterBtn = rightGroup.createEl('button');
+    filterBtn.addClass('kb-filter-btn');
+    // Icon (funnel-like)
+    const iconWrap = filterBtn.createDiv({ cls: 'kb-filter-icon' });
+    iconWrap.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5h18v2H3V5zM6 11h12v2H6v-2zM10 17h4v2h-4v-2z" fill="currentColor"/></svg>';
+    filterBtn.createDiv({ text: 'Filter' });
+    const filterCount = this.getActiveFilterCount();
+    if (filterCount > 0) {
+      filterBtn.addClass('is-active');
+      const badge = filterBtn.createEl('span', { text: String(filterCount) });
+      badge.addClass('kb-filter-badge');
+    }
+    filterBtn.onclick = () => {
+      const panel = new FilterPanel(this.app, this.settings, this.filterState, async (newFilterState) => {
+        this.filterState = newFilterState;
+        await this.saveFilterState();
+        this.render();
+      });
+      panel.open();
+    };
+
 
     if (this.active === 'grid') this.renderGrid(c); else this.renderBoard(c);
   }
@@ -445,10 +489,108 @@ export class BoardTabsView extends ItemView {
     }
   }
 
+  private getActiveFilterCount(): number {
+    return Object.values(this.filterState).filter(v => {
+      if (v === null || v === undefined || v === '') return false;
+      if (Array.isArray(v)) return v.length > 0;
+      return true;
+    }).length;
+  }
+
+  private matchesFilter(task: TaskNoteMeta): boolean {
+    const fm = task.frontmatter;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    for (const [fieldKey, filterValue] of Object.entries(this.filterState)) {
+      if (filterValue === null || filterValue === undefined || filterValue === '') continue;
+
+      const field = this.settings.templateConfig.fields.find(f => f.key === fieldKey);
+      if (!field) continue;
+
+      const taskValue = fm[fieldKey];
+
+      if (field.type === 'date') {
+        // Handle date range filters
+        if (fieldKey === 'startDate') {
+          // Include tasks with startDate from filterValue to today, and empty startDates
+          if (taskValue) {
+            const taskDate = new Date(taskValue);
+            taskDate.setHours(0, 0, 0, 0);
+            const filterDate = new Date(filterValue);
+            filterDate.setHours(0, 0, 0, 0);
+            if (taskDate < filterDate || taskDate > now) {
+              return false; // Task doesn't match start date filter
+            }
+          }
+          // Empty startDate is allowed
+        } else if (fieldKey === 'endDate') {
+          // Include tasks with endDate until filterValue, and empty endDates
+          if (taskValue) {
+            const taskDate = new Date(taskValue);
+            taskDate.setHours(0, 0, 0, 0);
+            const filterDate = new Date(filterValue);
+            filterDate.setHours(0, 0, 0, 0);
+            if (taskDate > filterDate) {
+              return false; // Task doesn't match end date filter
+            }
+          }
+          // Empty endDate is allowed
+        } else {
+          // Generic date filter (exact match or range)
+          if (!taskValue) return false;
+          const taskDate = new Date(taskValue);
+          taskDate.setHours(0, 0, 0, 0);
+          const filterDate = new Date(filterValue);
+          filterDate.setHours(0, 0, 0, 0);
+          if (taskDate.getTime() !== filterDate.getTime()) {
+            return false;
+          }
+        }
+      } else if (field.type === 'tags') {
+        // Match if task contains ANY of the selected tags
+        if (!Array.isArray(filterValue) || filterValue.length === 0) continue;
+        if (!Array.isArray(taskValue)) return false;
+        const hasMatch = filterValue.some(tag => taskValue.includes(tag));
+        if (!hasMatch) return false;
+      } else if (field.type === 'people') {
+        // Match if task contains ANY of the selected people
+        if (!Array.isArray(filterValue) || filterValue.length === 0) continue;
+        if (!Array.isArray(taskValue)) return false;
+        const hasMatch = filterValue.some(person => taskValue.includes(person));
+        if (!hasMatch) return false;
+      } else if (field.type === 'status') {
+        // Exact match for status
+        if (String(taskValue).toLowerCase() !== String(filterValue).toLowerCase()) {
+          return false;
+        }
+      } else {
+        // Text, number, url: exact or contains
+        const taskStr = String(taskValue || '').toLowerCase();
+        const filterStr = String(filterValue || '').toLowerCase();
+        if (taskStr !== filterStr) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  private async saveFilterState() {
+    this.settings.filterState = this.filterState;
+    await this.persistSettings?.();
+  }
+
   // GRID
   private getFilteredTasks(): TaskNoteMeta[] {
     const taskFolder = normalizePath(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter(t => t.filePath.startsWith(taskFolder + '/')); // Create a copy to sort
+    
+    // Filter archived tasks if the toggle is off
+    if (!this.settings.gridConfig.showArchived) {
+      tasks = tasks.filter(t => !t.frontmatter.archived);
+    }
     
     // Sort by createdAt timestamp in descending order (newest first)
     tasks.sort((a, b) => {
@@ -457,13 +599,19 @@ export class BoardTabsView extends ItemView {
       return timestampB - timestampA; // Descending order
     });
 
-    // Then apply filter if exists
+    // Apply search filter
     const q = this.filterQuery;
-    if (!q) return tasks;
-    return tasks.filter(t => {
-      if (t.fileName.toLowerCase().includes(q)) return true;
-      return this.settings.gridConfig.visibleColumns.some((key: string) => String(t.frontmatter[key] ?? '').toLowerCase().includes(q));
-    });
+    if (q) {
+      tasks = tasks.filter(t => {
+        if (t.fileName.toLowerCase().includes(q)) return true;
+        return this.settings.gridConfig.visibleColumns.some((key: string) => String(t.frontmatter[key] ?? '').toLowerCase().includes(q));
+      });
+    }
+
+    // Apply advanced filters
+    tasks = tasks.filter(t => this.matchesFilter(t));
+
+    return tasks;
   }
 
   private renderGrid(container: HTMLElement) {
@@ -603,53 +751,77 @@ export class BoardTabsView extends ItemView {
 
         setDisplayText(getDisplayText());
 
-        // Special: CR link behavior
-        if (key === 'crNumber' && val) {
-          const crLink = t.frontmatter['crLink'];
-          if (crLink) {
-            displayEl.empty();
-            const link = displayEl.createEl('a', { text: String(val) });
-            link.href = '#';
+        // Helper function to create a re-renderable number link (CR or Task)
+        const createNumberLink = (numKey: string, numVal: string, findFunc: (app: App, settings: PluginConfiguration, num: string) => Promise<TFile | null>) => {
+          displayEl.empty();
+          const link = displayEl.createEl('a', { text: numVal });
+          link.href = '#';
+          link.classList.add(numKey === 'crNumber' ? 'kb-cr-link' : 'kb-task-link');
 
-            const openFile = async () => {
-                const path = crLink.replace(/^\||\[/, '').replace(/\||\]$/, '');
-                const file = this.app.vault.getAbstractFileByPath(path);
-                if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-            };
+          const openFile = async () => {
+              const file = await findFunc(this.app, this.settings, numVal);
+              if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+          };
 
-            const openEditor = () => {
-                if (td.querySelector('.kb-cell-editor')) return;
-                displayEl.style.display = 'none';
-                const startValue = String(t.frontmatter[key] ?? '');
-                const editor = td.createDiv({ cls: 'kb-cell-editor' });
-                const inp = editor.createEl('input') as HTMLInputElement;
-                inp.type = 'text';
-                inp.value = startValue;
-                const finishEdit = async (doSave: boolean) => {
-                  inp.onblur = null;
-                  if (doSave) {
-                    await saveValue(inp.value);
-                  }
-                  editor.remove();
-                  displayEl.style.display = '';
-                };
-                inp.onkeydown = (e_inp) => {
-                  if (e_inp.key === 'Enter') { e_inp.preventDefault(); finishEdit(true); }
-                  if (e_inp.key === 'Escape') { e_inp.preventDefault(); e_inp.stopPropagation(); finishEdit(false); }
-                };
-                inp.onblur = () => finishEdit(true);
-                inp.focus();
-            };
-
-            this.registerDomEvent(link, 'mousedown', (e: MouseEvent) => {
-                e.preventDefault();
-                if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
-                    openFile();
-                } else if (e.button === 0) { // Primary button only
-                    openEditor();
+          const openEditor = () => {
+              if (td.querySelector('.kb-cell-editor')) return;
+              displayEl.style.display = 'none';
+              const startValue = String(t.frontmatter[numKey] ?? '');
+              const editor = td.createDiv({ cls: 'kb-cell-editor' });
+              const inp = editor.createEl('input') as HTMLInputElement;
+              inp.type = 'text';
+              inp.value = startValue;
+              const finishEdit = async (doSave: boolean) => {
+                inp.onblur = null;
+                if (doSave) {
+                  await saveValue(inp.value);
                 }
-            });
-          }
+                editor.remove();
+                displayEl.style.display = '';
+                // Always re-render the link after finishing edit (even if value didn't change)
+                const updatedValue = t.frontmatter[numKey];
+                if (updatedValue) {
+                  createNumberLink(numKey, String(updatedValue), findFunc);
+                } else {
+                  // If value was cleared, show the display as empty
+                  setDisplayText('');
+                }
+              };
+              // Use addEventListener with capture phase like other edit handlers
+              inp.addEventListener('keydown', (e: KeyboardEvent) => { 
+                if (e.key === 'Escape') { 
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  finishEdit(false);
+                } else if (e.key === 'Enter') { 
+                  e.preventDefault();
+                  e.stopPropagation();
+                  finishEdit(true);
+                }
+              }, true);
+              inp.onblur = () => finishEdit(true);
+              inp.focus();
+          };
+
+          this.registerDomEvent(link, 'mousedown', (e: MouseEvent) => {
+              e.preventDefault();
+              if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
+                  openFile();
+              } else if (e.button === 0) { // Primary button only
+                  openEditor();
+              }
+          });
+        };
+
+        // Special: CR number link behavior (always clickable, Ctrl+Click to navigate)
+        if (key === 'crNumber' && val) {
+          createNumberLink('crNumber', String(val), findCrFileByNumber);
+        }
+
+        // Special: Task number link behavior (always clickable, Ctrl+Click to navigate)
+        if (key === 'taskNumber' && val) {
+          createNumberLink('taskNumber', String(val), findTaskFileByNumber);
         }
 
         // Enter edit mode on single-click (or show inline control for specific types)

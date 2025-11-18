@@ -149,7 +149,8 @@ export default class KanbanPlugin extends Plugin {
         defaultColumnWidth: 120,
         characterWidthPixels: 8,
         columnPadding: 40,
-        visibleColumns: []
+        visibleColumns: [],
+        showArchived: false
       };
       if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: '^CR-\\d+$', taskNumberPattern: '^T-\\d+$' };
       if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
