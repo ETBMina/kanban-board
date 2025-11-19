@@ -43,13 +43,13 @@ export class BoardTabsView extends ItemView {
       modal.open();
     });
   }
-
   constructor(leaf: WorkspaceLeaf, plugin: KanbanPlugin, settings: PluginConfiguration, persistSettings?: () => void | Promise<void>) {
     super(leaf);
     this.plugin = plugin;
     this.settings = settings;
     this.active = this.settings.lastActiveTab ?? 'grid';
     this.persistSettings = persistSettings;
+    this.render();
   }
 
   getViewType(): string { return BOARD_TABS_VIEW_TYPE; }
@@ -60,6 +60,12 @@ export class BoardTabsView extends ItemView {
     this.contentEl.addClass('kb-container');
     this.registerEvent(this.app.metadataCache.on('changed', debounce(() => this.reload(), 300)));
     this.registerEvent(this.app.vault.on('modify', debounce(() => this.reload(), 300)));
+
+    // Prevent Esc from navigating back
+    this.scope?.register([], 'Esc', () => {
+      return false;
+    });
+
     await this.reload();
   }
 
@@ -192,7 +198,7 @@ export class BoardTabsView extends ItemView {
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
       .map(t => t.frontmatter);
-    
+
     let crData: any[] = [];
     if (crFolder) {
       crData = allItems
@@ -308,18 +314,18 @@ export class BoardTabsView extends ItemView {
         fm.Archived = fm.archived ? 'Yes' : 'No';
         return fm;
       });
-    
+
     let crData: any[] = [];
     if (crFolder) {
       crData = allItems
         .filter(t => t.filePath.startsWith(crFolder + '/'))
         .map(t => {
-            const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
-            if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
-            fm.archived = Boolean(fm.archived);
-            fm.Archived = fm.archived ? 'Yes' : 'No';
-            return fm;
-          });
+          const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
+          if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
+          fm.archived = Boolean(fm.archived);
+          fm.Archived = fm.archived ? 'Yes' : 'No';
+          return fm;
+        });
     }
 
     const wb = XLSX.utils.book_new();
@@ -356,7 +362,7 @@ export class BoardTabsView extends ItemView {
         fm.Archived = fm.archived ? 'Yes' : 'No';
         return fm;
       });
-    
+
     let crData: any[] = [];
     if (crFolder) {
       crData = allItems
@@ -455,19 +461,19 @@ export class BoardTabsView extends ItemView {
           fileName = format.replace('{{number}}', number).replace('{{title}}', title);
           fileName = `${folder}/${sanitizeFileName(fileName)}`;
         } else {
-            const format = this.settings.taskFilenameFormat || '{{crNumber}} {{taskNumber}}.md';
-            const crNumber = item.crNumber || '';
-            const taskNumber = item.taskNumber || '';
-            const title = item.title || '';
-            const service = item.service || '';
-  
-            fileName = format
+          const format = this.settings.taskFilenameFormat || '{{crNumber}} {{taskNumber}}.md';
+          const crNumber = item.crNumber || '';
+          const taskNumber = item.taskNumber || '';
+          const title = item.title || '';
+          const service = item.service || '';
+
+          fileName = format
             .replace('{{crNumber}}', crNumber)
             .replace('{{taskNumber}}', taskNumber)
             .replace('{{title}}', title)
             .replace('{{service}}', service);
-  
-            fileName = `${folder}/${sanitizeFileName(fileName)}`;
+
+          fileName = `${folder}/${sanitizeFileName(fileName)}`;
         }
 
         // Prepare frontmatter for new file
@@ -586,12 +592,12 @@ export class BoardTabsView extends ItemView {
   private getFilteredTasks(): TaskNoteMeta[] {
     const taskFolder = normalizePath(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter(t => t.filePath.startsWith(taskFolder + '/')); // Create a copy to sort
-    
+
     // Filter archived tasks if the toggle is off
     if (!this.settings.gridConfig.showArchived) {
       tasks = tasks.filter(t => !t.frontmatter.archived);
     }
-    
+
     // Sort by createdAt timestamp in descending order (newest first)
     tasks.sort((a, b) => {
       const timestampA = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
@@ -623,20 +629,20 @@ export class BoardTabsView extends ItemView {
 
     const thead = table.createEl('thead');
     const trh = thead.createEl('tr');
-    
+
     // Track resize state
     let isResizing = false;
     let currentTh: HTMLElement | null = null;
     let startX = 0;
     let startWidth = 0;
-    
+
     const setupColumnResize = (th: HTMLElement, key: string) => {
       // Set initial width from settings or compute based on content
       const savedWidth = this.settings.gridConfig.columnWidths[key] ?? this.settings.gridConfig.defaultColumnWidth;
       if (savedWidth) {
         th.style.width = `${savedWidth}px`;
       }
-      
+
       th.onmousedown = (e: MouseEvent) => {
         // Only start resize if clicking near the right edge
         const rect = th.getBoundingClientRect();
@@ -646,7 +652,7 @@ export class BoardTabsView extends ItemView {
           startX = e.clientX;
           startWidth = rect.width;
           table.addClass('kb-resizing');
-          
+
           const onMouseMove = (e: MouseEvent) => {
             if (!isResizing) return;
             const width = startWidth + (e.clientX - startX);
@@ -656,7 +662,7 @@ export class BoardTabsView extends ItemView {
               this.settings.gridConfig.columnWidths[key] = width;
             }
           };
-          
+
           const onMouseUp = () => {
             isResizing = false;
             currentTh = null;
@@ -666,7 +672,7 @@ export class BoardTabsView extends ItemView {
             // Persist settings when done resizing
             this.persistSettings?.();
           };
-          
+
           document.addEventListener('mousemove', onMouseMove);
           document.addEventListener('mouseup', onMouseUp);
           e.preventDefault();
@@ -679,7 +685,7 @@ export class BoardTabsView extends ItemView {
       // Get field definition to know the type
       const fieldDef = this.settings.templateConfig.fields.find(f => f.key === key);
       if (!fieldDef) return 120; // Default width
-      
+
       let maxContent = key; // Start with header text
       if (fieldDef.type === 'status' && key === 'status') {
         // For status, check all possible status values
@@ -691,7 +697,7 @@ export class BoardTabsView extends ItemView {
           maxContent = Array.from(allPriorities).reduce((a, b) => a.length > b.length ? a : b);
         }
       }
-      
+
       // Calculate width based on content (roughly 8px per character plus padding)
       return Math.max(120, maxContent.length * 8 + 40);
     };
@@ -699,13 +705,13 @@ export class BoardTabsView extends ItemView {
     // Create headers with resize handlers
     for (const key of this.settings.gridConfig.visibleColumns) {
       const th = trh.createEl('th', { text: key });
-      
+
       // Set initial width for status and priority if not already set
       if ((key === 'status' || key === 'priority') && !this.settings.gridConfig.columnWidths[key]) {
         this.settings.gridConfig.columnWidths[key] = calculateMaxWidth(key);
         this.persistSettings?.();
       }
-      
+
       setupColumnResize(th, key);
     }
     const archivedTh = trh.createEl('th', { text: 'Archived' });
@@ -735,7 +741,7 @@ export class BoardTabsView extends ItemView {
         const displayEl = td.createDiv({ cls: 'kb-cell-display' });
         const isEmpty = !t.frontmatter.hasOwnProperty(key) || t.frontmatter[key] === '' || t.frontmatter[key] === null;
         if (isEmpty) displayEl.addClass('kb-cell-empty');
-        
+
         const setDisplayText = (text: string) => {
           if (!text.trim()) {
             displayEl.addClass('kb-cell-empty');
@@ -757,58 +763,58 @@ export class BoardTabsView extends ItemView {
           link.classList.add(numKey === 'crNumber' ? 'kb-cr-link' : 'kb-task-link');
 
           const openFile = async () => {
-              const file = await findFunc(this.app, this.settings, numVal);
-              if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+            const file = await findFunc(this.app, this.settings, numVal);
+            if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
           };
 
           const openEditor = () => {
-              if (td.querySelector('.kb-cell-editor')) return;
-              displayEl.style.display = 'none';
-              const startValue = String(t.frontmatter[numKey] ?? '');
-              const editor = td.createDiv({ cls: 'kb-cell-editor' });
-              const inp = editor.createEl('input') as HTMLInputElement;
-              inp.type = 'text';
-              inp.value = startValue;
-              const finishEdit = async (doSave: boolean) => {
-                inp.onblur = null;
-                if (doSave) {
-                  await saveValue(inp.value);
-                }
-                editor.remove();
-                displayEl.style.display = '';
-                // Always re-render the link after finishing edit (even if value didn't change)
-                const updatedValue = t.frontmatter[numKey];
-                if (updatedValue) {
-                  createNumberLink(numKey, String(updatedValue), findFunc);
-                } else {
-                  // If value was cleared, show the display as empty
-                  setDisplayText('');
-                }
-              };
-              // Use addEventListener with capture phase like other edit handlers
-              inp.addEventListener('keydown', (e: KeyboardEvent) => { 
-                if (e.key === 'Escape') { 
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.stopImmediatePropagation();
-                  finishEdit(false);
-                } else if (e.key === 'Enter') { 
-                  e.preventDefault();
-                  e.stopPropagation();
-                  finishEdit(true);
-                }
-              }, true);
-              inp.onblur = () => finishEdit(true);
-              inp.focus();
+            if (td.querySelector('.kb-cell-editor')) return;
+            displayEl.style.display = 'none';
+            const startValue = String(t.frontmatter[numKey] ?? '');
+            const editor = td.createDiv({ cls: 'kb-cell-editor' });
+            const inp = editor.createEl('input') as HTMLInputElement;
+            inp.type = 'text';
+            inp.value = startValue;
+            const finishEdit = async (doSave: boolean) => {
+              inp.onblur = null;
+              if (doSave) {
+                await saveValue(inp.value);
+              }
+              editor.remove();
+              displayEl.style.display = '';
+              // Always re-render the link after finishing edit (even if value didn't change)
+              const updatedValue = t.frontmatter[numKey];
+              if (updatedValue) {
+                createNumberLink(numKey, String(updatedValue), findFunc);
+              } else {
+                // If value was cleared, show the display as empty
+                setDisplayText('');
+              }
+            };
+            // Use addEventListener with capture phase like other edit handlers
+            inp.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                finishEdit(false);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                finishEdit(true);
+              }
+            }, true);
+            inp.onblur = () => finishEdit(true);
+            inp.focus();
           };
 
           this.registerDomEvent(link, 'mousedown', (e: MouseEvent) => {
-              e.preventDefault();
-              if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
-                  openFile();
-              } else if (e.button === 0) { // Primary button only
-                  openEditor();
-              }
+            e.preventDefault();
+            if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
+              openFile();
+            } else if (e.button === 0) { // Primary button only
+              openEditor();
+            }
           });
         };
 
@@ -891,17 +897,17 @@ export class BoardTabsView extends ItemView {
           // hide the plain text display and show inline select
           displayEl.style.display = 'none';
           const sel = td.createEl('select'); sel.addClass('kb-cell-inline-select');
-          
+
           // Determine options based on field config
-          const options = fieldDef.useValues === 'priorities' 
-            ? this.settings.priorities 
+          const options = fieldDef.useValues === 'priorities'
+            ? this.settings.priorities
             : this.settings.statusConfig.statuses;
-          
-          for (const s of options) { 
-            const o = sel.createEl('option', { text: s }); 
-            o.value = s; 
+
+          for (const s of options) {
+            const o = sel.createEl('option', { text: s });
+            o.value = s;
           }
-          
+
           sel.value = String(t.frontmatter[key] ?? options[0] ?? '');
           sel.onchange = () => saveValue(sel.value);
         } else if (fieldDef.type === 'date') {
@@ -917,7 +923,7 @@ export class BoardTabsView extends ItemView {
           // render first tag and +N
           // hide display text and render preview
           displayEl.style.display = 'none';
-          const tagsArr: string[] = Array.isArray(t.frontmatter[key]) ? t.frontmatter[key] : (t.frontmatter[key] ? String(t.frontmatter[key]).split(',').map((s:string)=>s.trim()).filter(Boolean) : []);
+          const tagsArr: string[] = Array.isArray(t.frontmatter[key]) ? t.frontmatter[key] : (t.frontmatter[key] ? String(t.frontmatter[key]).split(',').map((s: string) => s.trim()).filter(Boolean) : []);
           const preview = td.createDiv({ cls: 'kb-tags-preview' });
           if (tagsArr.length > 0) {
             const first = preview.createDiv({ cls: 'kb-tag kb-tag-large' }); first.setText(tagsArr[0]);
@@ -944,13 +950,14 @@ export class BoardTabsView extends ItemView {
                 const chips = this.containerElInner.createDiv({ cls: 'kb-selected-tags kb-modal-selected' });
                 const input = this.containerElInner.createEl('input') as HTMLInputElement; input.placeholder = 'Add tag...'; input.addClass('kb-input');
                 const sugg = this.containerElInner.createDiv({ cls: 'kb-tags-suggestions' });
-                const renderChips = () => { chips.empty(); for (const tag of this.selected) { const el = chips.createDiv({ cls: 'kb-tag' }); el.setText(tag); const rem = el.createSpan({ cls: 'kb-tag-remove' }); rem.setText('×'); rem.onclick = (ev) => { ev.stopPropagation(); const i = this.selected.indexOf(tag); if (i>-1) this.selected.splice(i,1); renderChips(); }; } };
-                getAllExistingTags(outer.app, outer.settings).then(tags => { this.allTags = tags; renderSuggestions(); }).catch(()=>{});
-                const renderSuggestions = (q?: string) => { sugg.empty(); const ql = (q??'').toLowerCase(); let candidates = this.allTags.filter(t => !this.selected.includes(t)); if (ql) candidates = candidates.filter(t => t.toLowerCase().includes(ql)); if (ql && !this.allTags.map(a=>a.toLowerCase()).includes(ql)) { const addOpt = sugg.createDiv({ cls: 'kb-tag-suggestion' }); addOpt.setText(`Add "${ql}"`); addOpt.onclick = () => { this.selected.push(ql); renderChips(); input.value=''; renderSuggestions(); input.focus(); }; }
-                  for (const c of candidates) { const el = sugg.createDiv({ cls: 'kb-tag-suggestion' }); el.setText(c); el.onclick = () => { this.selected.push(c); renderChips(); input.value=''; renderSuggestions(); input.focus(); }; }
+                const renderChips = () => { chips.empty(); for (const tag of this.selected) { const el = chips.createDiv({ cls: 'kb-tag' }); el.setText(tag); const rem = el.createSpan({ cls: 'kb-tag-remove' }); rem.setText('×'); rem.onclick = (ev) => { ev.stopPropagation(); const i = this.selected.indexOf(tag); if (i > -1) this.selected.splice(i, 1); renderChips(); }; } };
+                getAllExistingTags(outer.app, outer.settings).then(tags => { this.allTags = tags; renderSuggestions(); }).catch(() => { });
+                const renderSuggestions = (q?: string) => {
+                  sugg.empty(); const ql = (q ?? '').toLowerCase(); let candidates = this.allTags.filter(t => !this.selected.includes(t)); if (ql) candidates = candidates.filter(t => t.toLowerCase().includes(ql)); if (ql && !this.allTags.map(a => a.toLowerCase()).includes(ql)) { const addOpt = sugg.createDiv({ cls: 'kb-tag-suggestion' }); addOpt.setText(`Add "${ql}"`); addOpt.onclick = () => { this.selected.push(ql); renderChips(); input.value = ''; renderSuggestions(); input.focus(); }; }
+                  for (const c of candidates) { const el = sugg.createDiv({ cls: 'kb-tag-suggestion' }); el.setText(c); el.onclick = () => { this.selected.push(c); renderChips(); input.value = ''; renderSuggestions(); input.focus(); }; }
                 };
                 input.oninput = () => { renderSuggestions(input.value); };
-                input.onkeydown = (ev) => { if ((ev as KeyboardEvent).key === 'Enter') { ev.preventDefault(); const v = input.value.trim(); if (v) { this.selected.push(v); input.value=''; renderChips(); renderSuggestions(); } } };
+                input.onkeydown = (ev) => { if ((ev as KeyboardEvent).key === 'Enter') { ev.preventDefault(); const v = input.value.trim(); if (v) { this.selected.push(v); input.value = ''; renderChips(); renderSuggestions(); } } };
                 renderChips();
                 // actions
                 const actions = this.containerEl.createDiv({ cls: 'kb-tag-modal-actions' });
@@ -975,47 +982,47 @@ export class BoardTabsView extends ItemView {
             const editor = td.createDiv({ cls: 'kb-cell-editor' });
 
             if (key === 'notes') {
-              const inp = editor.createEl('textarea') as HTMLTextAreaElement; 
-              inp.value = startValue; 
+              const inp = editor.createEl('textarea') as HTMLTextAreaElement;
+              inp.value = startValue;
               const finishEdit = async (doSave: boolean) => {
                 inp.onblur = null;
                 if (doSave) await saveValue(inp.value);
                 editor.remove();
                 displayEl.style.display = '';
               };
-              inp.addEventListener('keydown', (e) => { 
+              inp.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  finishEdit(true); 
+                  finishEdit(true);
                 }
-                if (e.key === 'Escape') { 
+                if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
                   finishEdit(false);
-                } 
+                }
               }, true);
               inp.onblur = () => finishEdit(true);
               inp.focus();
             } else {
-              const inp = editor.createEl('input') as HTMLInputElement; 
-              inp.type = fieldDef.type === 'number' ? 'number' : 'text'; 
-              inp.value = startValue; 
+              const inp = editor.createEl('input') as HTMLInputElement;
+              inp.type = fieldDef.type === 'number' ? 'number' : 'text';
+              inp.value = startValue;
               const finishEdit = async (doSave: boolean) => {
                 inp.onblur = null;
                 if (doSave) await saveValue(inp.value);
                 editor.remove();
                 displayEl.style.display = '';
               };
-              inp.addEventListener('keydown', (e) => { 
+              inp.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   finishEdit(true);
                 }
-                if (e.key === 'Escape') { 
+                if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
                   finishEdit(false);
-                } 
+                }
               }, true);
               inp.onblur = () => finishEdit(true);
               inp.focus();
@@ -1211,10 +1218,10 @@ export class BoardTabsView extends ItemView {
           this.renderBoard(container);
         }));
         menu.addItem((i) => i.setTitle('Move right').onClick(async () => {
-          const arr = this.settings.statusConfig.statuses; if (idx >= arr.length - 1) return; [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]]; await this.persistSettings?.(); this.renderBoard(container);
+          const arr = this.settings.statusConfig.statuses; if (idx >= arr.length - 1) return;[arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]]; await this.persistSettings?.(); this.renderBoard(container);
         }));
         menu.addItem((i) => i.setTitle('Move left').onClick(async () => {
-          const arr = this.settings.statusConfig.statuses; if (idx === 0) return; [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]; await this.persistSettings?.(); this.renderBoard(container);
+          const arr = this.settings.statusConfig.statuses; if (idx === 0) return;[arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]; await this.persistSettings?.(); this.renderBoard(container);
         }));
         const e = ev as MouseEvent;
         menu.showAtPosition({ x: e.clientX, y: e.clientY });
@@ -1296,13 +1303,13 @@ export class BoardTabsView extends ItemView {
           if (children.length > 0) {
             // Calculate gaps between cards
             const gaps: { top: number; bottom: number; index: number }[] = [];
-            
+
             // First card's top gap
             const firstRect = children[0].getBoundingClientRect();
             gaps.push({
               top: firstRect.top - 20, // Add some padding above first card
               bottom: firstRect.top + 10,
-              index: 0 
+              index: 0
             });
 
             // Gaps between cards
@@ -1310,7 +1317,7 @@ export class BoardTabsView extends ItemView {
               const currentRect = children[i].getBoundingClientRect();
               const nextRect = children[i + 1].getBoundingClientRect();
               const gapMiddle = currentRect.bottom + (nextRect.top - currentRect.bottom) / 2;
-              
+
               gaps.push({
                 top: gapMiddle - 10, // 10px above middle
                 bottom: gapMiddle + 10, // 10px below middle
@@ -1351,13 +1358,13 @@ export class BoardTabsView extends ItemView {
 
           // Find task index in source list
           const draggedIndexInSource = tasksInFromCol.findIndex(t => t.filePath === payload!.path);
-          
+
           // Early exit if dropping in same position in same column
           if (fromStatus === status && draggedIndexInSource !== -1) {
-            const adjustedInsertIndex = draggedIndexInSource < insertIndex 
+            const adjustedInsertIndex = draggedIndexInSource < insertIndex
               ? insertIndex - 1  // Account for removal when moving down
               : insertIndex;     // No adjustment needed when moving up
-              
+
             if (draggedIndexInSource === adjustedInsertIndex) {
               setHighlight(false);
               return; // No changes needed
@@ -1367,7 +1374,7 @@ export class BoardTabsView extends ItemView {
           // Preserve horizontal scroll position while we update
           const scroller = board;
           const scrollLeft = scroller.scrollLeft;
-          
+
           // Remove from source list if present
           if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
 
@@ -1469,7 +1476,7 @@ export class BoardTabsView extends ItemView {
           subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
 
           for (const subtask of task.subtasks) {
-            if(subtask.completed) continue;
+            if (subtask.completed) continue;
             const subtaskEl = subtasksContainer.createDiv({ cls: 'kb-subtask' });
             const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
             checkbox.checked = subtask.completed;
@@ -1638,8 +1645,8 @@ class EditTaskModal extends Modal {
       if (field.type === 'status') {
         const select = control.createEl('select');
         select.addClass('kb-input');
-        const options = field.useValues === 'priorities' 
-          ? this.settings.priorities 
+        const options = field.useValues === 'priorities'
+          ? this.settings.priorities
           : this.settings.statusConfig.statuses;
         for (const o of options) {
           const opt = select.createEl('option', { text: o }); opt.value = o;
@@ -1711,7 +1718,7 @@ class EditTaskModal extends Modal {
           for (const tag of selectedTags) {
             const tagEl = tagsDisplay.createDiv({ cls: 'kb-tag' }); tagEl.setText(tag);
             const removeBtn = tagEl.createSpan({ cls: 'kb-tag-remove' }); removeBtn.setText('×');
-            removeBtn.onclick = (e) => { e.stopPropagation(); const idx = selectedTags.indexOf(tag); if (idx > -1) selectedTags.splice(idx,1); renderSelected(); };
+            removeBtn.onclick = (e) => { e.stopPropagation(); const idx = selectedTags.indexOf(tag); if (idx > -1) selectedTags.splice(idx, 1); renderSelected(); };
           }
         };
         renderSelected();
@@ -1720,31 +1727,31 @@ class EditTaskModal extends Modal {
         const loadAllTags = async () => { allTags = await getAllExistingTags(this.app, this.settings).catch(() => []); };
         loadAllTags();
 
-        const addTag = (tag: string) => { if (!selectedTags.includes(tag)) selectedTags.push(tag); renderSelected(); tagsInput.value=''; suggestionsContainer.style.display='none'; tagsInput.focus(); };
+        const addTag = (tag: string) => { if (!selectedTags.includes(tag)) selectedTags.push(tag); renderSelected(); tagsInput.value = ''; suggestionsContainer.style.display = 'none'; tagsInput.focus(); };
 
         const renderSuggestions = (q?: string) => {
           suggestionsContainer.empty();
           const query = (q ?? '').trim().toLowerCase();
           let candidates = allTags.filter(t => !selectedTags.includes(t));
           if (query) candidates = candidates.filter(t => t.toLowerCase().includes(query));
-          if (query && !allTags.map(t=>t.toLowerCase()).includes(query)) {
+          if (query && !allTags.map(t => t.toLowerCase()).includes(query)) {
             const addOption = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' }); addOption.setText(`Add "${q}" as new tag`); addOption.onclick = () => addTag(q!.trim());
           }
           for (const tag of candidates) { const opt = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' }); opt.setText(tag); opt.onclick = () => addTag(tag); }
-          suggestionsContainer.style.display = candidates.length>0 || (query && !allTags.map(t=>t.toLowerCase()).includes(query)) ? 'block' : 'none';
+          suggestionsContainer.style.display = candidates.length > 0 || (query && !allTags.map(t => t.toLowerCase()).includes(query)) ? 'block' : 'none';
         };
 
         tagsInput.oninput = () => renderSuggestions(tagsInput.value);
         tagsInput.onfocus = async () => { if (allTags.length === 0) await loadAllTags(); renderSuggestions(''); };
-        document.addEventListener('click', (e) => { if (!tagsContainer.contains(e.target as Node)) suggestionsContainer.style.display='none'; });
+        document.addEventListener('click', (e) => { if (!tagsContainer.contains(e.target as Node)) suggestionsContainer.style.display = 'none'; });
         tagsInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = tagsInput.value.trim(); if (v) addTag(v); } };
 
         this.inputs.set(field.key, { getValue: () => selectedTags } as any);
       } else if (field.type === 'freetext') {
-        row.style.display='block'; row.style.width='100%'; const label = row.querySelector('.setting-item-name') as HTMLElement; if (label) label.style.display='block'; control.style.width='100%'; control.style.marginTop='8px';
-        const textarea = control.createEl('textarea'); textarea.addClass('kb-input'); textarea.placeholder = field.label; textarea.rows=4; textarea.style.resize='vertical'; textarea.style.minHeight='80px'; textarea.style.width='100%'; textarea.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, textarea);
+        row.style.display = 'block'; row.style.width = '100%'; const label = row.querySelector('.setting-item-name') as HTMLElement; if (label) label.style.display = 'block'; control.style.width = '100%'; control.style.marginTop = '8px';
+        const textarea = control.createEl('textarea'); textarea.addClass('kb-input'); textarea.placeholder = field.label; textarea.rows = 4; textarea.style.resize = 'vertical'; textarea.style.minHeight = '80px'; textarea.style.width = '100%'; textarea.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, textarea);
       } else {
-        const input = control.createEl('input'); input.addClass('kb-input'); input.placeholder = field.label; if (field.type === 'date') input.type='date'; else if (field.type === 'number') input.type='number'; else input.type='text'; input.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, input);
+        const input = control.createEl('input'); input.addClass('kb-input'); input.placeholder = field.label; if (field.type === 'date') input.type = 'date'; else if (field.type === 'number') input.type = 'number'; else input.type = 'text'; input.value = String(fm[field.key] ?? ''); this.inputs.set(field.key, input);
       }
     }
 
