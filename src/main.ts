@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { PluginConfiguration, TaskFieldDefinition } from './models';
 import { KanbanSettingTab } from './settings';
-import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter, getAllExistingTags} from './utils';
+import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter, getAllExistingTags } from './utils';
 import { BoardTabsView, BOARD_TABS_VIEW_TYPE } from './views/boardTabsView';
 
 export default class KanbanPlugin extends Plugin {
@@ -45,7 +45,7 @@ export default class KanbanPlugin extends Plugin {
     for (const [label, path] of requiredSettings) {
       let current: any = this.config;
       let isMissing = false;
-      
+
       for (const key of path) {
         if (!current || !current[key]) {
           isMissing = true;
@@ -82,15 +82,15 @@ export default class KanbanPlugin extends Plugin {
       buttonDiv.style.display = 'flex';
       buttonDiv.style.justifyContent = 'flex-end';
       buttonDiv.style.gap = '10px';
-      
+
       const cancelButton = buttonDiv.createEl('button', { text: 'Cancel' });
       const saveButton = buttonDiv.createEl('button', { text: 'Save', cls: 'mod-cta' });
-      
+
       cancelButton.onclick = () => {
         modal.close();
         resolve(false);
       };
-      
+
       saveButton.onclick = async () => {
         for (const [label, path] of missing) {
           const value = inputs.get(label)?.value.trim();
@@ -105,7 +105,7 @@ export default class KanbanPlugin extends Plugin {
             if (!current[path[i]]) current[path[i]] = {};
             current = current[path[i]];
           }
-          
+
           const lastKey = path[path.length - 1];
           if (label === 'Statuses' || label === 'Priorities') {
             current[lastKey] = value.split(',').map(s => s.trim()).filter(Boolean);
@@ -137,7 +137,7 @@ export default class KanbanPlugin extends Plugin {
         await this.app.vault.adapter.write(userConfigPath, JSON.stringify(userConfig, null, 2));
       }
       this.config.people = userConfig.people;
-      
+
       // Ensure basic structure exists
       if (!this.config.paths) this.config.paths = { taskFolder: '', crFolder: '' };
       if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: '^(completed|done)$', inProgressPattern: 'in\\s*progress' };
@@ -175,7 +175,7 @@ export default class KanbanPlugin extends Plugin {
     } catch (err) {
       console.error('Failed to load configuration:', err);
       new Notice('Failed to load configuration. Please check settings or recreate configuration.json. Error: ' + (err as Error).message);
-      
+
       // Still add settings tab so user can configure plugin
       this.addSettingTab(new KanbanSettingTab(this.app, this));
       return;
@@ -231,12 +231,12 @@ export default class KanbanPlugin extends Plugin {
       if (isCompleted && !endDate) {
         try {
           await updateTaskFrontmatter(this.app, file, { endDate: new Date().toISOString().slice(0, 10) });
-        } catch {/* ignore */}
+        } catch {/* ignore */ }
       }
       if (isInProgress && !startDate) {
         try {
           await updateTaskFrontmatter(this.app, file, { startDate: new Date().toISOString().slice(0, 10) });
-        } catch {/* ignore */}
+        } catch {/* ignore */ }
       }
     }));
   }
@@ -302,7 +302,7 @@ export default class KanbanPlugin extends Plugin {
           crTitle = String(fm?.['title'] ?? '');
           if (!crTitle) {
             const name = crFile.name.replace(/\.md$/i, '');
-            crTitle = name.replace(/^CR-\d+\s*-\s*/i, '');
+            crTitle = name.replace(/^[^\s]+-?\d*\s*-\s*/i, '');
           }
         }
       }
@@ -315,21 +315,21 @@ export default class KanbanPlugin extends Plugin {
       const path = `${folder}/${fileName}`;
       // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};
-      
+
       // First, add all provided values
       for (const [k, v] of Object.entries(data)) {
         if (k === 'subtasks') continue;
-        if (Array.isArray(v)) { 
-          if (v.length > 0) clean[k] = v; 
+        if (Array.isArray(v)) {
+          if (v.length > 0) clean[k] = v;
         }
-        else if (typeof v === 'string') { 
-          if (v.trim() !== '') clean[k] = v.trim(); 
+        else if (typeof v === 'string') {
+          if (v.trim() !== '') clean[k] = v.trim();
         }
-        else if (v !== null && v !== undefined) { 
-          clean[k] = v; 
+        else if (v !== null && v !== undefined) {
+          clean[k] = v;
         }
       }
-      
+
       // Then, add placeholders for any missing template fields
       for (const field of this.config.templateConfig.fields) {
         if (!(field.key in clean)) {
@@ -386,27 +386,26 @@ export default class KanbanPlugin extends Plugin {
       await ensureFolder(this.app, folder);
       let crNumber = (data['number'] || '').trim();
       if (!crNumber) crNumber = await generateNextCrNumber(this.app, this.config);
-      if (!/^CR-\d+$/i.test(crNumber)) crNumber = 'CR-' + crNumber.replace(/[^0-9]/g, '');
       const title = (data['title'] || '').trim() || crNumber;
       const format = this.config.crFilenameFormat || '{{number}} - {{title}}.md';
       const fileName = format.replace('{{number}}', crNumber).replace('{{title}}', title);
       const path = `${folder}/${fileName}`;
       // Include all template fields with placeholders for empty values
       const clean: Record<string, any> = {};
-      
+
       // First, add all provided values
       for (const [k, v] of Object.entries(data)) {
-        if (Array.isArray(v)) { 
-          if (v.length > 0) clean[k] = v; 
+        if (Array.isArray(v)) {
+          if (v.length > 0) clean[k] = v;
         }
-        else if (typeof v === 'string') { 
-          if (v.trim() !== '') clean[k] = v.trim(); 
+        else if (typeof v === 'string') {
+          if (v.trim() !== '') clean[k] = v.trim();
         }
-        else if (v !== null && v !== undefined) { 
-          clean[k] = v; 
+        else if (v !== null && v !== undefined) {
+          clean[k] = v;
         }
       }
-      
+
       // Then, add placeholders for any missing template fields
       for (const field of fields) {
         if (!(field.key in clean)) {
@@ -496,223 +495,223 @@ class TaskTemplateModal extends Modal {
     svcInput.type = 'text';
     this.inputs.set('service', svcInput);
 
-      for (const field of this.fields) {
-        // Skip fields handled specially or deprecated for task creation
-        if (field.key === 'status' || field.key === 'title' || field.key === 'due' || field.key === 'crNumber' || field.key === 'taskNumber' || field.key === 'service') continue;
-        const row = contentEl.createDiv({ cls: 'setting-item' });
-        row.createDiv({ cls: 'setting-item-name', text: field.label });
-        const control = row.createDiv({ cls: 'setting-item-control' });
-        // Render selects for true status fields or for the special 'priority' key
-        if (field.type === 'status') {
-          const select = control.createEl('select');
-          select.addClass('kb-input');
-          const options = field.useValues === 'priorities' 
-            ? this.plugin.config.priorities 
-            : this.plugin.config.statusConfig.statuses;
-          for (const o of options) {
-            const opt = select.createEl('option', { text: o });
-            opt.value = o;
-          }
-          select.value = options[0] ?? '';
-          if (field.useValues === 'priorities') {
-            select.value = this.plugin.config.defaultPriority;
-          }
-          this.inputs.set(field.key, select);
-        } else if (field.type === 'people') {
-          const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
-          const peopleInput = peopleInputContainer.createEl('input');
-          peopleInput.addClass('kb-input');
-          peopleInput.placeholder = 'Type to select a person...';
-          peopleInput.type = 'text';
-
-          const suggestionsContainer = peopleInputContainer.createDiv({ cls: 'kb-people-suggestions' });
-          suggestionsContainer.style.display = 'none';
-
-          let allPeople = this.plugin.config.people || [];
-
-          const renderSuggestions = (query?: string) => {
-            suggestionsContainer.empty();
-            const q = (query ?? '').trim().toLowerCase();
-            let candidates = allPeople.filter(p => q ? p.toLowerCase().includes(q) : true);
-
-            if (q && !allPeople.map(p => p.toLowerCase()).includes(q)) {
-              const addOption = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
-              addOption.setText(`Add "${query}"`);
-              addOption.onclick = async () => {
-                await this.plugin.addPerson(query!);
-                allPeople = this.plugin.config.people || [];
-                selectPerson(query!);
-              };
-            }
-
-            for (const person of candidates) {
-              const option = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
-              option.setText(person);
-              option.onclick = () => selectPerson(person);
-            }
-
-            suggestionsContainer.style.display = 'block';
-          };
-
-          const selectPerson = (person: string) => {
-            peopleInput.value = person;
-            suggestionsContainer.style.display = 'none';
-          };
-
-          peopleInput.oninput = () => renderSuggestions(peopleInput.value);
-          peopleInput.onfocus = () => renderSuggestions('');
-          peopleInput.onkeydown = async (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              const value = peopleInput.value.trim();
-              if (value) {
-                await this.plugin.addPerson(value);
-                allPeople = this.plugin.config.people || []; // Refresh the list
-                selectPerson(value); // Select the newly added person
-              }
-            }
-          };
-          document.addEventListener('click', (e) => {
-            if (!peopleInputContainer.contains(e.target as Node)) {
-              suggestionsContainer.style.display = 'none';
-            }
-          });
-
-          this.inputs.set(field.key, peopleInput);
-        } else if (field.type === 'tags') {
-          // Create container for tags input and suggestions
-          const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });
-          const tagsInput = tagsContainer.createEl('input');
-          tagsInput.addClass('kb-input');
-          tagsInput.placeholder = 'Type to add or select tags...';
-          tagsInput.type = 'text';
-
-          // Create tags display area
-          const tagsDisplay = tagsContainer.createDiv({ cls: 'kb-selected-tags' });
-          const selectedTags: string[] = [];
-
-          // Create suggestions dropdown
-          const suggestionsContainer = tagsContainer.createDiv({ cls: 'kb-tags-suggestions' });
-          suggestionsContainer.style.display = 'none';
-          
-          // Load existing tags and render suggestions
-          let allTags: string[] = [];
-          const loadAllTags = async () => {
-            try {
-              allTags = await getAllExistingTags(this.app, this.plugin.config);
-            } catch {
-              allTags = [];
-            }
-          };
-          // Kick off load immediately (non-blocking)
-          loadAllTags();
-
-          const renderSuggestions = (query?: string) => {
-            suggestionsContainer.empty();
-            const q = (query ?? '').trim().toLowerCase();
-            // Build list of candidates excluding already selected tags
-            let candidates = allTags.filter(t => !selectedTags.includes(t));
-            if (q) candidates = candidates.filter(t => t.toLowerCase().includes(q));
-
-            // If there's a typed query that's not an exact existing tag, offer to add it
-            if (q && !allTags.map(t => t.toLowerCase()).includes(q)) {
-              const addOption = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
-              addOption.setText(`Add "${query}" as new tag`);
-              addOption.onclick = () => addTag(query!.trim());
-            }
-
-            // Add existing matches
-            for (const tag of candidates) {
-              const option = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
-              option.setText(tag);
-              option.onclick = () => addTag(tag);
-            }
-
-            suggestionsContainer.style.display = candidates.length > 0 || (q && !allTags.map(t => t.toLowerCase()).includes(q)) ? 'block' : 'none';
-          };
-
-          // Handle input changes
-          tagsInput.oninput = () => renderSuggestions(tagsInput.value);
-
-          // Handle focus: ensure tags are loaded then show full suggestion list
-          tagsInput.onfocus = async () => {
-            if (allTags.length === 0) await loadAllTags();
-            renderSuggestions('');
-          };
-
-          // Close suggestions when clicking outside
-          document.addEventListener('click', (e) => {
-            if (!tagsContainer.contains(e.target as Node)) {
-              suggestionsContainer.style.display = 'none';
-            }
-          });
-
-          // Function to add a tag
-          const addTag = (tag: string) => {
-            if (!selectedTags.includes(tag)) {
-              selectedTags.push(tag);
-              const tagEl = tagsDisplay.createDiv({ cls: 'kb-tag' });
-              tagEl.setText(tag);
-              const removeBtn = tagEl.createSpan({ cls: 'kb-tag-remove' });
-              removeBtn.setText('×');
-              removeBtn.onclick = (e) => {
-                e.stopPropagation();
-                const index = selectedTags.indexOf(tag);
-                if (index > -1) {
-                  selectedTags.splice(index, 1);
-                  tagEl.remove();
-                }
-              };
-            }
-            tagsInput.value = '';
-            suggestionsContainer.style.display = 'none';
-            tagsInput.focus();
-          };
-
-          // Handle enter key to add current input as tag
-          tagsInput.onkeydown = (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              const value = tagsInput.value.trim();
-              if (value) {
-                addTag(value);
-              }
-            }
-          };
-
-          // Create a hidden input to store the actual tags array
-          const hiddenInput = control.createEl('input');
-          hiddenInput.type = 'hidden';
-          hiddenInput.value = '[]';
-          this.inputs.set(field.key, {
-            value: '',
-            getValue: () => selectedTags
-          } as any);
-        } else if (field.type === 'freetext') {
-          // For freetext fields, use full width layout
-          row.style.display = 'block';
-          row.style.width = '100%';
-          const label = row.querySelector('.setting-item-name') as HTMLElement;
-          if (label) label.style.display = 'block';
-          control.style.width = '100%';
-          control.style.marginTop = '8px';
-          const textarea = control.createEl('textarea');
-          textarea.addClass('kb-input');
-          textarea.placeholder = field.label;
-          textarea.rows = 4;
-          textarea.style.resize = 'vertical';
-          textarea.style.minHeight = '80px';
-          textarea.style.width = '100%';
-          this.inputs.set(field.key, textarea);
-        } else {
-          const input = control.createEl('input');
-          input.addClass('kb-input');
-          input.placeholder = field.label;
-          if (field.type === 'date') input.type = 'date';
-          else if (field.type === 'number') input.type = 'number';
-          else input.type = 'text';
-          this.inputs.set(field.key, input);
+    for (const field of this.fields) {
+      // Skip fields handled specially or deprecated for task creation
+      if (field.key === 'status' || field.key === 'title' || field.key === 'due' || field.key === 'crNumber' || field.key === 'taskNumber' || field.key === 'service') continue;
+      const row = contentEl.createDiv({ cls: 'setting-item' });
+      row.createDiv({ cls: 'setting-item-name', text: field.label });
+      const control = row.createDiv({ cls: 'setting-item-control' });
+      // Render selects for true status fields or for the special 'priority' key
+      if (field.type === 'status') {
+        const select = control.createEl('select');
+        select.addClass('kb-input');
+        const options = field.useValues === 'priorities'
+          ? this.plugin.config.priorities
+          : this.plugin.config.statusConfig.statuses;
+        for (const o of options) {
+          const opt = select.createEl('option', { text: o });
+          opt.value = o;
         }
+        select.value = options[0] ?? '';
+        if (field.useValues === 'priorities') {
+          select.value = this.plugin.config.defaultPriority;
+        }
+        this.inputs.set(field.key, select);
+      } else if (field.type === 'people') {
+        const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
+        const peopleInput = peopleInputContainer.createEl('input');
+        peopleInput.addClass('kb-input');
+        peopleInput.placeholder = 'Type to select a person...';
+        peopleInput.type = 'text';
+
+        const suggestionsContainer = peopleInputContainer.createDiv({ cls: 'kb-people-suggestions' });
+        suggestionsContainer.style.display = 'none';
+
+        let allPeople = this.plugin.config.people || [];
+
+        const renderSuggestions = (query?: string) => {
+          suggestionsContainer.empty();
+          const q = (query ?? '').trim().toLowerCase();
+          let candidates = allPeople.filter(p => q ? p.toLowerCase().includes(q) : true);
+
+          if (q && !allPeople.map(p => p.toLowerCase()).includes(q)) {
+            const addOption = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+            addOption.setText(`Add "${query}"`);
+            addOption.onclick = async () => {
+              await this.plugin.addPerson(query!);
+              allPeople = this.plugin.config.people || [];
+              selectPerson(query!);
+            };
+          }
+
+          for (const person of candidates) {
+            const option = suggestionsContainer.createDiv({ cls: 'kb-people-suggestion' });
+            option.setText(person);
+            option.onclick = () => selectPerson(person);
+          }
+
+          suggestionsContainer.style.display = 'block';
+        };
+
+        const selectPerson = (person: string) => {
+          peopleInput.value = person;
+          suggestionsContainer.style.display = 'none';
+        };
+
+        peopleInput.oninput = () => renderSuggestions(peopleInput.value);
+        peopleInput.onfocus = () => renderSuggestions('');
+        peopleInput.onkeydown = async (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const value = peopleInput.value.trim();
+            if (value) {
+              await this.plugin.addPerson(value);
+              allPeople = this.plugin.config.people || []; // Refresh the list
+              selectPerson(value); // Select the newly added person
+            }
+          }
+        };
+        document.addEventListener('click', (e) => {
+          if (!peopleInputContainer.contains(e.target as Node)) {
+            suggestionsContainer.style.display = 'none';
+          }
+        });
+
+        this.inputs.set(field.key, peopleInput);
+      } else if (field.type === 'tags') {
+        // Create container for tags input and suggestions
+        const tagsContainer = control.createDiv({ cls: 'kb-tags-input-container' });
+        const tagsInput = tagsContainer.createEl('input');
+        tagsInput.addClass('kb-input');
+        tagsInput.placeholder = 'Type to add or select tags...';
+        tagsInput.type = 'text';
+
+        // Create tags display area
+        const tagsDisplay = tagsContainer.createDiv({ cls: 'kb-selected-tags' });
+        const selectedTags: string[] = [];
+
+        // Create suggestions dropdown
+        const suggestionsContainer = tagsContainer.createDiv({ cls: 'kb-tags-suggestions' });
+        suggestionsContainer.style.display = 'none';
+
+        // Load existing tags and render suggestions
+        let allTags: string[] = [];
+        const loadAllTags = async () => {
+          try {
+            allTags = await getAllExistingTags(this.app, this.plugin.config);
+          } catch {
+            allTags = [];
+          }
+        };
+        // Kick off load immediately (non-blocking)
+        loadAllTags();
+
+        const renderSuggestions = (query?: string) => {
+          suggestionsContainer.empty();
+          const q = (query ?? '').trim().toLowerCase();
+          // Build list of candidates excluding already selected tags
+          let candidates = allTags.filter(t => !selectedTags.includes(t));
+          if (q) candidates = candidates.filter(t => t.toLowerCase().includes(q));
+
+          // If there's a typed query that's not an exact existing tag, offer to add it
+          if (q && !allTags.map(t => t.toLowerCase()).includes(q)) {
+            const addOption = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
+            addOption.setText(`Add "${query}" as new tag`);
+            addOption.onclick = () => addTag(query!.trim());
+          }
+
+          // Add existing matches
+          for (const tag of candidates) {
+            const option = suggestionsContainer.createDiv({ cls: 'kb-tag-suggestion' });
+            option.setText(tag);
+            option.onclick = () => addTag(tag);
+          }
+
+          suggestionsContainer.style.display = candidates.length > 0 || (q && !allTags.map(t => t.toLowerCase()).includes(q)) ? 'block' : 'none';
+        };
+
+        // Handle input changes
+        tagsInput.oninput = () => renderSuggestions(tagsInput.value);
+
+        // Handle focus: ensure tags are loaded then show full suggestion list
+        tagsInput.onfocus = async () => {
+          if (allTags.length === 0) await loadAllTags();
+          renderSuggestions('');
+        };
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!tagsContainer.contains(e.target as Node)) {
+            suggestionsContainer.style.display = 'none';
+          }
+        });
+
+        // Function to add a tag
+        const addTag = (tag: string) => {
+          if (!selectedTags.includes(tag)) {
+            selectedTags.push(tag);
+            const tagEl = tagsDisplay.createDiv({ cls: 'kb-tag' });
+            tagEl.setText(tag);
+            const removeBtn = tagEl.createSpan({ cls: 'kb-tag-remove' });
+            removeBtn.setText('×');
+            removeBtn.onclick = (e) => {
+              e.stopPropagation();
+              const index = selectedTags.indexOf(tag);
+              if (index > -1) {
+                selectedTags.splice(index, 1);
+                tagEl.remove();
+              }
+            };
+          }
+          tagsInput.value = '';
+          suggestionsContainer.style.display = 'none';
+          tagsInput.focus();
+        };
+
+        // Handle enter key to add current input as tag
+        tagsInput.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const value = tagsInput.value.trim();
+            if (value) {
+              addTag(value);
+            }
+          }
+        };
+
+        // Create a hidden input to store the actual tags array
+        const hiddenInput = control.createEl('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.value = '[]';
+        this.inputs.set(field.key, {
+          value: '',
+          getValue: () => selectedTags
+        } as any);
+      } else if (field.type === 'freetext') {
+        // For freetext fields, use full width layout
+        row.style.display = 'block';
+        row.style.width = '100%';
+        const label = row.querySelector('.setting-item-name') as HTMLElement;
+        if (label) label.style.display = 'block';
+        control.style.width = '100%';
+        control.style.marginTop = '8px';
+        const textarea = control.createEl('textarea');
+        textarea.addClass('kb-input');
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = 'vertical';
+        textarea.style.minHeight = '80px';
+        textarea.style.width = '100%';
+        this.inputs.set(field.key, textarea);
+      } else {
+        const input = control.createEl('input');
+        input.addClass('kb-input');
+        input.placeholder = field.label;
+        if (field.type === 'date') input.type = 'date';
+        else if (field.type === 'number') input.type = 'number';
+        else input.type = 'text';
+        this.inputs.set(field.key, input);
+      }
     }
 
     const subtasksContainer = contentEl.createDiv({ cls: 'kb-subtasks-edit' });
@@ -816,7 +815,7 @@ class CrTemplateModal extends Modal {
       const row = contentEl.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
-      
+
       if (field.type === 'freetext') {
         // For freetext fields, use full width layout like in TaskTemplateModal
         row.style.display = 'block';
