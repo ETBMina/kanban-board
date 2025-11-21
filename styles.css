@@ -128,7 +128,7 @@
   z-index: 3100;
 }
 .kb-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-.kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); white-space: normal; }
+.kb-table th, .kb-table td { padding: 8px 10px; border-bottom: 1px solid var(--background-modifier-border); white-space: normal; overflow-wrap: break-word; word-break: break-word; }
 .kb-table th { position: relative; user-select: none; }
 .kb-table th::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; }
 .kb-table th:hover::after { background: var(--interactive-accent); opacity: 0.2; }
@@ -138,7 +138,7 @@
 
 /* Grid cell editing */
 .kb-grid-cell { position: relative; overflow: visible; }
-.kb-cell-display { padding: 4px; border-radius: 4px; min-height: 1.2em; }
+.kb-cell-display { padding: 4px; border-radius: 4px; min-height: 1.2em; overflow-wrap: break-word; word-break: break-word; }
 .kb-cell-display:hover { background: var(--background-modifier-hover); cursor: pointer; }
 .kb-cell-empty { color: var(--text-muted); font-style: italic; }
 .kb-cell-editor { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 10; }
@@ -180,7 +180,7 @@
 .kb-dropzone { outline: 2px dashed transparent; transition: outline-color .15s ease; }
 .kb-dropzone-hover { outline-color: var(--interactive-accent); background: var(--background-modifier-hover); }
 .kb-card { background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow-s); }
-.kb-card-title { font-weight: 600; }
+.kb-card-title { font-weight: 600; overflow-wrap: break-word; word-break: break-word; }
 .kb-card-footer { display:flex; justify-content: space-between; align-items:center; }
 .kb-card-ts { color: var(--text-muted); font-size: 11px; }
 .kb-card-btn { background: transparent; border: 1px solid var(--background-modifier-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
