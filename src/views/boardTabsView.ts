@@ -4,6 +4,7 @@ import { PluginConfiguration, Subtask, TaskNoteMeta, ActiveTab, TaskFieldDefinit
 import { readAllTasks, updateTaskFrontmatter, getAllExistingTags, readAllItems, buildFrontmatterYAML, sanitizeFileName, findCrFileByNumber, findTaskFileByNumber } from '../utils';
 import KanbanPlugin from '../main';
 import { FilterPanel } from './filterModal';
+import { CopyTaskModal } from './copyTaskModal';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -1506,6 +1507,12 @@ export class BoardTabsView extends ItemView {
           menu.addItem((i) => i.setTitle('Open').onClick(async () => {
             const file = this.app.vault.getAbstractFileByPath(task.filePath);
             if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+          }));
+          menu.addItem((i) => i.setTitle('Copy').onClick(async () => {
+            const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
+              await this.reload();
+            });
+            modal.open();
           }));
           menu.addItem((i) => i.setTitle('Archive').onClick(async () => {
             try {
