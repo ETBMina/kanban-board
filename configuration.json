@@ -28,7 +28,8 @@
       "title": 361.16668701171875,
       "designer": 183,
       "developer": 197,
-      "service": 159
+      "service": 159,
+      "tags": 164
     },
     "minColumnWidth": 50,
     "defaultColumnWidth": 120,
@@ -45,7 +46,8 @@
       "developer",
       "startDate",
       "endDate",
-      "notes"
+      "notes",
+      "tags"
     ],
     "showArchived": false
   },
