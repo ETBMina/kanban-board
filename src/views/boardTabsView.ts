@@ -90,6 +90,7 @@ export class BoardTabsView extends ItemView {
     if (this.active === 'board') boardBtn.addClass('is-active');
     boardBtn.onclick = () => { this.active = 'board'; this.settings.lastActiveTab = 'board'; this.persistSettings?.(); this.render(); };
 
+
     const menuBtn = tabs.createEl('button', { text: '⋯' });
     menuBtn.addClass('kb-ellipsis');
     menuBtn.onclick = (ev) => {
@@ -296,7 +297,6 @@ export class BoardTabsView extends ItemView {
     input.click();
   }
 
-
   public async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
     const taskFolder = normalizePath(this.settings.paths.taskFolder);
@@ -305,13 +305,10 @@ export class BoardTabsView extends ItemView {
     const tasksData = allItems
       .filter(t => t.filePath.startsWith(taskFolder + '/'))
       .map(t => {
-        // Build a clean export object so we don't mutate in-memory frontmatter
         const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
         if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
         fm.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
-        // Ensure archived presence and a human-friendly Archived column
         fm.archived = Boolean(fm.archived);
-        fm.Archived = fm.archived ? 'Yes' : 'No';
         return fm;
       });
 
@@ -323,7 +320,6 @@ export class BoardTabsView extends ItemView {
           const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
           if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
           fm.archived = Boolean(fm.archived);
-          fm.Archived = fm.archived ? 'Yes' : 'No';
           return fm;
         });
     }
@@ -359,7 +355,6 @@ export class BoardTabsView extends ItemView {
         if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
         fm.subtasks = t.subtasks.map(st => `[${st.completed ? 'x' : ' '}] ${st.text}`).join('\n');
         fm.archived = Boolean(fm.archived);
-        fm.Archived = fm.archived ? 'Yes' : 'No';
         return fm;
       });
 
@@ -371,7 +366,6 @@ export class BoardTabsView extends ItemView {
           const fm = Object.assign({}, t.frontmatter) as Record<string, any>;
           if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(', ');
           fm.archived = Boolean(fm.archived);
-          fm.Archived = fm.archived ? 'Yes' : 'No';
           return fm;
         });
     }
@@ -394,8 +388,6 @@ export class BoardTabsView extends ItemView {
     link.click();
     document.body.removeChild(link);
   }
-
-
 
   private async processImportData(data: any[], type: 'task' | 'cr') {
     const allItems = await readAllItems(this.app, this.settings);

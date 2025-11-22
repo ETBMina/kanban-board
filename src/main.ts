@@ -787,6 +787,42 @@ class TaskTemplateModal extends Modal {
       if (!data['status']) data['status'] = this.plugin.config.statusConfig.statuses[0] ?? 'Backlog';
       // Always ensure we have a priority value
       data['priority'] = data['priority'] || 'Medium';
+
+      // Check if CR exists if a CR number is provided
+      const crNumInput = String(data['crNumber'] || '').trim();
+      if (crNumInput) {
+        const crFile = await findCrFileByNumber(this.app, this.plugin.config, crNumInput);
+        if (!crFile) {
+          // CR not found, prompt user
+          const confirmed = await new Promise<boolean>((resolve) => {
+            const confirmModal = new Modal(this.app);
+            confirmModal.titleEl.setText('CR Not Found');
+            confirmModal.contentEl.createEl('p', {
+              text: `The CR number "${crNumInput}" was not found. Do you want to continue creating this task anyway?`
+            });
+
+            const btnContainer = confirmModal.contentEl.createDiv({ cls: 'modal-button-container' });
+            const cancelBtn = btnContainer.createEl('button', { text: 'Cancel' });
+            cancelBtn.onclick = () => {
+              confirmModal.close();
+              resolve(false);
+            };
+
+            const confirmBtn = btnContainer.createEl('button', { text: 'Continue', cls: 'mod-warning' });
+            confirmBtn.onclick = () => {
+              confirmModal.close();
+              resolve(true);
+            };
+
+            confirmModal.open();
+          });
+
+          if (!confirmed) {
+            return; // Keep form open
+          }
+        }
+      }
+
       // Title is derived from CR and inputs; no manual title
       await this.onSubmit(data);
       this.close();
