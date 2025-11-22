@@ -425,6 +425,8 @@ export default class KanbanPlugin extends Plugin {
       }
       clean['number'] = crNumber;
       clean['title'] = title;
+      // add createdAt timestamp
+      clean['createdAt'] = new Date().toISOString();
       const fm = buildFrontmatterYAML(clean);
       await this.app.vault.create(path, `${fm}\n\n`);
       const file = this.app.vault.getAbstractFileByPath(path);
