@@ -1,0 +1,248 @@
+/* Filter Button Styles - Material 3 Tonal Button */
+.kb-filter-btn {
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xl);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    position: relative;
+    transition: all var(--motion-duration-short) var(--motion-easing-standard);
+    margin-left: auto;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.kb-filter-btn:hover {
+    background: var(--background-modifier-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-1);
+}
+
+.kb-filter-btn.is-active {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: transparent;
+    box-shadow: var(--shadow-1);
+}
+
+.kb-filter-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 4px;
+}
+
+.kb-filter-btn.is-active .kb-filter-badge {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.kb-filter-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 999;
+    opacity: 0;
+    transition: opacity var(--kb-filter-animation-duration) var(--kb-filter-animation-easing);
+}
+
+.kb-filter-backdrop-visible {
+    background: rgba(0, 0, 0, 0.3);
+    opacity: 1;
+}
+
+.kb-filter-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 25%;
+    min-width: 300px;
+    max-width: 500px;
+    background: var(--background-primary);
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--kb-filter-animation-duration) var(--kb-filter-animation-easing);
+}
+
+.kb-filter-panel-open {
+    transform: translateX(0);
+}
+
+.kb-filter-panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Filter Modal Styles */
+.kb-filter-modal {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-l);
+}
+
+.kb-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--spacing-m);
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: var(--spacing-m);
+    flex-shrink: 0;
+}
+
+.kb-filter-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.kb-filter-clear-btn {
+    padding: var(--spacing-xs) var(--spacing-s);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.kb-filter-clear-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-error);
+}
+
+.kb-filter-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-m);
+    /* allow the fields area to grow and take available vertical space */
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--spacing-s);
+    margin-bottom: var(--spacing-m);
+}
+
+.kb-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kb-filter-label {
+    font-weight: 500;
+    color: var(--text-normal);
+    font-size: 14px;
+}
+
+.kb-filter-control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kb-filter-control input,
+.kb-filter-control select {
+    width: 100%;
+}
+
+.kb-filter-tags-container,
+.kb-filter-people-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kb-filter-selected-tags,
+.kb-filter-selected-people {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.kb-filter-tag,
+.kb-filter-person {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--tag-background);
+    border: 1px solid var(--tag-border-color);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-normal);
+}
+
+.kb-filter-tag-remove,
+.kb-filter-person-remove {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-left: 2px;
+    font-size: 12px;
+    transition: all 0.15s ease;
+}
+
+.kb-filter-tag-remove:hover,
+.kb-filter-person-remove:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.kb-filter-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: var(--spacing-m);
+    border-top: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
+}
+
+.kb-filter-apply-btn,
+.kb-filter-close-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.kb-filter-apply-btn {
+    background: var(--interactive-accent);
+    color: white;
+    border-color: var(--interactive-accent);
+}
+
+.kb-filter-apply-btn:hover {
+    opacity: 0.9;
+}
+
+.kb-filter-close-btn:hover {
+    background: var(--background-modifier-hover);
+}

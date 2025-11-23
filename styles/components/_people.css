@@ -1,0 +1,29 @@
+/* People input styling */
+.kb-people-input-container {
+    position: relative;
+    width: 100%;
+}
+
+.kb-people-suggestions {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: max-content;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.kb-people-suggestion {
+    padding: 6px 8px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.kb-people-suggestion:hover {
+    background: var(--background-modifier-hover);
+}

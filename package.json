@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "dev": "esbuild src/main.ts --bundle --outfile=main.js --target=es2018 --format=cjs --external:obsidian --sourcemap --watch",
-    "build": "esbuild src/main.ts --bundle --outfile=main.js --target=es2018 --format=cjs --external:obsidian --minify && node ./scripts/postbuild.js",
+    "build-css": "node scripts/build-css.js",
+    "build": "npm run build-css && esbuild src/main.ts --bundle --outfile=main.js --target=es2018 --format=cjs --external:obsidian --minify && node ./scripts/postbuild.js",
     "check": "tsc --noEmit"
   },
   "keywords": [

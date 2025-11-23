@@ -1,0 +1,42 @@
+/* CR and Task number link styling */
+.kb-cr-link,
+.kb-task-link {
+    color: var(--interactive-accent);
+    text-decoration: none;
+    cursor: pointer;
+    border-bottom: 1px dotted var(--interactive-accent);
+    transition: opacity 0.2s ease;
+}
+
+.kb-cr-link:hover,
+.kb-task-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+.kb-cr-link:active,
+.kb-task-link:active {
+    opacity: 0.6;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes fadeInSlide {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

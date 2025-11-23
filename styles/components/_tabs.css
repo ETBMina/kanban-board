@@ -1,0 +1,41 @@
+/* Tabs - Material 3 Segmented/Pill Style */
+.kb-tabs {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: var(--spacing-l);
+    padding: 4px;
+    background: var(--background-secondary);
+    border-radius: 999px;
+    border: 1px solid var(--background-modifier-border);
+    width: fit-content;
+}
+
+.kb-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 20px;
+    cursor: pointer;
+    position: relative;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all var(--motion-duration-short) var(--motion-easing-standard);
+}
+
+.kb-tab:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+
+.kb-tab.is-active {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-weight: 600;
+    box-shadow: var(--shadow-1);
+}
+
+.kb-tab.is-active::after {
+    display: none;
+}

@@ -1,0 +1,47 @@
+/* Archived rows */
+.kb-row-archived {
+    opacity: 0.6;
+    background: var(--background-secondary);
+}
+
+.kb-subtasks {
+    margin-top: 10px;
+}
+
+.kb-subtask-summary {
+    font-size: 0.8em;
+    color: var(--text-muted);
+}
+
+.kb-subtask {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.kb-subtask input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+.kb-subtasks-edit {
+    margin-top: 15px;
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 15px;
+}
+
+.kb-subtask-edit-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.kb-subtask-edit-item input[type="text"] {
+    flex-grow: 1;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.kb-row-archived .kb-grid-cell .kb-cell-display {
+    white-space: normal;
+    word-break: break-word;
+}

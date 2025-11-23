@@ -1,0 +1,31 @@
+/* Status editor */
+.kb-statuses {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kb-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 999px;
+    background: var(--background-primary);
+}
+
+.kb-status-input {
+    width: 120px;
+}
+
+.kb-icon-btn {
+    padding: 4px 6px;
+}
+
+.kb-status-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}

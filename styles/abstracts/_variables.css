@@ -1,0 +1,30 @@
+/* Material 3 Expressive Design System Tokens */
+:root {
+    /* Elevation & Shadows */
+    --shadow-1: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    --shadow-2: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+    --shadow-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px rgba(0, 0, 0, 0.3);
+
+    /* Motion */
+    --motion-duration-short: 200ms;
+    --motion-duration-medium: 400ms;
+    --motion-easing-standard: cubic-bezier(0.2, 0.0, 0, 1.0);
+    --motion-easing-emphasized: cubic-bezier(0.2, 0.0, 0, 1.0);
+
+    /* Shape */
+    --radius-s: 8px;
+    --radius-m: 12px;
+    --radius-l: 16px;
+    --radius-xl: 28px;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-s: 8px;
+    --spacing-m: 12px;
+    --spacing-l: 16px;
+    --spacing-xl: 24px;
+
+    /* Filter Animation */
+    --kb-filter-animation-duration: 0.35s;
+    --kb-filter-animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}

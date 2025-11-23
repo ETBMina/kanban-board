@@ -1,0 +1,112 @@
+.kb-card {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    padding: var(--spacing-m);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    box-shadow: var(--shadow-1);
+    transition: all var(--motion-duration-short) var(--motion-easing-emphasized);
+    cursor: grab;
+    position: relative;
+}
+
+.kb-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+    border-color: var(--interactive-accent);
+}
+
+.kb-card:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+    box-shadow: var(--shadow-1);
+}
+
+.kb-card-title {
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--text-normal);
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.kb-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-xs);
+}
+
+.kb-card-ts {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.kb-card-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-s);
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all var(--motion-duration-short) ease;
+    opacity: 0;
+}
+
+.kb-card:hover .kb-card-btn {
+    opacity: 1;
+}
+
+.kb-card-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border-color: var(--background-modifier-border);
+}
+
+/* Card header with top-right menu */
+.kb-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    position: relative;
+}
+
+.kb-card .kb-card-title {
+    margin-right: 24px;
+}
+
+.kb-card-menu-btn {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-s);
+    opacity: 0;
+    transition: opacity var(--motion-duration-short) ease;
+}
+
+.kb-card:hover .kb-card-menu-btn {
+    opacity: 1;
+}
+
+.kb-card-menu-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+/* Drop indicator shown between cards */
+.kb-drop-indicator {
+    height: 4px;
+    background: var(--interactive-accent);
+    margin: var(--spacing-xs) 0;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(var(--interactive-accent-rgb), 0.4);
+}
