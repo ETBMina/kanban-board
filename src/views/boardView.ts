@@ -140,6 +140,64 @@ export class BoardView {
         if (existing) existing.remove();
         const board = container.createDiv({ cls: 'kb-kanban kb-kanban-horizontal', attr: { draggable: 'false' } });
 
+        // Auto-scroll state
+        let scrollSpeed = 0;
+        let lastDragTime = 0;
+        let scrollFrame: number | null = null;
+
+        const cleanupScroll = () => {
+            if (scrollFrame) {
+                cancelAnimationFrame(scrollFrame);
+                scrollFrame = null;
+            }
+            scrollSpeed = 0;
+        };
+
+        const scrollLoop = () => {
+            // Stop if no drag event for 100ms (mouse stopped moving or left window)
+            if (Date.now() - lastDragTime > 100) {
+                cleanupScroll();
+                return;
+            }
+
+            if (scrollSpeed !== 0) {
+                board.scrollLeft += scrollSpeed;
+                scrollFrame = requestAnimationFrame(scrollLoop);
+            } else {
+                cleanupScroll();
+            }
+        };
+
+        // Auto-scroll when dragging near edges
+        board.ondragover = (e) => {
+            lastDragTime = Date.now();
+            const rect = board.getBoundingClientRect();
+            const threshold = 80;
+            const maxSpeed = 15;
+
+            if (e.clientX < rect.left + threshold) {
+                const ratio = (rect.left + threshold - e.clientX) / threshold;
+                scrollSpeed = -1 * maxSpeed * ratio;
+            } else if (e.clientX > rect.right - threshold) {
+                const ratio = (e.clientX - (rect.right - threshold)) / threshold;
+                scrollSpeed = maxSpeed * ratio;
+            } else {
+                scrollSpeed = 0;
+            }
+
+            if (scrollSpeed !== 0 && !scrollFrame) {
+                scrollFrame = requestAnimationFrame(scrollLoop);
+            }
+        };
+
+        // Stop scrolling when drag leaves the board or is dropped
+        board.ondragleave = (e) => {
+            if (!board.contains(e.relatedTarget as Node)) {
+                cleanupScroll();
+            }
+        };
+        board.ondrop = () => cleanupScroll();
+
         const byStatus = new Map<string, TaskNoteMeta[]>();
         for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
         for (const t of this.getFilteredTasks()) {
