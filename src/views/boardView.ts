@@ -267,8 +267,8 @@ export class BoardView {
             const header = col.createDiv({ cls: 'kb-column-header' });
             header.draggable = true;
             header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
-            header.createSpan({ text: status });
-            header.createSpan({ text: String(byStatus.get(status)?.length ?? 0) });
+            header.createSpan({ text: status, cls: 'kb-column-title' });
+            header.createSpan({ text: String(byStatus.get(status)?.length ?? 0), cls: 'kb-column-count' });
             const menuBtn = header.createEl('button', { text: '⋯' });
             menuBtn.classList.add('kb-ellipsis');
             menuBtn.onclick = (ev) => {

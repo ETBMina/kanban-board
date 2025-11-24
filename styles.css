@@ -243,33 +243,35 @@
 .kb-card {
     background: var(--background-primary);
     border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-m);
+    border-radius: 16px;
     padding: var(--spacing-m);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-s);
-    box-shadow: var(--shadow-1);
-    transition: all var(--motion-duration-short) var(--motion-easing-emphasized);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
     cursor: grab;
     position: relative;
+    overflow: hidden;
 }
 
 .kb-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-2);
-    border-color: var(--interactive-accent);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-color: rgba(var(--interactive-accent-rgb), 0.3);
 }
 
 .kb-card:active {
     cursor: grabbing;
     transform: scale(0.98);
-    box-shadow: var(--shadow-1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition-duration: 100ms;
 }
 
 .kb-card-title {
     font-weight: 500;
     font-size: 14px;
-    line-height: 1.4;
+    line-height: 1.5;
     color: var(--text-normal);
     overflow-wrap: break-word;
     word-break: break-word;
@@ -291,12 +293,14 @@
 .kb-card-btn {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: var(--radius-s);
-    padding: 4px 8px;
+    border-radius: 12px;
+    padding: 6px 12px;
     cursor: pointer;
     color: var(--text-muted);
-    transition: all var(--motion-duration-short) ease;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
     opacity: 0;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .kb-card:hover .kb-card-btn {
@@ -307,6 +311,11 @@
     background: var(--background-modifier-hover);
     color: var(--text-normal);
     border-color: var(--background-modifier-border);
+    transform: scale(1.05);
+}
+
+.kb-card-btn:active {
+    transform: scale(0.95);
 }
 
 /* Card header with top-right menu */
@@ -318,30 +327,7 @@
 }
 
 .kb-card .kb-card-title {
-    margin-right: 24px;
-}
-
-.kb-card-menu-btn {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 6px;
-    border-radius: var(--radius-s);
-    opacity: 0;
-    transition: opacity var(--motion-duration-short) ease;
-}
-
-.kb-card:hover .kb-card-menu-btn {
-    opacity: 1;
-}
-
-.kb-card-menu-btn:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
+    margin-right: 32px;
 }
 
 /* Drop indicator shown between cards */
@@ -349,36 +335,81 @@
     height: 4px;
     background: var(--interactive-accent);
     margin: var(--spacing-xs) 0;
-    border-radius: 2px;
-    box-shadow: 0 0 4px rgba(var(--interactive-accent-rgb), 0.4);
+    border-radius: 8px;
+    box-shadow: 0 0 8px rgba(var(--interactive-accent-rgb), 0.5);
+    animation: pulseGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 8px rgba(var(--interactive-accent-rgb), 0.5);
+    }
+
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 12px rgba(var(--interactive-accent-rgb), 0.7);
+    }
 }
 
 /* _columns.css */
 .kb-column {
     background: var(--background-secondary);
     border: 1px solid transparent;
-    border-radius: var(--radius-l);
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
     max-height: 100%;
     min-width: 300px;
-    box-shadow: var(--shadow-1);
-    transition: box-shadow var(--motion-duration-medium) var(--motion-easing-standard);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
 }
 
 .kb-column:hover {
-    box-shadow: var(--shadow-2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
 }
 
 .kb-column-header {
-    padding: var(--spacing-m) var(--spacing-l);
+    padding: var(--spacing-l) var(--spacing-l);
     border-bottom: 1px solid var(--background-modifier-border);
     font-weight: 600;
     font-size: 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-s);
     color: var(--text-normal);
+    background: linear-gradient(to bottom,
+            rgba(var(--interactive-accent-rgb), 0.03),
+            transparent);
+    cursor: grab;
+    user-select: none;
+    transition: background 200ms ease;
+}
+
+.kb-column-header:hover {
+    background: linear-gradient(to bottom,
+            rgba(var(--interactive-accent-rgb), 0.06),
+            transparent);
+}
+
+.kb-column-title {
+    flex: 1;
+}
+
+.kb-column-count {
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    min-width: 24px;
+    text-align: center;
 }
 
 .kb-column-body {
@@ -394,39 +425,21 @@
 
 .kb-dropzone {
     outline: 2px dashed transparent;
-    border-radius: var(--radius-m);
-    transition: all var(--motion-duration-short) var(--motion-easing-standard);
+    border-radius: 16px;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 40px;
 }
 
 .kb-dropzone-hover {
     outline-color: var(--interactive-accent);
     background: rgba(var(--interactive-accent-rgb), 0.05);
-}
-
-/* Column menu */
-.kb-ellipsis {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 8px 12px;
-    border-radius: 999px;
-    transition: all var(--motion-duration-short) var(--motion-easing-standard);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    line-height: 1;
-}
-
-.kb-ellipsis:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
+    box-shadow: inset 0 0 0 1px rgba(var(--interactive-accent-rgb), 0.2);
 }
 
 .kb-col-hover {
-    outline: 2px dashed var(--interactive-accent);
+    outline: 2px solid var(--interactive-accent);
+    box-shadow: 0 0 0 4px rgba(var(--interactive-accent-rgb), 0.1);
+    transform: scale(1.02);
 }
 
 /* _filters.css */
@@ -733,6 +746,194 @@
     gap: 10px;
 }
 
+/* _menus.css */
+/* Material 3 Expressive Menu Styles */
+
+/* Menu button styles - shared across all menus */
+.kb-ellipsis,
+.kb-card-menu-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    border-radius: 12px;
+    transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+    overflow: hidden;
+}
+
+/* Ripple effect container */
+.kb-ellipsis::before,
+.kb-card-menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--interactive-accent);
+    opacity: 0;
+    border-radius: 12px;
+    transform: scale(0);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover state - Material 3 state layer */
+.kb-ellipsis:hover,
+.kb-card-menu-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: scale(1.05);
+}
+
+.kb-ellipsis:hover::before,
+.kb-card-menu-btn:hover::before {
+    opacity: 0.08;
+    transform: scale(1);
+}
+
+/* Active/pressed state */
+.kb-ellipsis:active,
+.kb-card-menu-btn:active {
+    transform: scale(0.95);
+    transition-duration: 50ms;
+}
+
+.kb-ellipsis:active::before,
+.kb-card-menu-btn:active::before {
+    opacity: 0.12;
+}
+
+/* Focus state for accessibility */
+.kb-ellipsis:focus-visible,
+.kb-card-menu-btn:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+/* Menu container - Obsidian native menu styling enhancement */
+.menu {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 16px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08) !important;
+    padding: 8px !important;
+    min-width: 200px;
+    overflow: hidden;
+    animation: menuSlideIn 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes menuSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Menu items */
+.menu-item {
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    margin: 2px 0 !important;
+    transition: all 150ms cubic-bezier(0.2, 0, 0, 1) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--interactive-accent);
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.menu-item:hover {
+    background: var(--background-modifier-hover) !important;
+    transform: translateX(4px);
+}
+
+.menu-item:hover::before {
+    opacity: 0.05;
+}
+
+.menu-item:active {
+    transform: translateX(2px) scale(0.98);
+    transition-duration: 50ms !important;
+}
+
+/* Menu separators */
+.menu-separator {
+    margin: 8px 12px !important;
+    border-color: var(--background-modifier-border) !important;
+    opacity: 0.5;
+}
+
+/* Column menu specific styles */
+.kb-column-header .kb-ellipsis {
+    margin-left: auto;
+}
+
+/* Card menu positioning */
+.kb-card-menu-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    opacity: 0;
+    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1),
+        transform 200ms cubic-bezier(0.2, 0, 0, 1),
+        background 150ms ease;
+}
+
+.kb-card:hover .kb-card-menu-btn {
+    opacity: 1;
+}
+
+/* Tab options menu button */
+.kb-tabs .kb-ellipsis {
+    padding: 6px 8px;
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+/* Enhanced menu item icons */
+.menu-item-icon {
+    margin-right: 12px !important;
+    opacity: 0.8;
+    transition: opacity 150ms ease;
+}
+
+.menu-item:hover .menu-item-icon {
+    opacity: 1;
+}
+
+/* Destructive menu items (delete, archive, etc) */
+.menu-item[data-action="delete"],
+.menu-item[data-action="remove"] {
+    color: var(--text-error) !important;
+}
+
+.menu-item[data-action="delete"]:hover,
+.menu-item[data-action="remove"]:hover {
+    background: rgba(var(--color-red-rgb), 0.1) !important;
+}
+
+/* Menu item keyboard navigation */
+.menu-item.selected {
+    background: var(--background-modifier-hover) !important;
+}
+
 /* _modal.css */
 /* Modal layout with fixed header and footer, scrollable content */
 .kb-modal-layout {
@@ -974,46 +1175,81 @@ input:focus+.kb-slider {
 }
 
 /* _tabs.css */
-/* Tabs - Material 3 Segmented/Pill Style */
+/* Tabs - Material 3 Expressive Style */
 .kb-tabs {
     display: flex;
     gap: 4px;
     align-items: center;
     margin-bottom: var(--spacing-l);
-    padding: 4px;
+    padding: 6px;
     background: var(--background-secondary);
-    border-radius: 999px;
+    border-radius: 16px;
     border: 1px solid var(--background-modifier-border);
     width: fit-content;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    position: relative;
 }
 
 .kb-tab {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    padding: 8px 20px;
+    padding: 10px 24px;
     cursor: pointer;
     position: relative;
-    border-radius: 999px;
+    border-radius: 12px;
     font-weight: 500;
     font-size: 14px;
-    transition: all var(--motion-duration-short) var(--motion-easing-standard);
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+    overflow: hidden;
+}
+
+/* Ripple effect */
+.kb-tab::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--interactive-accent);
+    opacity: 0;
+    border-radius: 12px;
+    transform: scale(0);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .kb-tab:hover {
     color: var(--text-normal);
     background: var(--background-modifier-hover);
+    transform: scale(1.05);
+}
+
+.kb-tab:hover::before {
+    opacity: 0.05;
+    transform: scale(1);
+}
+
+.kb-tab:active {
+    transform: scale(0.95);
+    transition-duration: 100ms;
 }
 
 .kb-tab.is-active {
     background: var(--interactive-accent);
     color: var(--text-on-accent);
     font-weight: 600;
-    box-shadow: var(--shadow-1);
+    box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.3),
+        0 1px 4px rgba(0, 0, 0, 0.1);
+    transform: scale(1);
 }
 
-.kb-tab.is-active::after {
-    display: none;
+.kb-tab.is-active:hover {
+    box-shadow: 0 4px 12px rgba(var(--interactive-accent-rgb), 0.4),
+        0 2px 6px rgba(0, 0, 0, 0.15);
+    transform: scale(1.02);
+}
+
+.kb-tab.is-active::before {
+    opacity: 0;
 }
 
 /* _tags.css */

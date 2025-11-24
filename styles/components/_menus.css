@@ -1,0 +1,186 @@
+/* Material 3 Expressive Menu Styles */
+
+/* Menu button styles - shared across all menus */
+.kb-ellipsis,
+.kb-card-menu-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    border-radius: 12px;
+    transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+    overflow: hidden;
+}
+
+/* Ripple effect container */
+.kb-ellipsis::before,
+.kb-card-menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--interactive-accent);
+    opacity: 0;
+    border-radius: 12px;
+    transform: scale(0);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover state - Material 3 state layer */
+.kb-ellipsis:hover,
+.kb-card-menu-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: scale(1.05);
+}
+
+.kb-ellipsis:hover::before,
+.kb-card-menu-btn:hover::before {
+    opacity: 0.08;
+    transform: scale(1);
+}
+
+/* Active/pressed state */
+.kb-ellipsis:active,
+.kb-card-menu-btn:active {
+    transform: scale(0.95);
+    transition-duration: 50ms;
+}
+
+.kb-ellipsis:active::before,
+.kb-card-menu-btn:active::before {
+    opacity: 0.12;
+}
+
+/* Focus state for accessibility */
+.kb-ellipsis:focus-visible,
+.kb-card-menu-btn:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+/* Menu container - Obsidian native menu styling enhancement */
+.menu {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 16px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08) !important;
+    padding: 8px !important;
+    min-width: 200px;
+    overflow: hidden;
+    animation: menuSlideIn 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes menuSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Menu items */
+.menu-item {
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    margin: 2px 0 !important;
+    transition: all 150ms cubic-bezier(0.2, 0, 0, 1) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--interactive-accent);
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.menu-item:hover {
+    background: var(--background-modifier-hover) !important;
+    transform: translateX(4px);
+}
+
+.menu-item:hover::before {
+    opacity: 0.05;
+}
+
+.menu-item:active {
+    transform: translateX(2px) scale(0.98);
+    transition-duration: 50ms !important;
+}
+
+/* Menu separators */
+.menu-separator {
+    margin: 8px 12px !important;
+    border-color: var(--background-modifier-border) !important;
+    opacity: 0.5;
+}
+
+/* Column menu specific styles */
+.kb-column-header .kb-ellipsis {
+    margin-left: auto;
+}
+
+/* Card menu positioning */
+.kb-card-menu-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    opacity: 0;
+    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1),
+        transform 200ms cubic-bezier(0.2, 0, 0, 1),
+        background 150ms ease;
+}
+
+.kb-card:hover .kb-card-menu-btn {
+    opacity: 1;
+}
+
+/* Tab options menu button */
+.kb-tabs .kb-ellipsis {
+    padding: 6px 8px;
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+/* Enhanced menu item icons */
+.menu-item-icon {
+    margin-right: 12px !important;
+    opacity: 0.8;
+    transition: opacity 150ms ease;
+}
+
+.menu-item:hover .menu-item-icon {
+    opacity: 1;
+}
+
+/* Destructive menu items (delete, archive, etc) */
+.menu-item[data-action="delete"],
+.menu-item[data-action="remove"] {
+    color: var(--text-error) !important;
+}
+
+.menu-item[data-action="delete"]:hover,
+.menu-item[data-action="remove"]:hover {
+    background: rgba(var(--color-red-rgb), 0.1) !important;
+}
+
+/* Menu item keyboard navigation */
+.menu-item.selected {
+    background: var(--background-modifier-hover) !important;
+}

@@ -34827,8 +34827,8 @@ var BoardView = class {
       const header = col.createDiv({ cls: "kb-column-header" });
       header.draggable = true;
       header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
-      header.createSpan({ text: status });
-      header.createSpan({ text: String((_b2 = (_a2 = byStatus.get(status)) == null ? void 0 : _a2.length) != null ? _b2 : 0) });
+      header.createSpan({ text: status, cls: "kb-column-title" });
+      header.createSpan({ text: String((_b2 = (_a2 = byStatus.get(status)) == null ? void 0 : _a2.length) != null ? _b2 : 0), cls: "kb-column-count" });
       const menuBtn = header.createEl("button", { text: "\u22EF" });
       menuBtn.classList.add("kb-ellipsis");
       menuBtn.onclick = (ev) => {
