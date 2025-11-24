@@ -134,13 +134,7 @@ export default class KanbanPlugin extends Plugin {
       const userConfig = JSON.parse(userConfigData) || {};
       if (!userConfig.people) {
         userConfig.people = [];
-        await this.app.vault.adapter.write(userConfigPath, JSON.stringify(userConfig, null, 2));
       }
-      this.config.people = userConfig.people;
-
-      // Ensure basic structure exists
-      if (!this.config.paths) this.config.paths = { taskFolder: '', crFolder: '' };
-      if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: '^(completed|done)$', inProgressPattern: 'in\\s*progress' };
       if (!this.config.priorities) this.config.priorities = [];
       if (!this.config.defaultPriority) this.config.defaultPriority = 'Medium';
       if (!this.config.gridConfig) this.config.gridConfig = {
@@ -225,7 +219,11 @@ export default class KanbanPlugin extends Plugin {
       if (!fm) return;
       const status = String(fm['status'] || '');
       const isCompleted = /^(completed|done)$/i.test(status);
-      const isInProgress = /in\s*progress/i.test(status);
+
+      // Check if status is in the auto-set start date list (case-insensitive)
+      const autoStartStatuses = this.config.statusConfig.autoSetStartDateStatuses || [];
+      const isInProgress = autoStartStatuses.some(s => s.toLowerCase() === status.toLowerCase());
+
       const endDate = String(fm['endDate'] || '');
       const startDate = String(fm['startDate'] || '');
       if (isCompleted && !endDate) {

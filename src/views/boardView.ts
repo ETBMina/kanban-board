@@ -356,6 +356,7 @@ export class BoardView {
                 if (!related || !body.contains(related)) setHighlight(false);
             };
             body.ondrop = async (e) => {
+                e.stopPropagation();
                 // Ignore drops from column drags
                 if (e.dataTransfer?.types.includes('application/x-kb-col')) return;
 
@@ -479,7 +480,8 @@ export class BoardView {
 
                     // If status changed, we will patch status and potentially dates
                     const isCompleted = /^(completed|done)$/i.test(status);
-                    const isInProgress = /in\s*progress/i.test(status);
+                    const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
+                    const isInProgress = autoStartStatuses.some(s => s.toLowerCase() === status.toLowerCase());
 
                     // Now write new 'order' for every task in this column and update status for dragged task
                     const updates: Promise<void>[] = [];

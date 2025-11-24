@@ -34160,7 +34160,9 @@ var GridView = class {
               if (fieldDef.type === "tags" || fieldDef.type === "people") {
                 if (typeof newVal === "string") payload[key] = newVal.split(",").map((s) => s.trim()).filter(Boolean);
               }
-              if (key === "status" && /in\s*progress/i.test(newVal) && !t.frontmatter["startDate"]) {
+              const autoStartStatuses2 = this.settings.statusConfig.autoSetStartDateStatuses || [];
+              const isInProgress2 = autoStartStatuses2.some((s) => s.toLowerCase() === String(newVal).toLowerCase());
+              if (key === "status" && isInProgress2 && !t.frontmatter["startDate"]) {
                 payload["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
               }
               await updateTaskFrontmatter(this.app, fileObj, payload);
@@ -34196,7 +34198,9 @@ var GridView = class {
             } else {
               t.frontmatter[key] = newVal;
             }
-            if (key === "status" && /in\s*progress/i.test(newVal) && !t.frontmatter["startDate"]) {
+            const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
+            const isInProgress = autoStartStatuses.some((s) => s.toLowerCase() === String(newVal).toLowerCase());
+            if (key === "status" && isInProgress && !t.frontmatter["startDate"]) {
               t.frontmatter["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
             }
             setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(", ") : String((_a2 = t.frontmatter[key]) != null ? _a2 : ""));
@@ -34705,6 +34709,52 @@ var BoardView = class {
     const existing = container.querySelector(".kb-kanban");
     if (existing) existing.remove();
     const board = container.createDiv({ cls: "kb-kanban kb-kanban-horizontal", attr: { draggable: "false" } });
+    let scrollSpeed = 0;
+    let lastDragTime = 0;
+    let scrollFrame = null;
+    const cleanupScroll = () => {
+      if (scrollFrame) {
+        cancelAnimationFrame(scrollFrame);
+        scrollFrame = null;
+      }
+      scrollSpeed = 0;
+    };
+    const scrollLoop = () => {
+      if (Date.now() - lastDragTime > 100) {
+        cleanupScroll();
+        return;
+      }
+      if (scrollSpeed !== 0) {
+        board.scrollLeft += scrollSpeed;
+        scrollFrame = requestAnimationFrame(scrollLoop);
+      } else {
+        cleanupScroll();
+      }
+    };
+    board.ondragover = (e) => {
+      lastDragTime = Date.now();
+      const rect = board.getBoundingClientRect();
+      const threshold = 80;
+      const maxSpeed = 15;
+      if (e.clientX < rect.left + threshold) {
+        const ratio = (rect.left + threshold - e.clientX) / threshold;
+        scrollSpeed = -1 * maxSpeed * ratio;
+      } else if (e.clientX > rect.right - threshold) {
+        const ratio = (e.clientX - (rect.right - threshold)) / threshold;
+        scrollSpeed = maxSpeed * ratio;
+      } else {
+        scrollSpeed = 0;
+      }
+      if (scrollSpeed !== 0 && !scrollFrame) {
+        scrollFrame = requestAnimationFrame(scrollLoop);
+      }
+    };
+    board.ondragleave = (e) => {
+      if (!board.contains(e.relatedTarget)) {
+        cleanupScroll();
+      }
+    };
+    board.ondrop = () => cleanupScroll();
     const byStatus = /* @__PURE__ */ new Map();
     for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
     for (const t of this.getFilteredTasks()) {
@@ -34880,6 +34930,7 @@ var BoardView = class {
       };
       body.ondrop = async (e) => {
         var _a3, _b3, _c2, _d2, _e, _f, _g, _h, _i, _j, _k, _l;
+        e.stopPropagation();
         if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
         const isCardDrag = (_b3 = e.dataTransfer) == null ? void 0 : _b3.types.includes("application/x-kb-card");
         const payloadStr = isCardDrag ? (_c2 = e.dataTransfer) == null ? void 0 : _c2.getData("application/x-kb-card") : (_d2 = e.dataTransfer) == null ? void 0 : _d2.getData("text/plain");
@@ -34970,7 +35021,8 @@ var BoardView = class {
             tasksInCol.splice(insertIndex, 0, draggedTask);
           }
           const isCompleted = /^(completed|done)$/i.test(status);
-          const isInProgress = /in\s*progress/i.test(status);
+          const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
+          const isInProgress = autoStartStatuses.some((s) => s.toLowerCase() === status.toLowerCase());
           const updates = [];
           for (let i = 0; i < tasksInCol.length; i++) {
             const t = tasksInCol[i];
@@ -35997,11 +36049,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
       const userConfig = JSON.parse(userConfigData) || {};
       if (!userConfig.people) {
         userConfig.people = [];
-        await this.app.vault.adapter.write(userConfigPath, JSON.stringify(userConfig, null, 2));
       }
-      this.config.people = userConfig.people;
-      if (!this.config.paths) this.config.paths = { taskFolder: "", crFolder: "" };
-      if (!this.config.statusConfig) this.config.statusConfig = { statuses: [], completedPattern: "^(completed|done)$", inProgressPattern: "in\\s*progress" };
       if (!this.config.priorities) this.config.priorities = [];
       if (!this.config.defaultPriority) this.config.defaultPriority = "Medium";
       if (!this.config.gridConfig) this.config.gridConfig = {
@@ -36072,7 +36120,8 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
       if (!fm) return;
       const status = String(fm["status"] || "");
       const isCompleted = /^(completed|done)$/i.test(status);
-      const isInProgress = /in\s*progress/i.test(status);
+      const autoStartStatuses = this.config.statusConfig.autoSetStartDateStatuses || [];
+      const isInProgress = autoStartStatuses.some((s) => s.toLowerCase() === status.toLowerCase());
       const endDate = String(fm["endDate"] || "");
       const startDate = String(fm["startDate"] || "");
       if (isCompleted && !endDate) {

@@ -10,10 +10,16 @@
       "In Progress",
       "Review",
       "Unit Testing",
-      "Completed"
+      "Completed",
+      "Designing",
+      "Developing"
     ],
     "completedPattern": "^(completed|done)$",
-    "inProgressPattern": "in\\s*progress"
+    "autoSetStartDateStatuses": [
+      "In Progress",
+      "Design",
+      "Development"
+    ]
   },
   "gridConfig": {
     "columnWidths": {
@@ -189,7 +195,7 @@
   },
   "taskFilenameFormat": "{{crNumber}} {{taskNumber}} - {{title}} - {{service}}.md",
   "crFilenameFormat": "{{number}} - {{title}}.md",
-  "lastActiveTab": "grid",
+  "lastActiveTab": "board",
   "people": [
     "Mina Talaat Hakim",
     "Ahmed Mohamed Hussien Abdelaal",

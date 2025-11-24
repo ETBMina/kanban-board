@@ -18,7 +18,7 @@ export interface PathsConfig {
 export interface StatusConfig {
   statuses: string[];
   completedPattern: string;
-  inProgressPattern: string;
+  autoSetStartDateStatuses: string[];
 }
 
 export interface GridConfig {

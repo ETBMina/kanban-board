@@ -366,7 +366,10 @@ export class GridView {
                                 if (typeof newVal === 'string') payload[key] = newVal.split(',').map((s: string) => s.trim()).filter(Boolean);
                             }
 
-                            if (key === 'status' && /in\s*progress/i.test(newVal) && !t.frontmatter['startDate']) {
+                            const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
+                            const isInProgress = autoStartStatuses.some(s => s.toLowerCase() === String(newVal).toLowerCase());
+
+                            if (key === 'status' && isInProgress && !t.frontmatter['startDate']) {
                                 payload['startDate'] = new Date().toISOString().slice(0, 10);
                             }
 
@@ -406,7 +409,10 @@ export class GridView {
                         } else {
                             t.frontmatter[key] = newVal;
                         }
-                        if (key === 'status' && /in\s*progress/i.test(newVal) && !t.frontmatter['startDate']) {
+                        const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
+                        const isInProgress = autoStartStatuses.some(s => s.toLowerCase() === String(newVal).toLowerCase());
+
+                        if (key === 'status' && isInProgress && !t.frontmatter['startDate']) {
                             t.frontmatter['startDate'] = new Date().toISOString().slice(0, 10);
                         }
                         setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(', ') : String(t.frontmatter[key] ?? ''));
