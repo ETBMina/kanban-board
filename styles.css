@@ -99,7 +99,7 @@
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-l);
     background: var(--background-primary);
-    animation: fadeInSlide var(--motion-duration-medium) var(--motion-easing-emphasized);
+    animation: viewFadeIn var(--motion-duration-medium) var(--motion-easing-emphasized);
 }
 
 .kb-resizing th::after {
@@ -198,7 +198,7 @@
     gap: var(--spacing-l);
     padding: var(--spacing-s);
     height: 100%;
-    animation: fadeInSlide var(--motion-duration-medium) var(--motion-easing-emphasized);
+    animation: viewFadeIn var(--motion-duration-medium) var(--motion-easing-emphasized);
 }
 
 .kb-kanban-horizontal {
@@ -1052,5 +1052,64 @@ input:focus+.kb-slider {
     background: var(--tag-bg);
     border: 1px solid var(--tag-border-color);
     font-size: 12px;
+}
+
+/* --- TRUMPS --- */
+/* _utilities.css */
+/* CR and Task number link styling */
+.kb-cr-link,
+.kb-task-link {
+    color: var(--interactive-accent);
+    text-decoration: none;
+    cursor: pointer;
+    border-bottom: 1px dotted var(--interactive-accent);
+    transition: opacity 0.2s ease;
+}
+
+.kb-cr-link:hover,
+.kb-task-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+.kb-cr-link:active,
+.kb-task-link:active {
+    opacity: 0.6;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes fadeInSlide {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes viewFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.98) translateY(5px);
+        filter: blur(4px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
 }
 

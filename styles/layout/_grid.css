@@ -51,7 +51,7 @@
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-l);
     background: var(--background-primary);
-    animation: fadeInSlide var(--motion-duration-medium) var(--motion-easing-emphasized);
+    animation: viewFadeIn var(--motion-duration-medium) var(--motion-easing-emphasized);
 }
 
 .kb-resizing th::after {

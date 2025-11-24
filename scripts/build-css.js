@@ -12,7 +12,8 @@ const order = [
     'layout',
     'components',
     'pages',
-    'themes'
+    'themes',
+    'trumps'
 ];
 
 let cssContent = '/* Built with 7-1 Pattern */\n\n';

@@ -5,7 +5,7 @@
     gap: var(--spacing-l);
     padding: var(--spacing-s);
     height: 100%;
-    animation: fadeInSlide var(--motion-duration-medium) var(--motion-easing-emphasized);
+    animation: viewFadeIn var(--motion-duration-medium) var(--motion-easing-emphasized);
 }
 
 .kb-kanban-horizontal {
