@@ -29,11 +29,17 @@ export class CopyTaskModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.addClass('kb-container');
-        contentEl.createEl('h2', { text: 'Copy Task' });
+        contentEl.addClass('kb-container', 'kb-modal-layout');
+
+        // Fixed header
+        const header = contentEl.createDiv({ cls: 'kb-modal-header' });
+        header.createEl('h2', { text: 'Copy Task' });
+
+        // Scrollable content area
+        const scrollableContent = contentEl.createDiv({ cls: 'kb-modal-content' });
 
         // Service Name
-        const svcRow = contentEl.createDiv({ cls: 'setting-item' });
+        const svcRow = scrollableContent.createDiv({ cls: 'setting-item' });
         svcRow.createDiv({ cls: 'setting-item-name', text: 'New Service Name' });
         const svcControl = svcRow.createDiv({ cls: 'setting-item-control' });
         this.serviceNameInput = svcControl.createEl('input');
@@ -43,7 +49,7 @@ export class CopyTaskModal extends Modal {
         this.serviceNameInput.value = ''; // Blank by default
 
         // Status
-        const statusRow = contentEl.createDiv({ cls: 'setting-item' });
+        const statusRow = scrollableContent.createDiv({ cls: 'setting-item' });
         statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
         const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
         this.statusSelect = statusControl.createEl('select');
@@ -57,7 +63,7 @@ export class CopyTaskModal extends Modal {
         this.statusSelect.value = backlog || this.settings.statusConfig.statuses[0] || '';
 
         // Priority
-        const priorityRow = contentEl.createDiv({ cls: 'setting-item' });
+        const priorityRow = scrollableContent.createDiv({ cls: 'setting-item' });
         priorityRow.createDiv({ cls: 'setting-item-name', text: 'Priority' });
         const priorityControl = priorityRow.createDiv({ cls: 'setting-item-control' });
         this.prioritySelect = priorityControl.createEl('select');
@@ -72,11 +78,11 @@ export class CopyTaskModal extends Modal {
             ? originalPriority
             : (this.settings.defaultPriority || 'Medium');
 
-        contentEl.createEl('h3', { text: 'Copy Options' });
+        scrollableContent.createEl('h3', { text: 'Copy Options' });
 
         // Checkboxes helper
         const createCheckbox = (label: string, defaultChecked: boolean = false): HTMLInputElement => {
-            const row = contentEl.createDiv({ cls: 'setting-item' });
+            const row = scrollableContent.createDiv({ cls: 'setting-item' });
             row.createDiv({ cls: 'setting-item-name', text: label });
             const control = row.createDiv({ cls: 'setting-item-control' });
             const cb = control.createEl('input', { type: 'checkbox' });
@@ -90,8 +96,8 @@ export class CopyTaskModal extends Modal {
         this.copyNotesCheckbox = createCheckbox('Copy Notes', false);
         this.copySubtasksCheckbox = createCheckbox('Copy Subtasks', false);
 
-        // Actions
-        const footer = contentEl.createDiv({ cls: 'modal-button-container' });
+        // Fixed footer
+        const footer = contentEl.createDiv({ cls: 'kb-modal-footer' });
         const cancel = footer.createEl('button', { text: 'Cancel' });
         cancel.addClass('mod-warning');
         cancel.onclick = () => this.close();

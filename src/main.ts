@@ -450,11 +450,17 @@ class TaskTemplateModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass('kb-container');
-    contentEl.createEl('h2', { text: 'New Task' });
+    contentEl.addClass('kb-container', 'kb-modal-layout');
+
+    // Fixed header
+    const header = contentEl.createDiv({ cls: 'kb-modal-header' });
+    header.createEl('h2', { text: 'New Task' });
+
+    // Scrollable content area
+    const scrollableContent = contentEl.createDiv({ cls: 'kb-modal-content' });
 
     // Status dropdown (always present)
-    const statusRow = contentEl.createDiv({ cls: 'setting-item' });
+    const statusRow = scrollableContent.createDiv({ cls: 'setting-item' });
     statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
     const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
     const statusSelect = statusControl.createEl('select');
@@ -466,7 +472,7 @@ class TaskTemplateModal extends Modal {
     this.inputs.set('status', statusSelect);
 
     // CR Number (required to derive the title/link)
-    const crRow = contentEl.createDiv({ cls: 'setting-item' });
+    const crRow = scrollableContent.createDiv({ cls: 'setting-item' });
     crRow.createDiv({ cls: 'setting-item-name', text: 'CR Number' });
     const crControl = crRow.createDiv({ cls: 'setting-item-control' });
     const crInput = crControl.createEl('input');
@@ -476,7 +482,7 @@ class TaskTemplateModal extends Modal {
     this.inputs.set('crNumber', crInput);
 
     // Task Number
-    const tnRow = contentEl.createDiv({ cls: 'setting-item' });
+    const tnRow = scrollableContent.createDiv({ cls: 'setting-item' });
     tnRow.createDiv({ cls: 'setting-item-name', text: 'Task Number' });
     const tnControl = tnRow.createDiv({ cls: 'setting-item-control' });
     const tnInput = tnControl.createEl('input');
@@ -486,7 +492,7 @@ class TaskTemplateModal extends Modal {
     this.inputs.set('taskNumber', tnInput);
 
     // Service Name
-    const svcRow = contentEl.createDiv({ cls: 'setting-item' });
+    const svcRow = scrollableContent.createDiv({ cls: 'setting-item' });
     svcRow.createDiv({ cls: 'setting-item-name', text: 'Service Name' });
     const svcControl = svcRow.createDiv({ cls: 'setting-item-control' });
     const svcInput = svcControl.createEl('input');
@@ -498,7 +504,7 @@ class TaskTemplateModal extends Modal {
     for (const field of this.fields) {
       // Skip fields handled specially or deprecated for task creation
       if (field.key === 'status' || field.key === 'title' || field.key === 'due' || field.key === 'crNumber' || field.key === 'taskNumber' || field.key === 'service') continue;
-      const row = contentEl.createDiv({ cls: 'setting-item' });
+      const row = scrollableContent.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
       // Render selects for true status fields or for the special 'priority' key
@@ -714,7 +720,7 @@ class TaskTemplateModal extends Modal {
       }
     }
 
-    const subtasksContainer = contentEl.createDiv({ cls: 'kb-subtasks-edit' });
+    const subtasksContainer = scrollableContent.createDiv({ cls: 'kb-subtasks-edit' });
     subtasksContainer.createEl('h3', { text: 'Subtasks' });
     const subtasksList = subtasksContainer.createDiv();
 
@@ -762,7 +768,8 @@ class TaskTemplateModal extends Modal {
       }
     };
 
-    const footer = contentEl.createDiv({ cls: 'modal-button-container' });
+    // Fixed footer
+    const footer = contentEl.createDiv({ cls: 'kb-modal-footer' });
     const cancel = footer.createEl('button', { text: 'Cancel' });
     cancel.addClass('mod-warning');
     cancel.onclick = () => this.close();
@@ -844,11 +851,17 @@ class CrTemplateModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass('kb-container');
-    contentEl.createEl('h2', { text: 'New Change Request' });
+    contentEl.addClass('kb-container', 'kb-modal-layout');
+
+    // Fixed header
+    const header = contentEl.createDiv({ cls: 'kb-modal-header' });
+    header.createEl('h2', { text: 'New Change Request' });
+
+    // Scrollable content area
+    const scrollableContent = contentEl.createDiv({ cls: 'kb-modal-content' });
 
     for (const field of this.fields) {
-      const row = contentEl.createDiv({ cls: 'setting-item' });
+      const row = scrollableContent.createDiv({ cls: 'setting-item' });
       row.createDiv({ cls: 'setting-item-name', text: field.label });
       const control = row.createDiv({ cls: 'setting-item-control' });
 
@@ -891,7 +904,8 @@ class CrTemplateModal extends Modal {
       }
     }
 
-    const footer = contentEl.createDiv({ cls: 'modal-button-container' });
+    // Fixed footer
+    const footer = contentEl.createDiv({ cls: 'kb-modal-footer' });
     const cancel = footer.createEl('button', { text: 'Cancel' });
     cancel.addClass('mod-warning');
     cancel.onclick = () => this.close();

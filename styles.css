@@ -733,6 +733,61 @@
     gap: 10px;
 }
 
+/* _modal.css */
+/* Modal layout with fixed header and footer, scrollable content */
+.kb-modal-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+}
+
+.kb-modal-header {
+    flex-shrink: 0;
+    padding: var(--spacing-m) var(--spacing-l);
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.kb-modal-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.kb-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--spacing-l);
+}
+
+.kb-modal-footer {
+    flex-shrink: 0;
+    padding: var(--spacing-m) var(--spacing-l);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    display: flex;
+    gap: var(--spacing-s);
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+.kb-modal-footer button {
+    padding: var(--spacing-s) var(--spacing-l);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all var(--motion-duration-short) var(--motion-easing-standard);
+}
+
 /* _people.css */
 /* People input styling */
 .kb-people-input-container {

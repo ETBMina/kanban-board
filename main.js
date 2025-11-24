@@ -34483,9 +34483,11 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("kb-container");
-    contentEl.createEl("h2", { text: "Copy Task" });
-    const svcRow = contentEl.createDiv({ cls: "setting-item" });
+    contentEl.addClass("kb-container", "kb-modal-layout");
+    const header = contentEl.createDiv({ cls: "kb-modal-header" });
+    header.createEl("h2", { text: "Copy Task" });
+    const scrollableContent = contentEl.createDiv({ cls: "kb-modal-content" });
+    const svcRow = scrollableContent.createDiv({ cls: "setting-item" });
     svcRow.createDiv({ cls: "setting-item-name", text: "New Service Name" });
     const svcControl = svcRow.createDiv({ cls: "setting-item-control" });
     this.serviceNameInput = svcControl.createEl("input");
@@ -34493,7 +34495,7 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     this.serviceNameInput.placeholder = "Service name";
     this.serviceNameInput.type = "text";
     this.serviceNameInput.value = "";
-    const statusRow = contentEl.createDiv({ cls: "setting-item" });
+    const statusRow = scrollableContent.createDiv({ cls: "setting-item" });
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
     this.statusSelect = statusControl.createEl("select");
@@ -34504,7 +34506,7 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     }
     const backlog = this.settings.statusConfig.statuses.find((s) => s.toLowerCase() === "backlog");
     this.statusSelect.value = backlog || this.settings.statusConfig.statuses[0] || "";
-    const priorityRow = contentEl.createDiv({ cls: "setting-item" });
+    const priorityRow = scrollableContent.createDiv({ cls: "setting-item" });
     priorityRow.createDiv({ cls: "setting-item-name", text: "Priority" });
     const priorityControl = priorityRow.createDiv({ cls: "setting-item-control" });
     this.prioritySelect = priorityControl.createEl("select");
@@ -34515,9 +34517,9 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     }
     const originalPriority = this.originalTask.frontmatter["priority"];
     this.prioritySelect.value = originalPriority && this.settings.priorities.includes(originalPriority) ? originalPriority : this.settings.defaultPriority || "Medium";
-    contentEl.createEl("h3", { text: "Copy Options" });
+    scrollableContent.createEl("h3", { text: "Copy Options" });
     const createCheckbox = (label, defaultChecked = false) => {
-      const row = contentEl.createDiv({ cls: "setting-item" });
+      const row = scrollableContent.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: label });
       const control = row.createDiv({ cls: "setting-item-control" });
       const cb = control.createEl("input", { type: "checkbox" });
@@ -34529,7 +34531,7 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     this.copyTagsCheckbox = createCheckbox("Copy Tags", false);
     this.copyNotesCheckbox = createCheckbox("Copy Notes", false);
     this.copySubtasksCheckbox = createCheckbox("Copy Subtasks", false);
-    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
     cancel.onclick = () => this.close();
@@ -35192,10 +35194,12 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("kb-container");
-    contentEl.createEl("h2", { text: "Edit Task" });
+    contentEl.addClass("kb-container", "kb-modal-layout");
+    const header = contentEl.createDiv({ cls: "kb-modal-header" });
+    header.createEl("h2", { text: "Edit Task" });
+    const scrollableContent = contentEl.createDiv({ cls: "kb-modal-content" });
     const fm = (_a = this.task.frontmatter) != null ? _a : {};
-    const statusRow = contentEl.createDiv({ cls: "setting-item" });
+    const statusRow = scrollableContent.createDiv({ cls: "setting-item" });
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
     const statusSelect = statusControl.createEl("select");
@@ -35205,7 +35209,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     }
     statusSelect.value = String((_c = (_b = fm["status"]) != null ? _b : this.settings.statusConfig.statuses[0]) != null ? _c : "");
     this.inputs.set("status", statusSelect);
-    const crRow = contentEl.createDiv({ cls: "setting-item" });
+    const crRow = scrollableContent.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
     const crControl = crRow.createDiv({ cls: "setting-item-control" });
     const crInput = crControl.createEl("input");
@@ -35214,7 +35218,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     crInput.type = "text";
     crInput.value = String((_d = fm["crNumber"]) != null ? _d : "");
     this.inputs.set("crNumber", crInput);
-    const tnRow = contentEl.createDiv({ cls: "setting-item" });
+    const tnRow = scrollableContent.createDiv({ cls: "setting-item" });
     tnRow.createDiv({ cls: "setting-item-name", text: "Task Number" });
     const tnControl = tnRow.createDiv({ cls: "setting-item-control" });
     const tnInput = tnControl.createEl("input");
@@ -35223,7 +35227,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     tnInput.type = "text";
     tnInput.value = String((_e = fm["taskNumber"]) != null ? _e : "");
     this.inputs.set("taskNumber", tnInput);
-    const svcRow = contentEl.createDiv({ cls: "setting-item" });
+    const svcRow = scrollableContent.createDiv({ cls: "setting-item" });
     svcRow.createDiv({ cls: "setting-item-name", text: "Service Name" });
     const svcControl = svcRow.createDiv({ cls: "setting-item-control" });
     const svcInput = svcControl.createEl("input");
@@ -35233,7 +35237,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     svcInput.value = String((_f = fm["service"]) != null ? _f : "");
     this.inputs.set("service", svcInput);
     for (const field of this.settings.templateConfig.fields.filter((f) => !["status", "crNumber", "taskNumber", "service"].includes(f.key))) {
-      const row = contentEl.createDiv({ cls: "setting-item" });
+      const row = scrollableContent.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
@@ -35384,7 +35388,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
         this.inputs.set(field.key, input);
       }
     }
-    const subtasksContainer = contentEl.createDiv({ cls: "kb-subtasks-edit" });
+    const subtasksContainer = scrollableContent.createDiv({ cls: "kb-subtasks-edit" });
     subtasksContainer.createEl("h3", { text: "Subtasks" });
     const subtasksList = subtasksContainer.createDiv();
     let subtasks = this.task.subtasks ? JSON.parse(JSON.stringify(this.task.subtasks)) : [];
@@ -35427,7 +35431,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
         addSubtaskBtn.click();
       }
     };
-    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
     cancel.onclick = () => this.close();
@@ -36326,9 +36330,11 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     var _a, _b;
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("kb-container");
-    contentEl.createEl("h2", { text: "New Task" });
-    const statusRow = contentEl.createDiv({ cls: "setting-item" });
+    contentEl.addClass("kb-container", "kb-modal-layout");
+    const header = contentEl.createDiv({ cls: "kb-modal-header" });
+    header.createEl("h2", { text: "New Task" });
+    const scrollableContent = contentEl.createDiv({ cls: "kb-modal-content" });
+    const statusRow = scrollableContent.createDiv({ cls: "setting-item" });
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
     const statusSelect = statusControl.createEl("select");
@@ -36338,7 +36344,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     }
     statusSelect.value = (_a = this.plugin.config.statusConfig.statuses[0]) != null ? _a : "";
     this.inputs.set("status", statusSelect);
-    const crRow = contentEl.createDiv({ cls: "setting-item" });
+    const crRow = scrollableContent.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
     const crControl = crRow.createDiv({ cls: "setting-item-control" });
     const crInput = crControl.createEl("input");
@@ -36346,7 +36352,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     crInput.placeholder = "e.g. CR-6485";
     crInput.type = "text";
     this.inputs.set("crNumber", crInput);
-    const tnRow = contentEl.createDiv({ cls: "setting-item" });
+    const tnRow = scrollableContent.createDiv({ cls: "setting-item" });
     tnRow.createDiv({ cls: "setting-item-name", text: "Task Number" });
     const tnControl = tnRow.createDiv({ cls: "setting-item-control" });
     const tnInput = tnControl.createEl("input");
@@ -36354,7 +36360,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     tnInput.placeholder = "e.g. T-01";
     tnInput.type = "text";
     this.inputs.set("taskNumber", tnInput);
-    const svcRow = contentEl.createDiv({ cls: "setting-item" });
+    const svcRow = scrollableContent.createDiv({ cls: "setting-item" });
     svcRow.createDiv({ cls: "setting-item-name", text: "Service Name" });
     const svcControl = svcRow.createDiv({ cls: "setting-item-control" });
     const svcInput = svcControl.createEl("input");
@@ -36364,7 +36370,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     this.inputs.set("service", svcInput);
     for (const field of this.fields) {
       if (field.key === "status" || field.key === "title" || field.key === "due" || field.key === "crNumber" || field.key === "taskNumber" || field.key === "service") continue;
-      const row = contentEl.createDiv({ cls: "setting-item" });
+      const row = scrollableContent.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
@@ -36539,7 +36545,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
         this.inputs.set(field.key, input);
       }
     }
-    const subtasksContainer = contentEl.createDiv({ cls: "kb-subtasks-edit" });
+    const subtasksContainer = scrollableContent.createDiv({ cls: "kb-subtasks-edit" });
     subtasksContainer.createEl("h3", { text: "Subtasks" });
     const subtasksList = subtasksContainer.createDiv();
     let subtasks = [];
@@ -36582,7 +36588,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
         addSubtaskBtn.click();
       }
     };
-    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
     cancel.onclick = () => this.close();
@@ -36647,10 +36653,12 @@ var CrTemplateModal = class extends import_obsidian7.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("kb-container");
-    contentEl.createEl("h2", { text: "New Change Request" });
+    contentEl.addClass("kb-container", "kb-modal-layout");
+    const header = contentEl.createDiv({ cls: "kb-modal-header" });
+    header.createEl("h2", { text: "New Change Request" });
+    const scrollableContent = contentEl.createDiv({ cls: "kb-modal-content" });
     for (const field of this.fields) {
-      const row = contentEl.createDiv({ cls: "setting-item" });
+      const row = scrollableContent.createDiv({ cls: "setting-item" });
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "freetext") {
@@ -36689,7 +36697,7 @@ var CrTemplateModal = class extends import_obsidian7.Modal {
         this.inputs.set(field.key, input);
       }
     }
-    const footer = contentEl.createDiv({ cls: "modal-button-container" });
+    const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
     cancel.onclick = () => this.close();
