@@ -1,4 +1,5 @@
 import { App, Menu, Modal, Notice, TFile, normalizePath } from 'obsidian';
+import { Dropdown } from '../Dropdown';
 import { FieldType, PluginConfiguration, TaskFieldDefinition, TaskNoteMeta } from '../models';
 import { findCrFileByNumber, findTaskFileByNumber, getAllExistingTags, updateTaskFrontmatter } from '../utils';
 import KanbanPlugin from '../main';
@@ -14,6 +15,7 @@ export class GridView {
     private filterQuery = '';
     private filterState: Record<string, any> = {};
     private persistSettings?: () => void | Promise<void>;
+    private suppressReloads?: (duration?: number) => void;
 
     constructor(
         app: App,
@@ -22,7 +24,8 @@ export class GridView {
         tasks: TaskNoteMeta[],
         filterQuery: string,
         filterState: Record<string, any>,
-        persistSettings?: () => void | Promise<void>
+        persistSettings?: () => void | Promise<void>,
+        suppressReloads?: (duration?: number) => void
     ) {
         this.app = app;
         this.plugin = plugin;
@@ -31,6 +34,7 @@ export class GridView {
         this.filterQuery = filterQuery;
         this.filterState = filterState;
         this.persistSettings = persistSettings;
+        this.suppressReloads = suppressReloads;
     }
 
     private getFilteredTasks(): TaskNoteMeta[] {
@@ -356,6 +360,7 @@ export class GridView {
                 // Enter edit mode on single-click (or show inline control for specific types)
                 const saveValue = async (newVal: any) => {
                     showSaving();
+                    this.suppressReloads?.();
                     try {
                         if (!(fileObj instanceof TFile)) throw new Error('File not found');
                         const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
@@ -427,20 +432,18 @@ export class GridView {
                 if (fieldDef.type === 'status') {
                     // hide the plain text display and show inline select
                     displayEl.style.display = 'none';
-                    const sel = td.createEl('select'); sel.addClass('kb-cell-inline-select');
 
-                    // Determine options based on field config
                     const options = fieldDef.useValues === 'priorities'
                         ? this.settings.priorities
                         : this.settings.statusConfig.statuses;
 
-                    for (const s of options) {
-                        const o = sel.createEl('option', { text: s });
-                        o.value = s;
-                    }
-
-                    sel.value = String(t.frontmatter[key] ?? options[0] ?? '');
-                    sel.onchange = () => saveValue(sel.value);
+                    new Dropdown(
+                        td,
+                        options,
+                        String(t.frontmatter[key] ?? options[0] ?? ''),
+                        (val) => saveValue(val),
+                        'kb-grid-dropdown'
+                    );
                 } else if (fieldDef.type === 'date') {
                     // hide the plain text display and show inline date input
                     displayEl.style.display = 'none';

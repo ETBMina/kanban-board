@@ -551,7 +551,8 @@ export class BoardTabsView extends ItemView {
       this.tasks,
       this.filterQuery,
       this.filterState,
-      this.persistSettings
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
     );
     gridView.render(container);
   }

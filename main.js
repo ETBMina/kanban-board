@@ -23,11 +23,63 @@ __export(main_exports, {
   default: () => KanbanPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
+
+// src/Dropdown.ts
+var import_obsidian = require("obsidian");
+var Dropdown = class {
+  constructor(container, options, initialValue, onChange, cls) {
+    this.container = container;
+    this.options = options.map((o) => typeof o === "string" ? { label: o, value: o } : o);
+    this.value = initialValue;
+    this.onChange = onChange;
+    this.buttonEl = this.container.createDiv({ cls: "kb-m3-dropdown " + (cls || "") });
+    this.labelEl = this.buttonEl.createSpan({ cls: "kb-m3-dropdown-label" });
+    this.updateLabel();
+    const icon = this.buttonEl.createSpan({ cls: "kb-m3-dropdown-icon" });
+    icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-360 280-560h400L480-360Z"/></svg>';
+    this.buttonEl.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.showMenu(e);
+    };
+  }
+  updateLabel() {
+    const option = this.options.find((o) => o.value === this.value);
+    this.labelEl.setText(option ? option.label : this.value);
+  }
+  showMenu(e) {
+    const menu = new import_obsidian.Menu();
+    for (const option of this.options) {
+      menu.addItem((item) => {
+        item.setTitle(option.label).setChecked(option.value === this.value).onClick(() => {
+          if (this.value !== option.value) {
+            this.value = option.value;
+            this.updateLabel();
+            this.onChange(this.value);
+          }
+        });
+      });
+    }
+    const rect = this.buttonEl.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom });
+  }
+  setValue(value) {
+    this.value = value;
+    this.updateLabel();
+  }
+  getValue() {
+    return this.value;
+  }
+  setOptions(options) {
+    this.options = options.map((o) => typeof o === "string" ? { label: o, value: o } : o);
+    this.updateLabel();
+  }
+};
 
 // src/settings.ts
-var import_obsidian = require("obsidian");
-var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
+var import_obsidian2 = require("obsidian");
+var KanbanSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -36,26 +88,26 @@ var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Kanban Board & Task Grid" });
-    new import_obsidian.Setting(containerEl).setName("Task folder").setDesc("Folder where task notes are stored").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Task folder").setDesc("Folder where task notes are stored").addText((text) => {
       text.setPlaceholder("Tasks").setValue(this.plugin.config.paths.taskFolder).onChange(async (value) => {
         this.plugin.config.paths.taskFolder = value || "Tasks";
         await this.plugin.saveConfig();
       });
     });
-    new import_obsidian.Setting(containerEl).setName("Change Request folder").setDesc("Folder where CR notes are stored").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Change Request folder").setDesc("Folder where CR notes are stored").addText((text) => {
       var _a;
       text.setPlaceholder("Change Requests").setValue((_a = this.plugin.config.paths.crFolder) != null ? _a : "").onChange(async (value) => {
         this.plugin.config.paths.crFolder = value || "Change Requests";
         await this.plugin.saveConfig();
       });
     });
-    new import_obsidian.Setting(containerEl).setName("Statuses (comma-separated)").setDesc("Columns shown in the Kanban view").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Statuses (comma-separated)").setDesc("Columns shown in the Kanban view").addText((text) => {
       text.setPlaceholder("Backlog, In Progress, Blocked, Review, Done").setValue(this.plugin.config.statusConfig.statuses.join(", ")).onChange(async (value) => {
         this.plugin.config.statusConfig.statuses = value.split(",").map((s) => s.trim()).filter(Boolean);
         await this.plugin.saveConfig();
       });
     });
-    new import_obsidian.Setting(containerEl).setName("Grid visible columns (keys, comma-separated)").setDesc("Which fields to display in the grid").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Grid visible columns (keys, comma-separated)").setDesc("Which fields to display in the grid").addText((text) => {
       text.setPlaceholder("title, status, priority, assignee, due, tags").setValue(this.plugin.config.gridConfig.visibleColumns.join(", ")).onChange(async (value) => {
         this.plugin.config.gridConfig.visibleColumns = value.split(",").map((s) => s.trim()).filter(Boolean);
         await this.plugin.saveConfig();
@@ -66,9 +118,9 @@ var KanbanSettingTab = class extends import_obsidian.PluginSettingTab {
 };
 
 // src/utils.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 async function ensureFolder(app, folderPath) {
-  const path = (0, import_obsidian2.normalizePath)(folderPath);
+  const path = (0, import_obsidian3.normalizePath)(folderPath);
   try {
     await app.vault.createFolder(path);
   } catch (e) {
@@ -123,8 +175,8 @@ function escapeYamlInline(value) {
 }
 async function readAllItems(app, settings) {
   var _a;
-  const taskFolder = (0, import_obsidian2.normalizePath)(settings.paths.taskFolder);
-  const crFolder = settings.paths.crFolder ? (0, import_obsidian2.normalizePath)(settings.paths.crFolder) : null;
+  const taskFolder = (0, import_obsidian3.normalizePath)(settings.paths.taskFolder);
+  const crFolder = settings.paths.crFolder ? (0, import_obsidian3.normalizePath)(settings.paths.crFolder) : null;
   const results = [];
   const files = app.vault.getMarkdownFiles().filter((f) => {
     if (f.path.startsWith(taskFolder + "/")) return true;
@@ -156,7 +208,7 @@ async function readAllItems(app, settings) {
 }
 async function readAllTasks(app, settings) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.paths.taskFolder);
+  const folder = (0, import_obsidian3.normalizePath)(settings.paths.taskFolder);
   const results = [];
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   for (const file of files) {
@@ -205,12 +257,12 @@ async function updateTaskFrontmatter(app, file, patch) {
   });
 }
 function buildWikiLink(path) {
-  const p = (0, import_obsidian2.normalizePath)(path);
+  const p = (0, import_obsidian3.normalizePath)(path);
   return `[[${p}]]`;
 }
 async function findCrFileByNumber(app, settings, crNumber) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.paths.crFolder || "Change Requests");
+  const folder = (0, import_obsidian3.normalizePath)(settings.paths.crFolder || "Change Requests");
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   for (const file of files) {
     const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -223,7 +275,7 @@ async function findCrFileByNumber(app, settings, crNumber) {
 }
 async function findTaskFileByNumber(app, settings, taskNumber) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.paths.taskFolder || "Tasks");
+  const folder = (0, import_obsidian3.normalizePath)(settings.paths.taskFolder || "Tasks");
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   for (const file of files) {
     const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -236,7 +288,7 @@ async function findTaskFileByNumber(app, settings, taskNumber) {
 }
 async function generateNextCrNumber(app, settings) {
   var _a;
-  const folder = (0, import_obsidian2.normalizePath)(settings.paths.crFolder || "Change Requests");
+  const folder = (0, import_obsidian3.normalizePath)(settings.paths.crFolder || "Change Requests");
   const files = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   let max = 0;
   const rx = /^CR-(\d+)/i;
@@ -272,7 +324,7 @@ function sanitizeFileName(name) {
 }
 
 // src/views/boardTabsView.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // node_modules/xlsx/xlsx.mjs
 var XLSX = {};
@@ -33678,7 +33730,9 @@ var FilterPanel = class {
       this.filterState = {};
       this.inputs.forEach((input) => {
         const anyInput = input;
-        if (typeof anyInput.setValue === "function") {
+        if (anyInput instanceof Dropdown) {
+          anyInput.setValue("");
+        } else if (typeof anyInput.setValue === "function") {
           anyInput.setValue([]);
         } else if (typeof anyInput.getValue === "function") {
           try {
@@ -33714,17 +33768,16 @@ var FilterPanel = class {
         input.value = (_c = this.filterState[field.key]) != null ? _c : "";
         this.inputs.set(field.key, input);
       } else if (field.type === "status") {
-        const select = control.createEl("select");
-        select.addClass("kb-input");
-        const emptyOpt = select.createEl("option", { text: "Any" });
-        emptyOpt.value = "";
         const options = field.useValues === "priorities" ? this.settings.priorities : this.settings.statusConfig.statuses;
-        for (const opt of options) {
-          const optEl = select.createEl("option", { text: opt });
-          optEl.value = opt;
-        }
-        select.value = (_d = this.filterState[field.key]) != null ? _d : "";
-        this.inputs.set(field.key, select);
+        const dropdownOptions = [{ label: "Any", value: "" }, ...options.map((o) => ({ label: o, value: o }))];
+        const dropdown = new Dropdown(
+          control,
+          dropdownOptions,
+          (_d = this.filterState[field.key]) != null ? _d : "",
+          (val) => {
+          }
+        );
+        this.inputs.set(field.key, dropdown);
       } else if (field.type === "tags") {
         const container = control.createDiv({ cls: "kb-filter-tags-container" });
         const input = container.createEl("input", { type: "text", placeholder: "Type to filter / press Enter to add" });
@@ -33873,9 +33926,9 @@ var FilterPanel = class {
 };
 
 // src/views/gridView.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var GridView = class {
-  constructor(app, plugin, settings, tasks, filterQuery, filterState, persistSettings) {
+  constructor(app, plugin, settings, tasks, filterQuery, filterState, persistSettings, suppressReloads) {
     this.tasks = [];
     this.filterQuery = "";
     this.filterState = {};
@@ -33886,9 +33939,10 @@ var GridView = class {
     this.filterQuery = filterQuery;
     this.filterState = filterState;
     this.persistSettings = persistSettings;
+    this.suppressReloads = suppressReloads;
   }
   getFilteredTasks() {
-    const taskFolder = (0, import_obsidian3.normalizePath)(this.settings.paths.taskFolder);
+    const taskFolder = (0, import_obsidian4.normalizePath)(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter((t) => t.filePath.startsWith(taskFolder + "/"));
     if (!this.settings.gridConfig.showArchived) {
       tasks = tasks.filter((t) => !t.frontmatter.archived);
@@ -34094,7 +34148,7 @@ var GridView = class {
           link.classList.add(numKey === "crNumber" ? "kb-cr-link" : "kb-task-link");
           const openFile = async () => {
             const file = await findFunc(this.app, this.settings, numVal);
-            if (file instanceof import_obsidian3.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+            if (file instanceof import_obsidian4.TFile) await this.app.workspace.getLeaf(true).openFile(file);
           };
           const openEditor = () => {
             var _a2;
@@ -34150,10 +34204,11 @@ var GridView = class {
           createNumberLink("taskNumber", String(val), findTaskFileByNumber);
         }
         const saveValue = async (newVal) => {
-          var _a2;
+          var _a2, _b2;
           showSaving();
+          (_a2 = this.suppressReloads) == null ? void 0 : _a2.call(this);
           try {
-            if (!(fileObj instanceof import_obsidian3.TFile)) throw new Error("File not found");
+            if (!(fileObj instanceof import_obsidian4.TFile)) throw new Error("File not found");
             const inFrontmatter = t.frontmatter && Object.prototype.hasOwnProperty.call(t.frontmatter, key);
             if (inFrontmatter || fieldDef.type !== "freetext") {
               let payload = { [key]: newVal };
@@ -34203,24 +34258,23 @@ var GridView = class {
             if (key === "status" && isInProgress && !t.frontmatter["startDate"]) {
               t.frontmatter["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
             }
-            setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(", ") : String((_a2 = t.frontmatter[key]) != null ? _a2 : ""));
+            setDisplayText(Array.isArray(t.frontmatter[key]) ? t.frontmatter[key].join(", ") : String((_b2 = t.frontmatter[key]) != null ? _b2 : ""));
             showSaved();
           } catch (err) {
-            new import_obsidian3.Notice("Failed to save: " + err.message);
+            new import_obsidian4.Notice("Failed to save: " + err.message);
             td.removeClass("kb-saving");
           }
         };
         if (fieldDef.type === "status") {
           displayEl.style.display = "none";
-          const sel = td.createEl("select");
-          sel.addClass("kb-cell-inline-select");
           const options = fieldDef.useValues === "priorities" ? this.settings.priorities : this.settings.statusConfig.statuses;
-          for (const s of options) {
-            const o = sel.createEl("option", { text: s });
-            o.value = s;
-          }
-          sel.value = String((_c = (_b = t.frontmatter[key]) != null ? _b : options[0]) != null ? _c : "");
-          sel.onchange = () => saveValue(sel.value);
+          new Dropdown(
+            td,
+            options,
+            String((_c = (_b = t.frontmatter[key]) != null ? _b : options[0]) != null ? _c : ""),
+            (val2) => saveValue(val2),
+            "kb-grid-dropdown"
+          );
         } else if (fieldDef.type === "date") {
           displayEl.style.display = "none";
           const inp = td.createEl("input");
@@ -34250,7 +34304,7 @@ var GridView = class {
           preview.onclick = (e) => {
             e.stopPropagation();
             const outer = this;
-            class TagEditorModal extends import_obsidian3.Modal {
+            class TagEditorModal extends import_obsidian4.Modal {
               constructor() {
                 super(outer.app);
                 this.selected = tagsArr.slice();
@@ -34469,11 +34523,11 @@ var GridView = class {
 };
 
 // src/views/boardView.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/views/copyTaskModal.ts
-var import_obsidian4 = require("obsidian");
-var CopyTaskModal = class extends import_obsidian4.Modal {
+var import_obsidian5 = require("obsidian");
+var CopyTaskModal = class extends import_obsidian5.Modal {
   constructor(app, settings, originalTask, onSubmit) {
     super(app);
     this.settings = settings;
@@ -34544,7 +34598,7 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     const status = this.statusSelect.value;
     const priority = this.prioritySelect.value;
     if (!serviceName) {
-      new import_obsidian4.Notice("Please enter a Service Name");
+      new import_obsidian5.Notice("Please enter a Service Name");
       return;
     }
     const newFm = Object.assign({}, this.originalTask.frontmatter);
@@ -34599,11 +34653,11 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
     }
     try {
       await this.app.vault.create(finalPath, content);
-      new import_obsidian4.Notice(`Task copied to ${finalPath}`);
+      new import_obsidian5.Notice(`Task copied to ${finalPath}`);
       this.close();
       if (this.onSubmit) await this.onSubmit();
     } catch (error) {
-      new import_obsidian4.Notice("Failed to create copied task: " + error.message);
+      new import_obsidian5.Notice("Failed to create copied task: " + error.message);
     }
   }
 };
@@ -34616,6 +34670,7 @@ var BoardView = class {
     this.filterState = {};
     this.columnRegistry = /* @__PURE__ */ new Map();
     this.byStatus = /* @__PURE__ */ new Map();
+    this.cardRegistry = /* @__PURE__ */ new Map();
     this.app = app;
     this.settings = settings;
     this.tasks = tasks;
@@ -34627,7 +34682,7 @@ var BoardView = class {
     this.suppressReloads = suppressReloads;
   }
   getFilteredTasks() {
-    const taskFolder = (0, import_obsidian5.normalizePath)(this.settings.paths.taskFolder);
+    const taskFolder = (0, import_obsidian6.normalizePath)(this.settings.paths.taskFolder);
     let tasks = this.tasks.filter((t) => t.filePath.startsWith(taskFolder + "/"));
     tasks = tasks.filter((t) => !t.frontmatter.archived);
     tasks.sort((a, b) => {
@@ -34737,6 +34792,9 @@ var BoardView = class {
     if (!registry) return;
     registry.removeIndicator();
     registry.body.classList.remove("kb-dropzone-hover");
+    for (const [path, entry] of Array.from(this.cardRegistry.entries())) {
+      if (entry.status === status) this.cardRegistry.delete(path);
+    }
     const existingCards = Array.from(registry.body.querySelectorAll(".kb-card"));
     existingCards.forEach((card) => card.remove());
     const tasks = ((_a = this.byStatus.get(status)) != null ? _a : []).filter((t) => !Boolean(t.frontmatter["archived"]));
@@ -34746,8 +34804,15 @@ var BoardView = class {
     }
   }
   createCardElement(body, task, status) {
-    var _a;
     const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
+    this.populateCardElement(card, task, status);
+    this.cardRegistry.set(task.filePath, { card, status });
+  }
+  populateCardElement(card, task, status) {
+    var _a;
+    card.replaceChildren();
+    card.setAttribute("draggable", "true");
+    card.className = "kb-card";
     card.ondragstart = (e) => {
       var _a2, _b;
       e.stopPropagation();
@@ -34777,7 +34842,7 @@ var BoardView = class {
           e.stopPropagation();
           subtask.completed = checkbox.checked;
           const file = this.app.vault.getAbstractFileByPath(task.filePath);
-          if (file instanceof import_obsidian5.TFile) {
+          if (file instanceof import_obsidian6.TFile) {
             const content = await this.app.vault.read(file);
             const lines = content.split("\n");
             const lineIndex = lines.findIndex((line) => {
@@ -34799,10 +34864,10 @@ var BoardView = class {
     if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
     menuBtn.onclick = (ev) => {
       ev.stopPropagation();
-      const menu = new import_obsidian5.Menu();
+      const menu = new import_obsidian6.Menu();
       menu.addItem((i) => i.setTitle("Open").onClick(async () => {
         const file = this.app.vault.getAbstractFileByPath(task.filePath);
-        if (file instanceof import_obsidian5.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+        if (file instanceof import_obsidian6.TFile) await this.app.workspace.getLeaf(true).openFile(file);
       }));
       menu.addItem((i) => i.setTitle("Copy").onClick(async () => {
         const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
@@ -34813,38 +34878,76 @@ var BoardView = class {
       menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
         try {
           await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
-          new import_obsidian5.Notice("Task archived");
+          new import_obsidian6.Notice("Task archived");
           await this.reloadCallback();
         } catch (e2) {
-          new import_obsidian5.Notice("Failed to archive task");
+          new import_obsidian6.Notice("Failed to archive task");
         }
       }));
       menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
         try {
           await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath));
-          new import_obsidian5.Notice("Task deleted");
+          new import_obsidian6.Notice("Task deleted");
           await this.reloadCallback();
         } catch (e2) {
-          new import_obsidian5.Notice("Failed to delete task");
+          new import_obsidian6.Notice("Failed to delete task");
         }
       }));
       const e = ev;
       menu.showAtPosition({ x: e.clientX, y: e.clientY });
     };
-    card.onclick = async () => {
-      const file = this.app.vault.getAbstractFileByPath(task.filePath);
-      if (!(file instanceof import_obsidian5.TFile)) return;
-      const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
-        try {
-          await updateTaskFrontmatter(this.app, file, patch);
-          new import_obsidian5.Notice("Task updated");
-          await this.reloadCallback();
-        } catch (err) {
-          new import_obsidian5.Notice("Failed to update task: " + err.message);
-        }
-      });
-      modal.open();
+    card.onclick = () => {
+      this.openEditModal(task);
     };
+  }
+  refreshTaskCard(task, statusOverride) {
+    const entry = this.cardRegistry.get(task.filePath);
+    if (!entry) return;
+    if (statusOverride) entry.status = statusOverride;
+    this.populateCardElement(entry.card, task, entry.status);
+  }
+  openEditModal(task) {
+    const modal = new EditTaskModal(this.app, this.settings, task, async (result) => {
+      await this.handleTaskEditResult(task, result);
+    });
+    modal.open();
+  }
+  async handleTaskEditResult(task, result) {
+    var _a, _b, _c, _d;
+    (_a = this.suppressReloads) == null ? void 0 : _a.call(this);
+    const previousStatus = this.normalizeStatus(String((_b = task.frontmatter["status"]) != null ? _b : ""));
+    for (const [key, value] of Object.entries((_c = result.patch) != null ? _c : {})) {
+      if (value === void 0) delete task.frontmatter[key];
+      else task.frontmatter[key] = value;
+    }
+    task.subtasks = Array.isArray(result.subtasks) ? JSON.parse(JSON.stringify(result.subtasks)) : [];
+    const nextStatus = this.normalizeStatus(String((_d = task.frontmatter["status"]) != null ? _d : previousStatus));
+    if (previousStatus !== nextStatus) {
+      this.moveTaskToStatus(task, previousStatus, nextStatus);
+    } else {
+      this.refreshTaskCard(task, nextStatus);
+    }
+    new import_obsidian6.Notice("Task updated");
+  }
+  moveTaskToStatus(task, fromStatus, toStatus) {
+    const fromList = this.byStatus.get(fromStatus);
+    if (fromList) {
+      const idx = fromList.indexOf(task);
+      if (idx !== -1) fromList.splice(idx, 1);
+    }
+    let targetList = this.byStatus.get(toStatus);
+    if (!targetList) {
+      targetList = [];
+      this.byStatus.set(toStatus, targetList);
+    }
+    if (!targetList.includes(task)) targetList.push(task);
+    this.renderColumnCards(fromStatus);
+    if (fromStatus !== toStatus) this.renderColumnCards(toStatus);
+  }
+  normalizeStatus(status) {
+    const defaultStatus = this.settings.statusConfig.statuses[0];
+    if (!status) return defaultStatus;
+    return this.settings.statusConfig.statuses.includes(status) ? status : defaultStatus;
   }
   applyLocalOrder(status, enforceStatus = false) {
     const tasks = this.byStatus.get(status);
@@ -34861,6 +34964,7 @@ var BoardView = class {
     this.boardEl = board;
     this.columnRegistry.clear();
     this.byStatus = this.buildStatusBuckets();
+    this.cardRegistry.clear();
     let scrollSpeed = 0;
     let lastDragTime = 0;
     let scrollFrame = null;
@@ -34965,7 +35069,7 @@ var BoardView = class {
       const menuBtn = header.createEl("button", { text: "\u22EF" });
       menuBtn.classList.add("kb-ellipsis");
       menuBtn.onclick = (ev) => {
-        const menu = new import_obsidian5.Menu();
+        const menu = new import_obsidian6.Menu();
         menu.addItem((i) => i.setTitle("Rename").onClick(async () => {
           var _a2, _b2, _c;
           const newName = (_a2 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a2.trim();
@@ -34976,14 +35080,14 @@ var BoardView = class {
           const updates = [];
           for (const t of tasksInCol) {
             const f = this.app.vault.getAbstractFileByPath(t.filePath);
-            if (f instanceof import_obsidian5.TFile) {
+            if (f instanceof import_obsidian6.TFile) {
               updates.push(updateTaskFrontmatter(this.app, f, { status: newName }));
             }
           }
           try {
             await Promise.all(updates);
           } catch (e2) {
-            new import_obsidian5.Notice("Some tasks failed to update");
+            new import_obsidian6.Notice("Some tasks failed to update");
           }
           await this.reloadCallback();
         }));
@@ -35078,7 +35182,7 @@ var BoardView = class {
         }
         if (!payload || !payload.path) return;
         const file = this.app.vault.getAbstractFileByPath(payload.path);
-        if (!(file instanceof import_obsidian5.TFile)) return;
+        if (!(file instanceof import_obsidian6.TFile)) return;
         try {
           const tasksInCol = (_e = this.byStatus.get(status)) != null ? _e : [];
           const fromStatus = (_i = payload.fromStatus) != null ? _i : String((_h = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) == null ? void 0 : _g["status"]) != null ? _h : "");
@@ -35163,7 +35267,7 @@ var BoardView = class {
           for (let i = 0; i < tasksInCol.length; i++) {
             const t = tasksInCol[i];
             const f = this.app.vault.getAbstractFileByPath(t.filePath);
-            if (!(f instanceof import_obsidian5.TFile)) continue;
+            if (!(f instanceof import_obsidian6.TFile)) continue;
             const patch = { order: i };
             if (t.filePath === payload.path) {
               if (String((_m = t.frontmatter["status"]) != null ? _m : "") !== status) {
@@ -35178,7 +35282,7 @@ var BoardView = class {
             for (let i = 0; i < tasksInFromCol.length; i++) {
               const t = tasksInFromCol[i];
               const f = this.app.vault.getAbstractFileByPath(t.filePath);
-              if (!(f instanceof import_obsidian5.TFile)) continue;
+              if (!(f instanceof import_obsidian6.TFile)) continue;
               const patch = { order: i };
               updates.push(updateTaskFrontmatter(this.app, f, patch));
             }
@@ -35197,17 +35301,17 @@ var BoardView = class {
               setHighlight(false);
               this.renderColumnCards(status);
               if (fromStatus !== status) this.renderColumnCards(fromStatus);
-              new import_obsidian5.Notice("Moved");
+              new import_obsidian6.Notice("Moved");
               if (scroller) scroller.scrollLeft = scrollLeft;
             } else {
               setHighlight(false);
             }
           } catch (err) {
-            new import_obsidian5.Notice("Failed to move: " + err.message);
+            new import_obsidian6.Notice("Failed to move: " + err.message);
             await this.reloadCallback();
           }
         } catch (err) {
-          new import_obsidian5.Notice("Failed to move: " + err.message);
+          new import_obsidian6.Notice("Failed to move: " + err.message);
           await this.reloadCallback();
         }
       };
@@ -35227,7 +35331,7 @@ var BoardView = class {
     };
   }
 };
-var EditTaskModal = class extends import_obsidian5.Modal {
+var EditTaskModal = class extends import_obsidian6.Modal {
   constructor(app, settings, task, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
@@ -35247,13 +35351,14 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     const statusRow = scrollableContent.createDiv({ cls: "setting-item" });
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
-    const statusSelect = statusControl.createEl("select");
-    for (const s of this.settings.statusConfig.statuses) {
-      const opt = statusSelect.createEl("option", { text: s });
-      opt.value = s;
-    }
-    statusSelect.value = String((_c = (_b = fm["status"]) != null ? _b : this.settings.statusConfig.statuses[0]) != null ? _c : "");
-    this.inputs.set("status", statusSelect);
+    const statusDropdown = new Dropdown(
+      statusControl,
+      this.settings.statusConfig.statuses,
+      String((_c = (_b = fm["status"]) != null ? _b : this.settings.statusConfig.statuses[0]) != null ? _c : ""),
+      (val) => {
+      }
+    );
+    this.inputs.set("status", statusDropdown);
     const crRow = scrollableContent.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
     const crControl = crRow.createDiv({ cls: "setting-item-control" });
@@ -35286,15 +35391,15 @@ var EditTaskModal = class extends import_obsidian5.Modal {
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
-        const select = control.createEl("select");
-        select.addClass("kb-input");
         const options = field.useValues === "priorities" ? this.settings.priorities : this.settings.statusConfig.statuses;
-        for (const o of options) {
-          const opt = select.createEl("option", { text: o });
-          opt.value = o;
-        }
-        select.value = String((_h = (_g = fm[field.key]) != null ? _g : options[0]) != null ? _h : "");
-        this.inputs.set(field.key, select);
+        const dropdown = new Dropdown(
+          control,
+          options,
+          String((_h = (_g = fm[field.key]) != null ? _g : options[0]) != null ? _h : ""),
+          (val) => {
+          }
+        );
+        this.inputs.set(field.key, dropdown);
       } else if (field.type === "people") {
         const peopleInputContainer = control.createDiv({ cls: "kb-people-input-container" });
         const peopleInput = peopleInputContainer.createEl("input");
@@ -35483,6 +35588,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
     const save = footer.createEl("button", { text: "Save" });
     save.addClass("mod-cta");
     save.onclick = async () => {
+      var _a2;
       const patch = {};
       for (const [key, input] of this.inputs.entries()) {
         const anyInput = input;
@@ -35499,7 +35605,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
         patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       }
       const file = this.app.vault.getAbstractFileByPath(this.task.filePath);
-      if (file instanceof import_obsidian5.TFile) {
+      if (file instanceof import_obsidian6.TFile) {
         await this.app.fileManager.processFrontMatter(file, (fm2) => {
           for (const key in patch) {
             if (patch[key] === void 0) {
@@ -35521,6 +35627,10 @@ var EditTaskModal = class extends import_obsidian5.Modal {
         }
         await this.app.vault.modify(file, newLines.join("\n"));
       }
+      await ((_a2 = this.onSubmit) == null ? void 0 : _a2.call(this, {
+        patch,
+        subtasks: JSON.parse(JSON.stringify(subtasks))
+      }));
       this.close();
     };
   }
@@ -35528,7 +35638,7 @@ var EditTaskModal = class extends import_obsidian5.Modal {
 
 // src/views/boardTabsView.ts
 var BOARD_TABS_VIEW_TYPE = "kb-board-tabs-view";
-var BoardTabsView = class extends import_obsidian6.ItemView {
+var BoardTabsView = class extends import_obsidian7.ItemView {
   constructor(leaf, plugin, settings, persistSettings) {
     var _a;
     super(leaf);
@@ -35548,7 +35658,7 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   async promptText(title, placeholder = "", initial = "") {
     return new Promise((resolve) => {
       const self = this;
-      class TextPrompt extends import_obsidian6.Modal {
+      class TextPrompt extends import_obsidian7.Modal {
         constructor() {
           super(self.app);
           this.value = initial;
@@ -35595,8 +35705,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   async onOpen() {
     var _a;
     this.contentEl.addClass("kb-container");
-    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian6.debounce)(() => this.handleDataChange(), 300)));
-    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian6.debounce)(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian7.debounce)(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian7.debounce)(() => this.handleDataChange(), 300)));
     (_a = this.scope) == null ? void 0 : _a.register([], "Esc", () => {
       return false;
     });
@@ -35667,7 +35777,7 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
     const menuBtn = tabs.createEl("button", { text: "\u22EF" });
     menuBtn.addClass("kb-ellipsis");
     menuBtn.onclick = (ev) => {
-      const menu = new import_obsidian6.Menu();
+      const menu = new import_obsidian7.Menu();
       menu.addItem((i) => i.setTitle("Export to CSV").onClick(() => this.exportToCsv()));
       menu.addItem((i) => i.setTitle("Export to Excel").onClick(() => this.exportToExcel()));
       menu.addItem((i) => i.setTitle("Export to JSON").onClick(() => this.exportToJson()));
@@ -35745,10 +35855,10 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
           if (data.crs) {
             await this.processImportData(data.crs, "cr");
           }
-          new import_obsidian6.Notice("Import complete");
+          new import_obsidian7.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian6.Notice("Failed to import file: " + error.message);
+          new import_obsidian7.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsText(file);
@@ -35757,8 +35867,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   }
   async exportToJson() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian6.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian6.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => t.frontmatter);
     let crData = [];
     if (crFolder) {
@@ -35798,10 +35908,10 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
             const crData = utils.sheet_to_json(crSheet);
             await this.processImportData(crData, "cr");
           }
-          new import_obsidian6.Notice("Import complete");
+          new import_obsidian7.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian6.Notice("Failed to import file: " + error.message);
+          new import_obsidian7.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsText(file);
@@ -35832,10 +35942,10 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
             const taskData = utils.sheet_to_json(taskSheet);
             await this.processImportData(taskData, "task");
           }
-          new import_obsidian6.Notice("Import complete");
+          new import_obsidian7.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian6.Notice("Failed to import file: " + error.message);
+          new import_obsidian7.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -35844,8 +35954,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   }
   async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian6.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian6.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -35879,8 +35989,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   }
   async exportToCsv() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian6.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian6.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -35916,7 +36026,7 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
     const allItems = await readAllItems(this.app, this.settings);
     const folder = type === "cr" ? this.settings.paths.crFolder : this.settings.paths.taskFolder;
     if (!folder) {
-      new import_obsidian6.Notice(`Folder for ${type}s is not configured.`);
+      new import_obsidian7.Notice(`Folder for ${type}s is not configured.`);
       return;
     }
     for (const item of data) {
@@ -35981,7 +36091,7 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
         try {
           await this.app.vault.create(fileName, content);
         } catch (error) {
-          new import_obsidian6.Notice(`Failed to create file: "${fileName}". Please check for unsupported characters.`);
+          new import_obsidian7.Notice(`Failed to create file: "${fileName}". Please check for unsupported characters.`);
         }
       }
     }
@@ -36007,7 +36117,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
       this.tasks,
       this.filterQuery,
       this.filterState,
-      this.persistSettings
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
     );
     gridView.render(container);
   }
@@ -36029,7 +36140,7 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
 };
 
 // src/main.ts
-var KanbanPlugin = class extends import_obsidian7.Plugin {
+var KanbanPlugin = class extends import_obsidian8.Plugin {
   async saveConfig() {
     await this.app.vault.adapter.write(
       `${this.manifest.dir}/configuration.json`,
@@ -36049,7 +36160,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
     }
   }
   async validateAndPromptForSettings() {
-    const modal = new import_obsidian7.Modal(this.app);
+    const modal = new import_obsidian8.Modal(this.app);
     modal.titleEl.setText("Configure Kanban Board");
     const { contentEl } = modal;
     const requiredSettings = [
@@ -36103,7 +36214,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
         for (const [label, path] of missing) {
           const value = (_a = inputs.get(label)) == null ? void 0 : _a.value.trim();
           if (!value) {
-            new import_obsidian7.Notice(`${label} is required`);
+            new import_obsidian8.Notice(`${label} is required`);
             return;
           }
           let current = this.config;
@@ -36163,7 +36274,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
       await this.loadConfiguration();
     } catch (err) {
       console.error("Failed to load configuration:", err);
-      new import_obsidian7.Notice("Failed to load configuration. Please check settings or recreate configuration.json. Error: " + err.message);
+      new import_obsidian8.Notice("Failed to load configuration. Please check settings or recreate configuration.json. Error: " + err.message);
       this.addSettingTab(new KanbanSettingTab(this.app, this));
       return;
     }
@@ -36198,7 +36309,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
     });
     this.registerEvent(this.app.metadataCache.on("changed", async (file) => {
       var _a;
-      if (!(file instanceof import_obsidian7.TFile)) return;
+      if (!(file instanceof import_obsidian8.TFile)) return;
       const folder = this.config.paths.taskFolder || "Tasks";
       if (!file.path.startsWith(folder + "/")) return;
       const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -36340,7 +36451,7 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
       }
       await this.app.vault.create(path, content);
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian7.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      if (file instanceof import_obsidian8.TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
     modal.open();
   }
@@ -36394,12 +36505,12 @@ var KanbanPlugin = class extends import_obsidian7.Plugin {
 
 `);
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian7.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      if (file instanceof import_obsidian8.TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
     modal.open();
   }
 };
-var TaskTemplateModal = class extends import_obsidian7.Modal {
+var TaskTemplateModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
@@ -36418,13 +36529,14 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     const statusRow = scrollableContent.createDiv({ cls: "setting-item" });
     statusRow.createDiv({ cls: "setting-item-name", text: "Status" });
     const statusControl = statusRow.createDiv({ cls: "setting-item-control" });
-    const statusSelect = statusControl.createEl("select");
-    for (const s of this.plugin.config.statusConfig.statuses) {
-      const opt = statusSelect.createEl("option", { text: s });
-      opt.value = s;
-    }
-    statusSelect.value = (_a = this.plugin.config.statusConfig.statuses[0]) != null ? _a : "";
-    this.inputs.set("status", statusSelect);
+    const statusDropdown = new Dropdown(
+      statusControl,
+      this.plugin.config.statusConfig.statuses,
+      (_a = this.plugin.config.statusConfig.statuses[0]) != null ? _a : "",
+      (val) => {
+      }
+    );
+    this.inputs.set("status", statusDropdown);
     const crRow = scrollableContent.createDiv({ cls: "setting-item" });
     crRow.createDiv({ cls: "setting-item-name", text: "CR Number" });
     const crControl = crRow.createDiv({ cls: "setting-item-control" });
@@ -36455,18 +36567,19 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
-        const select = control.createEl("select");
-        select.addClass("kb-input");
         const options = field.useValues === "priorities" ? this.plugin.config.priorities : this.plugin.config.statusConfig.statuses;
-        for (const o of options) {
-          const opt = select.createEl("option", { text: o });
-          opt.value = o;
-        }
-        select.value = (_b = options[0]) != null ? _b : "";
+        let initialValue = (_b = options[0]) != null ? _b : "";
         if (field.useValues === "priorities") {
-          select.value = this.plugin.config.defaultPriority;
+          initialValue = this.plugin.config.defaultPriority;
         }
-        this.inputs.set(field.key, select);
+        const dropdown = new Dropdown(
+          control,
+          options,
+          initialValue,
+          (val) => {
+          }
+        );
+        this.inputs.set(field.key, dropdown);
       } else if (field.type === "people") {
         const peopleInputContainer = control.createDiv({ cls: "kb-people-input-container" });
         const peopleInput = peopleInputContainer.createEl("input");
@@ -36696,7 +36809,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
         const crFile = await findCrFileByNumber(this.app, this.plugin.config, crNumInput);
         if (!crFile) {
           const confirmed = await new Promise((resolve) => {
-            const confirmModal = new import_obsidian7.Modal(this.app);
+            const confirmModal = new import_obsidian8.Modal(this.app);
             confirmModal.titleEl.setText("CR Not Found");
             confirmModal.contentEl.createEl("p", {
               text: `The CR number "${crNumInput}" was not found. Do you want to continue creating this task anyway?`
@@ -36724,7 +36837,7 @@ var TaskTemplateModal = class extends import_obsidian7.Modal {
     };
   }
 };
-var CrTemplateModal = class extends import_obsidian7.Modal {
+var CrTemplateModal = class extends import_obsidian8.Modal {
   constructor(app, fields, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();

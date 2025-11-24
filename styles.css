@@ -210,6 +210,80 @@
     height: 100%;
 }
 
+/* Material 3 Dropdown Styles */
+.kb-m3-dropdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 120px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    /* Expressive rounded corners */
+    background-color: var(--background-modifier-form-field);
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: var(--font-ui-small);
+    user-select: none;
+    position: relative;
+}
+
+.kb-m3-dropdown:hover {
+    border-color: var(--text-muted);
+    background-color: var(--background-modifier-hover);
+}
+
+.kb-m3-dropdown:active,
+.kb-m3-dropdown.is-active {
+    border-color: var(--interactive-accent);
+    border-width: 2px;
+    padding: 0 11px;
+    /* Adjust padding to prevent layout shift with thicker border */
+}
+
+.kb-m3-dropdown-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+}
+
+.kb-m3-dropdown-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.kb-m3-dropdown:hover .kb-m3-dropdown-icon {
+    color: var(--text-normal);
+}
+
+/* Grid specific dropdown overrides */
+.kb-grid-dropdown {
+    height: 32px;
+    min-width: 100px;
+    padding: 0 8px;
+    font-size: 13px;
+    border-color: transparent;
+    background-color: transparent;
+}
+
+.kb-grid-dropdown:hover {
+    border-color: var(--background-modifier-border);
+    background-color: var(--background-primary);
+}
+
+.kb-grid-dropdown.is-active {
+    border-color: var(--interactive-accent);
+    background-color: var(--background-primary);
+}
+
 /* --- COMPONENTS --- */
 /* _buttons.css */
 .kb-button {

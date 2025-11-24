@@ -1,4 +1,5 @@
 import { App, Menu, Modal, Notice, TFile, normalizePath } from 'obsidian';
+import { Dropdown } from '../Dropdown';
 import { PluginConfiguration, Subtask, TaskNoteMeta } from '../models';
 import { getAllExistingTags, updateTaskFrontmatter } from '../utils';
 import { CopyTaskModal } from './copyTaskModal';
@@ -27,6 +28,7 @@ export class BoardView {
     private columnRegistry = new Map<string, ColumnRegistryEntry>();
     private byStatus = new Map<string, TaskNoteMeta[]>();
     private boardEl?: HTMLElement;
+    private cardRegistry = new Map<string, { card: HTMLElement; status: string }>();
 
     constructor(
         app: App,
@@ -178,6 +180,9 @@ export class BoardView {
         if (!registry) return;
         registry.removeIndicator();
         registry.body.classList.remove('kb-dropzone-hover');
+        for (const [path, entry] of Array.from(this.cardRegistry.entries())) {
+            if (entry.status === status) this.cardRegistry.delete(path);
+        }
         const existingCards = Array.from(registry.body.querySelectorAll('.kb-card'));
         existingCards.forEach(card => card.remove());
 
@@ -190,6 +195,14 @@ export class BoardView {
 
     private createCardElement(body: HTMLElement, task: TaskNoteMeta, status: string) {
         const card = body.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
+        this.populateCardElement(card, task, status);
+        this.cardRegistry.set(task.filePath, { card, status });
+    }
+
+    private populateCardElement(card: HTMLElement, task: TaskNoteMeta, status: string) {
+        card.replaceChildren();
+        card.setAttribute('draggable', 'true');
+        card.className = 'kb-card';
         card.ondragstart = (e) => {
             e.stopPropagation();
             const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
@@ -197,6 +210,7 @@ export class BoardView {
             e.dataTransfer?.setData('text/plain', payload);
             if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
         };
+
         const cardHeader = card.createDiv({ cls: 'kb-card-header' });
         cardHeader.createDiv({ cls: 'kb-card-title', text: task.fileName });
         const menuBtn = cardHeader.createEl('button', { text: '⋯' });
@@ -277,20 +291,72 @@ export class BoardView {
             const e = ev as MouseEvent;
             menu.showAtPosition({ x: e.clientX, y: e.clientY });
         };
-        card.onclick = async () => {
-            const file = this.app.vault.getAbstractFileByPath(task.filePath);
-            if (!(file instanceof TFile)) return;
-            const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
-                try {
-                    await updateTaskFrontmatter(this.app, file, patch);
-                    new Notice('Task updated');
-                    await this.reloadCallback();
-                } catch (err) {
-                    new Notice('Failed to update task: ' + (err as Error).message);
-                }
-            });
-            modal.open();
+
+        card.onclick = () => {
+            this.openEditModal(task);
         };
+    }
+
+    private refreshTaskCard(task: TaskNoteMeta, statusOverride?: string) {
+        const entry = this.cardRegistry.get(task.filePath);
+        if (!entry) return;
+        if (statusOverride) entry.status = statusOverride;
+        this.populateCardElement(entry.card, task, entry.status);
+    }
+
+    private openEditModal(task: TaskNoteMeta) {
+        const modal = new EditTaskModal(this.app, this.settings, task, async (result) => {
+            await this.handleTaskEditResult(task, result);
+        });
+        modal.open();
+    }
+
+    private async handleTaskEditResult(task: TaskNoteMeta, result: { patch: Record<string, any>; subtasks: Subtask[] }) {
+        this.suppressReloads?.();
+        const previousStatus = this.normalizeStatus(String(task.frontmatter['status'] ?? ''));
+
+        for (const [key, value] of Object.entries(result.patch ?? {})) {
+            if (value === undefined) delete task.frontmatter[key];
+            else task.frontmatter[key] = value;
+        }
+
+        task.subtasks = Array.isArray(result.subtasks)
+            ? JSON.parse(JSON.stringify(result.subtasks))
+            : [];
+
+        const nextStatus = this.normalizeStatus(String(task.frontmatter['status'] ?? previousStatus));
+
+        if (previousStatus !== nextStatus) {
+            this.moveTaskToStatus(task, previousStatus, nextStatus);
+        } else {
+            this.refreshTaskCard(task, nextStatus);
+        }
+
+        new Notice('Task updated');
+    }
+
+    private moveTaskToStatus(task: TaskNoteMeta, fromStatus: string, toStatus: string) {
+        const fromList = this.byStatus.get(fromStatus);
+        if (fromList) {
+            const idx = fromList.indexOf(task);
+            if (idx !== -1) fromList.splice(idx, 1);
+        }
+
+        let targetList = this.byStatus.get(toStatus);
+        if (!targetList) {
+            targetList = [];
+            this.byStatus.set(toStatus, targetList);
+        }
+        if (!targetList.includes(task)) targetList.push(task);
+
+        this.renderColumnCards(fromStatus);
+        if (fromStatus !== toStatus) this.renderColumnCards(toStatus);
+    }
+
+    private normalizeStatus(status?: string): string {
+        const defaultStatus = this.settings.statusConfig.statuses[0];
+        if (!status) return defaultStatus;
+        return this.settings.statusConfig.statuses.includes(status) ? status : defaultStatus;
     }
 
     private applyLocalOrder(status: string, enforceStatus = false) {
@@ -309,6 +375,7 @@ export class BoardView {
         this.boardEl = board;
         this.columnRegistry.clear();
         this.byStatus = this.buildStatusBuckets();
+        this.cardRegistry.clear();
 
         // Auto-scroll state
         let scrollSpeed = 0;
@@ -716,10 +783,10 @@ export class BoardView {
 class EditTaskModal extends Modal {
     private settings: PluginConfiguration;
     private task: TaskNoteMeta;
-    private onSubmit: (patch: Record<string, any>) => void | Promise<void>;
+    private onSubmit?: (result: { patch: Record<string, any>; subtasks: Subtask[] }) => void | Promise<void>;
     private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-    constructor(app: App, settings: PluginConfiguration, task: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void | Promise<void>) {
+    constructor(app: App, settings: PluginConfiguration, task: TaskNoteMeta, onSubmit?: (result: { patch: Record<string, any>; subtasks: Subtask[] }) => void | Promise<void>) {
         super(app);
         this.settings = settings;
         this.task = task;
@@ -744,13 +811,13 @@ class EditTaskModal extends Modal {
         const statusRow = scrollableContent.createDiv({ cls: 'setting-item' });
         statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
         const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
-        const statusSelect = statusControl.createEl('select');
-        for (const s of this.settings.statusConfig.statuses) {
-            const opt = statusSelect.createEl('option', { text: s });
-            opt.value = s;
-        }
-        statusSelect.value = String(fm['status'] ?? this.settings.statusConfig.statuses[0] ?? '');
-        this.inputs.set('status', statusSelect);
+        const statusDropdown = new Dropdown(
+            statusControl,
+            this.settings.statusConfig.statuses,
+            String(fm['status'] ?? this.settings.statusConfig.statuses[0] ?? ''),
+            (val) => { /* no-op, value read on save */ }
+        );
+        this.inputs.set('status', statusDropdown as any);
 
         // CR Number
         const crRow = scrollableContent.createDiv({ cls: 'setting-item' });
@@ -792,16 +859,17 @@ class EditTaskModal extends Modal {
             const control = row.createDiv({ cls: 'setting-item-control' });
 
             if (field.type === 'status') {
-                const select = control.createEl('select');
-                select.addClass('kb-input');
                 const options = field.useValues === 'priorities'
                     ? this.settings.priorities
                     : this.settings.statusConfig.statuses;
-                for (const o of options) {
-                    const opt = select.createEl('option', { text: o }); opt.value = o;
-                }
-                select.value = String(fm[field.key] ?? options[0] ?? '');
-                this.inputs.set(field.key, select);
+
+                const dropdown = new Dropdown(
+                    control,
+                    options,
+                    String(fm[field.key] ?? options[0] ?? ''),
+                    (val) => { /* no-op */ }
+                );
+                this.inputs.set(field.key, dropdown as any);
             } else if (field.type === 'people') {
                 const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
                 const peopleInput = peopleInputContainer.createEl('input');
@@ -995,6 +1063,11 @@ class EditTaskModal extends Modal {
                 }
                 await this.app.vault.modify(file, newLines.join('\n'));
             }
+
+            await this.onSubmit?.({
+                patch,
+                subtasks: JSON.parse(JSON.stringify(subtasks))
+            });
 
             this.close();
         };

@@ -1,4 +1,5 @@
 import { App, Modal, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { Dropdown } from './Dropdown';
 import { PluginConfiguration, TaskFieldDefinition } from './models';
 import { KanbanSettingTab } from './settings';
 import { ensureFolder, buildFrontmatterYAML, generateNextCrNumber, findCrFileByNumber, buildWikiLink, updateTaskFrontmatter, getAllExistingTags } from './utils';
@@ -463,13 +464,13 @@ class TaskTemplateModal extends Modal {
     const statusRow = scrollableContent.createDiv({ cls: 'setting-item' });
     statusRow.createDiv({ cls: 'setting-item-name', text: 'Status' });
     const statusControl = statusRow.createDiv({ cls: 'setting-item-control' });
-    const statusSelect = statusControl.createEl('select');
-    for (const s of this.plugin.config.statusConfig.statuses) {
-      const opt = statusSelect.createEl('option', { text: s });
-      opt.value = s;
-    }
-    statusSelect.value = this.plugin.config.statusConfig.statuses[0] ?? '';
-    this.inputs.set('status', statusSelect);
+    const statusDropdown = new Dropdown(
+      statusControl,
+      this.plugin.config.statusConfig.statuses,
+      this.plugin.config.statusConfig.statuses[0] ?? '',
+      (val) => { /* no-op */ }
+    );
+    this.inputs.set('status', statusDropdown as any);
 
     // CR Number (required to derive the title/link)
     const crRow = scrollableContent.createDiv({ cls: 'setting-item' });
@@ -509,20 +510,22 @@ class TaskTemplateModal extends Modal {
       const control = row.createDiv({ cls: 'setting-item-control' });
       // Render selects for true status fields or for the special 'priority' key
       if (field.type === 'status') {
-        const select = control.createEl('select');
-        select.addClass('kb-input');
         const options = field.useValues === 'priorities'
           ? this.plugin.config.priorities
           : this.plugin.config.statusConfig.statuses;
-        for (const o of options) {
-          const opt = select.createEl('option', { text: o });
-          opt.value = o;
-        }
-        select.value = options[0] ?? '';
+
+        let initialValue = options[0] ?? '';
         if (field.useValues === 'priorities') {
-          select.value = this.plugin.config.defaultPriority;
+          initialValue = this.plugin.config.defaultPriority;
         }
-        this.inputs.set(field.key, select);
+
+        const dropdown = new Dropdown(
+          control,
+          options,
+          initialValue,
+          (val) => { /* no-op */ }
+        );
+        this.inputs.set(field.key, dropdown as any);
       } else if (field.type === 'people') {
         const peopleInputContainer = control.createDiv({ cls: 'kb-people-input-container' });
         const peopleInput = peopleInputContainer.createEl('input');

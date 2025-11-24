@@ -23,7 +23,7 @@
   },
   "gridConfig": {
     "columnWidths": {
-      "status": 124,
+      "status": 200,
       "priority": 120,
       "startDate": 152.20833587646484,
       "endDate": 154.70833587646484,
@@ -32,8 +32,8 @@
       "archived": 91.5625,
       "notes": 507.5729217529297,
       "title": 361.16668701171875,
-      "designer": 183,
-      "developer": 197,
+      "designer": 224,
+      "developer": 228,
       "service": 159,
       "tags": 164
     },
