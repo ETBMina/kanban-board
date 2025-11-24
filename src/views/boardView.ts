@@ -3,6 +3,14 @@ import { PluginConfiguration, Subtask, TaskNoteMeta } from '../models';
 import { getAllExistingTags, updateTaskFrontmatter } from '../utils';
 import { CopyTaskModal } from './copyTaskModal';
 
+type ColumnRegistryEntry = {
+    column: HTMLElement;
+    body: HTMLElement;
+    countEl: HTMLElement;
+    dropIndicator: HTMLElement;
+    removeIndicator: () => void;
+};
+
 /**
  * BoardView - Renders tasks in a Kanban board format with drag-and-drop
  */
@@ -15,6 +23,10 @@ export class BoardView {
     private persistSettings?: () => void | Promise<void>;
     private promptText: (title: string, placeholder?: string, initial?: string) => Promise<string | undefined>;
     private reloadCallback: () => Promise<void>;
+    private suppressReloads?: (duration?: number) => void;
+    private columnRegistry = new Map<string, ColumnRegistryEntry>();
+    private byStatus = new Map<string, TaskNoteMeta[]>();
+    private boardEl?: HTMLElement;
 
     constructor(
         app: App,
@@ -24,7 +36,8 @@ export class BoardView {
         filterState: Record<string, any>,
         promptText: (title: string, placeholder?: string, initial?: string) => Promise<string | undefined>,
         reloadCallback: () => Promise<void>,
-        persistSettings?: () => void | Promise<void>
+        persistSettings?: () => void | Promise<void>,
+        suppressReloads?: (duration?: number) => void
     ) {
         this.app = app;
         this.settings = settings;
@@ -34,6 +47,7 @@ export class BoardView {
         this.promptText = promptText;
         this.reloadCallback = reloadCallback;
         this.persistSettings = persistSettings;
+        this.suppressReloads = suppressReloads;
     }
 
     private getFilteredTasks(): TaskNoteMeta[] {
@@ -135,10 +149,166 @@ export class BoardView {
         return true;
     }
 
+    private buildStatusBuckets(): Map<string, TaskNoteMeta[]> {
+        const buckets = new Map<string, TaskNoteMeta[]>();
+        for (const status of this.settings.statusConfig.statuses) buckets.set(status, []);
+        const defaultStatus = this.settings.statusConfig.statuses[0];
+
+        for (const task of this.getFilteredTasks()) {
+            const status = (task.frontmatter['status'] ?? defaultStatus) as string;
+            (buckets.get(status) ?? buckets.get(defaultStatus)!)!.push(task);
+        }
+
+        for (const [, arr] of Array.from(buckets.entries())) {
+            arr.sort((a, b) => {
+                const oa = Number(a.frontmatter['order'] ?? NaN);
+                const ob = Number(b.frontmatter['order'] ?? NaN);
+                if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
+                const ca = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
+                const cb = b.frontmatter['createdAt'] ? new Date(String(b.frontmatter['createdAt'])).getTime() : 0;
+                return ca - cb;
+            });
+        }
+
+        return buckets;
+    }
+
+    private renderColumnCards(status: string) {
+        const registry = this.columnRegistry.get(status);
+        if (!registry) return;
+        registry.removeIndicator();
+        registry.body.classList.remove('kb-dropzone-hover');
+        const existingCards = Array.from(registry.body.querySelectorAll('.kb-card'));
+        existingCards.forEach(card => card.remove());
+
+        const tasks = (this.byStatus.get(status) ?? []).filter(t => !Boolean(t.frontmatter['archived']));
+        registry.countEl.setText(String(tasks.length));
+        for (const task of tasks) {
+            this.createCardElement(registry.body, task, status);
+        }
+    }
+
+    private createCardElement(body: HTMLElement, task: TaskNoteMeta, status: string) {
+        const card = body.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
+        card.ondragstart = (e) => {
+            e.stopPropagation();
+            const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
+            e.dataTransfer?.setData('application/x-kb-card', payload);
+            e.dataTransfer?.setData('text/plain', payload);
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        };
+        const cardHeader = card.createDiv({ cls: 'kb-card-header' });
+        cardHeader.createDiv({ cls: 'kb-card-title', text: task.fileName });
+        const menuBtn = cardHeader.createEl('button', { text: '⋯' });
+        menuBtn.classList.add('kb-ellipsis', 'kb-card-menu-btn');
+
+        const meta = card.createDiv();
+        meta.createSpan({ cls: 'kb-chip', text: task.frontmatter['priority'] ?? '' });
+
+        const subtasksContainer = card.createDiv({ cls: 'kb-subtasks' });
+        if (task.subtasks && task.subtasks.length > 0) {
+            const completedCount = task.subtasks.filter(st => st.completed).length;
+            const totalCount = task.subtasks.length;
+            const subtaskSummary = subtasksContainer.createDiv({ cls: 'kb-subtask-summary' });
+            subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
+
+            for (const subtask of task.subtasks) {
+                if (subtask.completed) continue;
+                const subtaskEl = subtasksContainer.createDiv({ cls: 'kb-subtask' });
+                const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
+                checkbox.checked = subtask.completed;
+                checkbox.onchange = async (e) => {
+                    e.stopPropagation();
+                    subtask.completed = checkbox.checked;
+                    const file = this.app.vault.getAbstractFileByPath(task.filePath);
+                    if (file instanceof TFile) {
+                        const content = await this.app.vault.read(file);
+                        const lines = content.split('\n');
+                        const lineIndex = lines.findIndex(line => {
+                            const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+                            return match && match[2].trim() === subtask.text;
+                        });
+                        if (lineIndex !== -1) {
+                            lines[lineIndex] = ` - [${subtask.completed ? 'x' : ' '}] ${subtask.text}`;
+                            await this.app.vault.modify(file, lines.join('\n'));
+                            this.reloadCallback();
+                        }
+                    }
+                };
+                subtaskEl.createSpan({ text: subtask.text });
+            }
+        }
+
+        const footer = card.createDiv({ cls: 'kb-card-footer' });
+        const createdAt = (task.frontmatter['createdAt'] || '') as string;
+        if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
+
+        menuBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            const menu = new Menu();
+            menu.addItem((i) => i.setTitle('Open').onClick(async () => {
+                const file = this.app.vault.getAbstractFileByPath(task.filePath);
+                if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+            }));
+            menu.addItem((i) => i.setTitle('Copy').onClick(async () => {
+                const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
+                    await this.reloadCallback();
+                });
+                modal.open();
+            }));
+            menu.addItem((i) => i.setTitle('Archive').onClick(async () => {
+                try {
+                    await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath) as TFile, { archived: true });
+                    new Notice('Task archived');
+                    await this.reloadCallback();
+                } catch (e) {
+                    new Notice('Failed to archive task');
+                }
+            }));
+            menu.addItem((i) => i.setTitle('Delete').onClick(async () => {
+                try {
+                    await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath) as TFile);
+                    new Notice('Task deleted');
+                    await this.reloadCallback();
+                } catch (e) {
+                    new Notice('Failed to delete task');
+                }
+            }));
+            const e = ev as MouseEvent;
+            menu.showAtPosition({ x: e.clientX, y: e.clientY });
+        };
+        card.onclick = async () => {
+            const file = this.app.vault.getAbstractFileByPath(task.filePath);
+            if (!(file instanceof TFile)) return;
+            const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
+                try {
+                    await updateTaskFrontmatter(this.app, file, patch);
+                    new Notice('Task updated');
+                    await this.reloadCallback();
+                } catch (err) {
+                    new Notice('Failed to update task: ' + (err as Error).message);
+                }
+            });
+            modal.open();
+        };
+    }
+
+    private applyLocalOrder(status: string, enforceStatus = false) {
+        const tasks = this.byStatus.get(status);
+        if (!tasks) return;
+        for (let i = 0; i < tasks.length; i++) {
+            tasks[i].frontmatter['order'] = i;
+            if (enforceStatus) tasks[i].frontmatter['status'] = status;
+        }
+    }
+
     render(container: HTMLElement) {
         const existing = container.querySelector('.kb-kanban');
         if (existing) existing.remove();
         const board = container.createDiv({ cls: 'kb-kanban kb-kanban-horizontal', attr: { draggable: 'false' } });
+        this.boardEl = board;
+        this.columnRegistry.clear();
+        this.byStatus = this.buildStatusBuckets();
 
         // Auto-scroll state
         let scrollSpeed = 0;
@@ -198,24 +368,6 @@ export class BoardView {
         };
         board.ondrop = () => cleanupScroll();
 
-        const byStatus = new Map<string, TaskNoteMeta[]>();
-        for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
-        for (const t of this.getFilteredTasks()) {
-            const status = (t.frontmatter['status'] ?? this.settings.statusConfig.statuses[0]) as string;
-            (byStatus.get(status) ?? byStatus.get(this.settings.statusConfig.statuses[0])!)!.push(t);
-        }
-        // Sort tasks in each column by explicit 'order' frontmatter if present, falling back to createdAt
-        for (const [k, arr] of Array.from(byStatus.entries())) {
-            arr.sort((a, b) => {
-                const oa = Number(a.frontmatter['order'] ?? NaN);
-                const ob = Number(b.frontmatter['order'] ?? NaN);
-                if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
-                const ca = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
-                const cb = b.frontmatter['createdAt'] ? new Date(String(b.frontmatter['createdAt'])).getTime() : 0;
-                return ca - cb;
-            });
-        }
-
         const handleColumnDrag = {
             dragIndex: -1,
             onDragStart: (idx: number, e: DragEvent) => {
@@ -268,7 +420,7 @@ export class BoardView {
             header.draggable = true;
             header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
             header.createSpan({ text: status, cls: 'kb-column-title' });
-            header.createSpan({ text: String(byStatus.get(status)?.length ?? 0), cls: 'kb-column-count' });
+            const countEl = header.createSpan({ text: String(this.byStatus.get(status)?.length ?? 0), cls: 'kb-column-count' });
             const menuBtn = header.createEl('button', { text: '⋯' });
             menuBtn.classList.add('kb-ellipsis');
             menuBtn.onclick = (ev) => {
@@ -280,7 +432,7 @@ export class BoardView {
                     this.settings.statusConfig.statuses[idx] = newName;
                     await this.persistSettings?.();
                     // Update all tasks currently in this status
-                    const tasksInCol = byStatus.get(status) ?? [];
+                    const tasksInCol = this.byStatus.get(status) ?? [];
                     const updates: Promise<void>[] = [];
                     for (const t of tasksInCol) {
                         const f = this.app.vault.getAbstractFileByPath(t.filePath);
@@ -373,11 +525,11 @@ export class BoardView {
 
                 try {
                     // Build current ordered list of tasks for this column
-                    const tasksInCol = byStatus.get(status) ?? [];
+                    const tasksInCol = this.byStatus.get(status) ?? [];
 
                     // Determine source column list as well
                     const fromStatus = payload.fromStatus ?? String(this.app.metadataCache.getFileCache(file)?.frontmatter?.['status'] ?? '');
-                    const tasksInFromCol = byStatus.get(fromStatus) ?? [];
+                    const tasksInFromCol = this.byStatus.get(fromStatus) ?? [];
 
                     // Compute insertion index based on drop Y position relative to children
                     const children = Array.from(body.querySelectorAll('.kb-card')) as HTMLElement[];
@@ -456,8 +608,8 @@ export class BoardView {
                     }
 
                     // Preserve horizontal scroll position while we update
-                    const scroller = board;
-                    const scrollLeft = scroller.scrollLeft;
+                    const scroller = this.boardEl;
+                    const scrollLeft = scroller?.scrollLeft ?? 0;
 
                     // Remove from source list if present
                     if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
@@ -485,6 +637,7 @@ export class BoardView {
 
                     // Now write new 'order' for every task in this column and update status for dragged task
                     const updates: Promise<void>[] = [];
+                    const today = new Date().toISOString().slice(0, 10);
                     for (let i = 0; i < tasksInCol.length; i++) {
                         const t = tasksInCol[i];
                         const f = this.app.vault.getAbstractFileByPath(t.filePath);
@@ -494,8 +647,8 @@ export class BoardView {
                         if (t.filePath === payload.path) {
                             if (String(t.frontmatter['status'] ?? '') !== status) {
                                 patch['status'] = status;
-                                if (isCompleted) patch['endDate'] = new Date().toISOString().slice(0, 10);
-                                if (isInProgress && !t.frontmatter['startDate']) patch['startDate'] = new Date().toISOString().slice(0, 10);
+                                if (isCompleted) patch['endDate'] = today;
+                                if (isInProgress && !t.frontmatter['startDate']) patch['startDate'] = today;
                             }
                         }
                         updates.push(updateTaskFrontmatter(this.app, f, patch));
@@ -513,137 +666,36 @@ export class BoardView {
                     }
 
                     try {
+                        this.suppressReloads?.();
                         if (updates.length > 0) {
                             await Promise.all(updates);
-                            new Notice('Moved');
+                            if (draggedTask) {
+                                draggedTask.frontmatter['status'] = status;
+                                if (isCompleted) draggedTask.frontmatter['endDate'] = today;
+                                if (isInProgress && !draggedTask.frontmatter['startDate']) draggedTask.frontmatter['startDate'] = today;
+                            }
+                            this.applyLocalOrder(status, true);
+                            if (fromStatus !== status) this.applyLocalOrder(fromStatus);
                             setHighlight(false);
-                            await this.reloadCallback();
-                            // Restore scroll after reload
-                            const newBoard = container.querySelector('.kb-kanban');
-                            if (newBoard) newBoard.scrollLeft = scrollLeft;
+                            this.renderColumnCards(status);
+                            if (fromStatus !== status) this.renderColumnCards(fromStatus);
+                            new Notice('Moved');
+                            if (scroller) scroller.scrollLeft = scrollLeft;
                         } else {
                             setHighlight(false);
                         }
                     } catch (err) {
                         new Notice('Failed to move: ' + (err as Error).message);
+                        await this.reloadCallback();
                     }
                 } catch (err) {
                     new Notice('Failed to move: ' + (err as Error).message);
+                    await this.reloadCallback();
                 }
             };
 
-            for (const task of byStatus.get(status) ?? []) {
-                // Skip archived tasks in kanban view
-                if (Boolean(task.frontmatter['archived'])) continue;
-                const card = body.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
-                card.ondragstart = (e) => {
-                    e.stopPropagation();
-                    const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
-                    // set both custom mime and a plain fallback
-                    e.dataTransfer?.setData('application/x-kb-card', payload);
-                    e.dataTransfer?.setData('text/plain', payload);
-                    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-                };
-                // Card header: title and menu button positioned top-right
-                const cardHeader = card.createDiv({ cls: 'kb-card-header' });
-                cardHeader.createDiv({ cls: 'kb-card-title', text: task.fileName });
-                const menuBtn = cardHeader.createEl('button', { text: '⋯' });
-                menuBtn.classList.add('kb-ellipsis', 'kb-card-menu-btn');
-
-                const meta = card.createDiv();
-                meta.createSpan({ cls: 'kb-chip', text: task.frontmatter['priority'] ?? '' });
-
-                const subtasksContainer = card.createDiv({ cls: 'kb-subtasks' });
-                if (task.subtasks && task.subtasks.length > 0) {
-                    const completedCount = task.subtasks.filter(st => st.completed).length;
-                    const totalCount = task.subtasks.length;
-                    const subtaskSummary = subtasksContainer.createDiv({ cls: 'kb-subtask-summary' });
-                    subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
-
-                    for (const subtask of task.subtasks) {
-                        if (subtask.completed) continue;
-                        const subtaskEl = subtasksContainer.createDiv({ cls: 'kb-subtask' });
-                        const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
-                        checkbox.checked = subtask.completed;
-                        checkbox.onchange = async (e) => {
-                            e.stopPropagation();
-                            subtask.completed = checkbox.checked;
-                            const file = this.app.vault.getAbstractFileByPath(task.filePath);
-                            if (file instanceof TFile) {
-                                const content = await this.app.vault.read(file);
-                                const lines = content.split('\n');
-                                const lineIndex = lines.findIndex(line => {
-                                    const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
-                                    return match && match[2].trim() === subtask.text;
-                                });
-                                if (lineIndex !== -1) {
-                                    lines[lineIndex] = ` - [${subtask.completed ? 'x' : ' '}] ${subtask.text}`;
-                                    await this.app.vault.modify(file, lines.join('\n'));
-                                    this.reloadCallback();
-                                }
-                            }
-                        };
-                        subtaskEl.createSpan({ text: subtask.text });
-                    }
-                }
-
-                const footer = card.createDiv({ cls: 'kb-card-footer' });
-                const createdAt = (task.frontmatter['createdAt'] || '') as string;
-                if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
-
-                // Three dots menu: Open is first option
-                menuBtn.onclick = (ev) => {
-                    // Prevent card click from firing when clicking the menu
-                    ev.stopPropagation();
-                    const menu = new Menu();
-                    menu.addItem((i) => i.setTitle('Open').onClick(async () => {
-                        const file = this.app.vault.getAbstractFileByPath(task.filePath);
-                        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-                    }));
-                    menu.addItem((i) => i.setTitle('Copy').onClick(async () => {
-                        const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
-                            await this.reloadCallback();
-                        });
-                        modal.open();
-                    }));
-                    menu.addItem((i) => i.setTitle('Archive').onClick(async () => {
-                        try {
-                            await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath) as TFile, { archived: true });
-                            new Notice('Task archived');
-                            await this.reloadCallback();
-                        } catch (e) {
-                            new Notice('Failed to archive task');
-                        }
-                    }));
-                    menu.addItem((i) => i.setTitle('Delete').onClick(async () => {
-                        try {
-                            await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath) as TFile);
-                            new Notice('Task deleted');
-                            await this.reloadCallback();
-                        } catch (e) {
-                            new Notice('Failed to delete task');
-                        }
-                    }));
-                    const e = ev as MouseEvent;
-                    menu.showAtPosition({ x: e.clientX, y: e.clientY });
-                };
-                // Click anywhere on the card (except menu) to open edit modal
-                card.onclick = async (e) => {
-                    // Open edit modal populated with current frontmatter values
-                    const file = this.app.vault.getAbstractFileByPath(task.filePath);
-                    if (!(file instanceof TFile)) return;
-                    const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
-                        try {
-                            await updateTaskFrontmatter(this.app, file, patch);
-                            new Notice('Task updated');
-                            await this.reloadCallback();
-                        } catch (err) {
-                            new Notice('Failed to update task: ' + (err as Error).message);
-                        }
-                    });
-                    modal.open();
-                };
-            }
+            this.columnRegistry.set(status, { column: col, body, countEl, dropIndicator, removeIndicator });
+            this.renderColumnCards(status);
         });
 
         // Add column at far right

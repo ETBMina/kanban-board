@@ -34610,10 +34610,12 @@ var CopyTaskModal = class extends import_obsidian4.Modal {
 
 // src/views/boardView.ts
 var BoardView = class {
-  constructor(app, settings, tasks, filterQuery, filterState, promptText, reloadCallback, persistSettings) {
+  constructor(app, settings, tasks, filterQuery, filterState, promptText, reloadCallback, persistSettings, suppressReloads) {
     this.tasks = [];
     this.filterQuery = "";
     this.filterState = {};
+    this.columnRegistry = /* @__PURE__ */ new Map();
+    this.byStatus = /* @__PURE__ */ new Map();
     this.app = app;
     this.settings = settings;
     this.tasks = tasks;
@@ -34622,6 +34624,7 @@ var BoardView = class {
     this.promptText = promptText;
     this.reloadCallback = reloadCallback;
     this.persistSettings = persistSettings;
+    this.suppressReloads = suppressReloads;
   }
   getFilteredTasks() {
     const taskFolder = (0, import_obsidian5.normalizePath)(this.settings.paths.taskFolder);
@@ -34706,11 +34709,158 @@ var BoardView = class {
     }
     return true;
   }
-  render(container) {
+  buildStatusBuckets() {
     var _a, _b;
+    const buckets = /* @__PURE__ */ new Map();
+    for (const status of this.settings.statusConfig.statuses) buckets.set(status, []);
+    const defaultStatus = this.settings.statusConfig.statuses[0];
+    for (const task of this.getFilteredTasks()) {
+      const status = (_a = task.frontmatter["status"]) != null ? _a : defaultStatus;
+      ((_b = buckets.get(status)) != null ? _b : buckets.get(defaultStatus)).push(task);
+    }
+    for (const [, arr] of Array.from(buckets.entries())) {
+      arr.sort((a, b) => {
+        var _a2, _b2;
+        const oa = Number((_a2 = a.frontmatter["order"]) != null ? _a2 : NaN);
+        const ob = Number((_b2 = b.frontmatter["order"]) != null ? _b2 : NaN);
+        if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
+        const ca = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
+        const cb = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
+        return ca - cb;
+      });
+    }
+    return buckets;
+  }
+  renderColumnCards(status) {
+    var _a;
+    const registry = this.columnRegistry.get(status);
+    if (!registry) return;
+    registry.removeIndicator();
+    registry.body.classList.remove("kb-dropzone-hover");
+    const existingCards = Array.from(registry.body.querySelectorAll(".kb-card"));
+    existingCards.forEach((card) => card.remove());
+    const tasks = ((_a = this.byStatus.get(status)) != null ? _a : []).filter((t) => !Boolean(t.frontmatter["archived"]));
+    registry.countEl.setText(String(tasks.length));
+    for (const task of tasks) {
+      this.createCardElement(registry.body, task, status);
+    }
+  }
+  createCardElement(body, task, status) {
+    var _a;
+    const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
+    card.ondragstart = (e) => {
+      var _a2, _b;
+      e.stopPropagation();
+      const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
+      (_a2 = e.dataTransfer) == null ? void 0 : _a2.setData("application/x-kb-card", payload);
+      (_b = e.dataTransfer) == null ? void 0 : _b.setData("text/plain", payload);
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    };
+    const cardHeader = card.createDiv({ cls: "kb-card-header" });
+    cardHeader.createDiv({ cls: "kb-card-title", text: task.fileName });
+    const menuBtn = cardHeader.createEl("button", { text: "\u22EF" });
+    menuBtn.classList.add("kb-ellipsis", "kb-card-menu-btn");
+    const meta = card.createDiv();
+    meta.createSpan({ cls: "kb-chip", text: (_a = task.frontmatter["priority"]) != null ? _a : "" });
+    const subtasksContainer = card.createDiv({ cls: "kb-subtasks" });
+    if (task.subtasks && task.subtasks.length > 0) {
+      const completedCount = task.subtasks.filter((st) => st.completed).length;
+      const totalCount = task.subtasks.length;
+      const subtaskSummary = subtasksContainer.createDiv({ cls: "kb-subtask-summary" });
+      subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
+      for (const subtask of task.subtasks) {
+        if (subtask.completed) continue;
+        const subtaskEl = subtasksContainer.createDiv({ cls: "kb-subtask" });
+        const checkbox = subtaskEl.createEl("input", { type: "checkbox" });
+        checkbox.checked = subtask.completed;
+        checkbox.onchange = async (e) => {
+          e.stopPropagation();
+          subtask.completed = checkbox.checked;
+          const file = this.app.vault.getAbstractFileByPath(task.filePath);
+          if (file instanceof import_obsidian5.TFile) {
+            const content = await this.app.vault.read(file);
+            const lines = content.split("\n");
+            const lineIndex = lines.findIndex((line) => {
+              const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+              return match && match[2].trim() === subtask.text;
+            });
+            if (lineIndex !== -1) {
+              lines[lineIndex] = ` - [${subtask.completed ? "x" : " "}] ${subtask.text}`;
+              await this.app.vault.modify(file, lines.join("\n"));
+              this.reloadCallback();
+            }
+          }
+        };
+        subtaskEl.createSpan({ text: subtask.text });
+      }
+    }
+    const footer = card.createDiv({ cls: "kb-card-footer" });
+    const createdAt = task.frontmatter["createdAt"] || "";
+    if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
+    menuBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      const menu = new import_obsidian5.Menu();
+      menu.addItem((i) => i.setTitle("Open").onClick(async () => {
+        const file = this.app.vault.getAbstractFileByPath(task.filePath);
+        if (file instanceof import_obsidian5.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      }));
+      menu.addItem((i) => i.setTitle("Copy").onClick(async () => {
+        const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
+          await this.reloadCallback();
+        });
+        modal.open();
+      }));
+      menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
+        try {
+          await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
+          new import_obsidian5.Notice("Task archived");
+          await this.reloadCallback();
+        } catch (e2) {
+          new import_obsidian5.Notice("Failed to archive task");
+        }
+      }));
+      menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
+        try {
+          await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath));
+          new import_obsidian5.Notice("Task deleted");
+          await this.reloadCallback();
+        } catch (e2) {
+          new import_obsidian5.Notice("Failed to delete task");
+        }
+      }));
+      const e = ev;
+      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    };
+    card.onclick = async () => {
+      const file = this.app.vault.getAbstractFileByPath(task.filePath);
+      if (!(file instanceof import_obsidian5.TFile)) return;
+      const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
+        try {
+          await updateTaskFrontmatter(this.app, file, patch);
+          new import_obsidian5.Notice("Task updated");
+          await this.reloadCallback();
+        } catch (err) {
+          new import_obsidian5.Notice("Failed to update task: " + err.message);
+        }
+      });
+      modal.open();
+    };
+  }
+  applyLocalOrder(status, enforceStatus = false) {
+    const tasks = this.byStatus.get(status);
+    if (!tasks) return;
+    for (let i = 0; i < tasks.length; i++) {
+      tasks[i].frontmatter["order"] = i;
+      if (enforceStatus) tasks[i].frontmatter["status"] = status;
+    }
+  }
+  render(container) {
     const existing = container.querySelector(".kb-kanban");
     if (existing) existing.remove();
     const board = container.createDiv({ cls: "kb-kanban kb-kanban-horizontal", attr: { draggable: "false" } });
+    this.boardEl = board;
+    this.columnRegistry.clear();
+    this.byStatus = this.buildStatusBuckets();
     let scrollSpeed = 0;
     let lastDragTime = 0;
     let scrollFrame = null;
@@ -34757,49 +34907,32 @@ var BoardView = class {
       }
     };
     board.ondrop = () => cleanupScroll();
-    const byStatus = /* @__PURE__ */ new Map();
-    for (const status of this.settings.statusConfig.statuses) byStatus.set(status, []);
-    for (const t of this.getFilteredTasks()) {
-      const status = (_a = t.frontmatter["status"]) != null ? _a : this.settings.statusConfig.statuses[0];
-      ((_b = byStatus.get(status)) != null ? _b : byStatus.get(this.settings.statusConfig.statuses[0])).push(t);
-    }
-    for (const [k, arr] of Array.from(byStatus.entries())) {
-      arr.sort((a, b) => {
-        var _a2, _b2;
-        const oa = Number((_a2 = a.frontmatter["order"]) != null ? _a2 : NaN);
-        const ob = Number((_b2 = b.frontmatter["order"]) != null ? _b2 : NaN);
-        if (!Number.isNaN(oa) && !Number.isNaN(ob) && oa !== ob) return oa - ob;
-        const ca = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
-        const cb = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
-        return ca - cb;
-      });
-    }
     const handleColumnDrag = {
       dragIndex: -1,
       onDragStart: (idx, e) => {
-        var _a2;
-        (_a2 = e.dataTransfer) == null ? void 0 : _a2.setData("application/x-kb-col", String(idx));
+        var _a;
+        (_a = e.dataTransfer) == null ? void 0 : _a.setData("application/x-kb-col", String(idx));
         if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
         handleColumnDrag.dragIndex = idx;
       },
       onDropOnIndex: async (idx) => {
-        var _a2;
+        var _a;
         const from = handleColumnDrag.dragIndex;
         const to = idx;
         if (from < 0 || to < 0 || from === to) return;
         const arr = this.settings.statusConfig.statuses;
         const [moved] = arr.splice(from, 1);
         arr.splice(to, 0, moved);
-        await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
+        await ((_a = this.persistSettings) == null ? void 0 : _a.call(this));
         this.render(container);
       }
     };
     this.settings.statusConfig.statuses.forEach((status, idx) => {
-      var _a2, _b2, _c, _d;
+      var _a, _b;
       const col = board.createDiv({ cls: "kb-column", attr: { "data-col-index": String(idx) } });
       col.ondragover = (e) => {
-        var _a3;
-        const isColDrag = (_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col");
+        var _a2;
+        const isColDrag = (_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col");
         if (isColDrag) {
           e.preventDefault();
           e.currentTarget.classList.add("kb-col-hover");
@@ -34814,32 +34947,32 @@ var BoardView = class {
         body.classList.remove("kb-dropzone-hover");
       };
       col.ondrop = async (e) => {
-        var _a3, _b3;
-        const isColDrag = (_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col");
+        var _a2, _b2;
+        const isColDrag = (_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col");
         if (isColDrag) {
           e.preventDefault();
           e.currentTarget.classList.remove("kb-col-hover");
           await handleColumnDrag.onDropOnIndex(idx);
         } else {
-          await ((_b3 = body.ondrop) == null ? void 0 : _b3.call(body, e));
+          await ((_b2 = body.ondrop) == null ? void 0 : _b2.call(body, e));
         }
       };
       const header = col.createDiv({ cls: "kb-column-header" });
       header.draggable = true;
       header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
       header.createSpan({ text: status, cls: "kb-column-title" });
-      header.createSpan({ text: String((_b2 = (_a2 = byStatus.get(status)) == null ? void 0 : _a2.length) != null ? _b2 : 0), cls: "kb-column-count" });
+      const countEl = header.createSpan({ text: String((_b = (_a = this.byStatus.get(status)) == null ? void 0 : _a.length) != null ? _b : 0), cls: "kb-column-count" });
       const menuBtn = header.createEl("button", { text: "\u22EF" });
       menuBtn.classList.add("kb-ellipsis");
       menuBtn.onclick = (ev) => {
         const menu = new import_obsidian5.Menu();
         menu.addItem((i) => i.setTitle("Rename").onClick(async () => {
-          var _a3, _b3, _c2;
-          const newName = (_a3 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a3.trim();
+          var _a2, _b2, _c;
+          const newName = (_a2 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a2.trim();
           if (!newName || newName === status) return;
           this.settings.statusConfig.statuses[idx] = newName;
-          await ((_b3 = this.persistSettings) == null ? void 0 : _b3.call(this));
-          const tasksInCol = (_c2 = byStatus.get(status)) != null ? _c2 : [];
+          await ((_b2 = this.persistSettings) == null ? void 0 : _b2.call(this));
+          const tasksInCol = (_c = this.byStatus.get(status)) != null ? _c : [];
           const updates = [];
           for (const t of tasksInCol) {
             const f = this.app.vault.getAbstractFileByPath(t.filePath);
@@ -34855,25 +34988,25 @@ var BoardView = class {
           await this.reloadCallback();
         }));
         menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
-          var _a3;
+          var _a2;
           this.settings.statusConfig.statuses.splice(idx, 1);
-          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
           this.render(container);
         }));
         menu.addItem((i) => i.setTitle("Move right").onClick(async () => {
-          var _a3;
+          var _a2;
           const arr = this.settings.statusConfig.statuses;
           if (idx >= arr.length - 1) return;
           [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
-          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
           this.render(container);
         }));
         menu.addItem((i) => i.setTitle("Move left").onClick(async () => {
-          var _a3;
+          var _a2;
           const arr = this.settings.statusConfig.statuses;
           if (idx === 0) return;
           [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-          await ((_a3 = this.persistSettings) == null ? void 0 : _a3.call(this));
+          await ((_a2 = this.persistSettings) == null ? void 0 : _a2.call(this));
           this.render(container);
         }));
         const e = ev;
@@ -34894,8 +35027,8 @@ var BoardView = class {
         if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
       };
       const updateIndicatorPosition = (e) => {
-        var _a3;
-        if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
+        var _a2;
+        if ((_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col")) return;
         allowDrop(e);
         const children = Array.from(body.querySelectorAll(".kb-card"));
         let insertIndex = children.length;
@@ -34919,23 +35052,23 @@ var BoardView = class {
         setHighlight(true);
       };
       body.ondragenter = (e) => {
-        var _a3;
-        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
+        var _a2;
+        if (!((_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
       };
       body.ondragover = (e) => {
-        var _a3;
-        if (!((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
+        var _a2;
+        if (!((_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col"))) updateIndicatorPosition(e);
       };
       body.ondragleave = (e) => {
         const related = e.relatedTarget;
         if (!related || !body.contains(related)) setHighlight(false);
       };
       body.ondrop = async (e) => {
-        var _a3, _b3, _c2, _d2, _e, _f, _g, _h, _i, _j, _k, _l;
+        var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
         e.stopPropagation();
-        if ((_a3 = e.dataTransfer) == null ? void 0 : _a3.types.includes("application/x-kb-col")) return;
-        const isCardDrag = (_b3 = e.dataTransfer) == null ? void 0 : _b3.types.includes("application/x-kb-card");
-        const payloadStr = isCardDrag ? (_c2 = e.dataTransfer) == null ? void 0 : _c2.getData("application/x-kb-card") : (_d2 = e.dataTransfer) == null ? void 0 : _d2.getData("text/plain");
+        if ((_a2 = e.dataTransfer) == null ? void 0 : _a2.types.includes("application/x-kb-col")) return;
+        const isCardDrag = (_b2 = e.dataTransfer) == null ? void 0 : _b2.types.includes("application/x-kb-card");
+        const payloadStr = isCardDrag ? (_c = e.dataTransfer) == null ? void 0 : _c.getData("application/x-kb-card") : (_d = e.dataTransfer) == null ? void 0 : _d.getData("text/plain");
         if (!payloadStr) return;
         let payload = null;
         try {
@@ -34947,9 +35080,9 @@ var BoardView = class {
         const file = this.app.vault.getAbstractFileByPath(payload.path);
         if (!(file instanceof import_obsidian5.TFile)) return;
         try {
-          const tasksInCol = (_e = byStatus.get(status)) != null ? _e : [];
+          const tasksInCol = (_e = this.byStatus.get(status)) != null ? _e : [];
           const fromStatus = (_i = payload.fromStatus) != null ? _i : String((_h = (_g = (_f = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _f.frontmatter) == null ? void 0 : _g["status"]) != null ? _h : "");
-          const tasksInFromCol = (_j = byStatus.get(fromStatus)) != null ? _j : [];
+          const tasksInFromCol = (_j = this.byStatus.get(fromStatus)) != null ? _j : [];
           const children = Array.from(body.querySelectorAll(".kb-card"));
           let insertIndex = children.length;
           const dropY = e.clientY;
@@ -35008,8 +35141,8 @@ var BoardView = class {
               return;
             }
           }
-          const scroller = board;
-          const scrollLeft = scroller.scrollLeft;
+          const scroller = this.boardEl;
+          const scrollLeft = (_k = scroller == null ? void 0 : scroller.scrollLeft) != null ? _k : 0;
           if (draggedIndexInSource !== -1) tasksInFromCol.splice(draggedIndexInSource, 1);
           if (fromStatus === status && draggedIndexInSource !== -1) {
             if (draggedIndexInSource < insertIndex) insertIndex = Math.max(0, insertIndex - 1);
@@ -35017,7 +35150,7 @@ var BoardView = class {
           let draggedTask = tasksInCol.find((t) => t.filePath === payload.path);
           if (!draggedTask) {
             const cache = this.app.metadataCache.getFileCache(file);
-            draggedTask = { file, filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_k = cache == null ? void 0 : cache.frontmatter) != null ? _k : {}, subtasks: [] };
+            draggedTask = { file, filePath: payload.path, fileName: file.name.replace(/\.md$/, ""), frontmatter: (_l = cache == null ? void 0 : cache.frontmatter) != null ? _l : {}, subtasks: [] };
           }
           if (draggedTask) {
             tasksInCol.splice(insertIndex, 0, draggedTask);
@@ -35026,16 +35159,17 @@ var BoardView = class {
           const autoStartStatuses = this.settings.statusConfig.autoSetStartDateStatuses || [];
           const isInProgress = autoStartStatuses.some((s) => s.toLowerCase() === status.toLowerCase());
           const updates = [];
+          const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (let i = 0; i < tasksInCol.length; i++) {
             const t = tasksInCol[i];
             const f = this.app.vault.getAbstractFileByPath(t.filePath);
             if (!(f instanceof import_obsidian5.TFile)) continue;
             const patch = { order: i };
             if (t.filePath === payload.path) {
-              if (String((_l = t.frontmatter["status"]) != null ? _l : "") !== status) {
+              if (String((_m = t.frontmatter["status"]) != null ? _m : "") !== status) {
                 patch["status"] = status;
-                if (isCompleted) patch["endDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-                if (isInProgress && !t.frontmatter["startDate"]) patch["startDate"] = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+                if (isCompleted) patch["endDate"] = today;
+                if (isInProgress && !t.frontmatter["startDate"]) patch["startDate"] = today;
               }
             }
             updates.push(updateTaskFrontmatter(this.app, f, patch));
@@ -35050,134 +35184,45 @@ var BoardView = class {
             }
           }
           try {
+            (_n = this.suppressReloads) == null ? void 0 : _n.call(this);
             if (updates.length > 0) {
               await Promise.all(updates);
-              new import_obsidian5.Notice("Moved");
+              if (draggedTask) {
+                draggedTask.frontmatter["status"] = status;
+                if (isCompleted) draggedTask.frontmatter["endDate"] = today;
+                if (isInProgress && !draggedTask.frontmatter["startDate"]) draggedTask.frontmatter["startDate"] = today;
+              }
+              this.applyLocalOrder(status, true);
+              if (fromStatus !== status) this.applyLocalOrder(fromStatus);
               setHighlight(false);
-              await this.reloadCallback();
-              const newBoard = container.querySelector(".kb-kanban");
-              if (newBoard) newBoard.scrollLeft = scrollLeft;
+              this.renderColumnCards(status);
+              if (fromStatus !== status) this.renderColumnCards(fromStatus);
+              new import_obsidian5.Notice("Moved");
+              if (scroller) scroller.scrollLeft = scrollLeft;
             } else {
               setHighlight(false);
             }
           } catch (err) {
             new import_obsidian5.Notice("Failed to move: " + err.message);
+            await this.reloadCallback();
           }
         } catch (err) {
           new import_obsidian5.Notice("Failed to move: " + err.message);
+          await this.reloadCallback();
         }
       };
-      for (const task of (_c = byStatus.get(status)) != null ? _c : []) {
-        if (Boolean(task.frontmatter["archived"])) continue;
-        const card = body.createDiv({ cls: "kb-card", attr: { draggable: "true" } });
-        card.ondragstart = (e) => {
-          var _a3, _b3;
-          e.stopPropagation();
-          const payload = JSON.stringify({ path: task.filePath, fromStatus: status });
-          (_a3 = e.dataTransfer) == null ? void 0 : _a3.setData("application/x-kb-card", payload);
-          (_b3 = e.dataTransfer) == null ? void 0 : _b3.setData("text/plain", payload);
-          if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-        };
-        const cardHeader = card.createDiv({ cls: "kb-card-header" });
-        cardHeader.createDiv({ cls: "kb-card-title", text: task.fileName });
-        const menuBtn2 = cardHeader.createEl("button", { text: "\u22EF" });
-        menuBtn2.classList.add("kb-ellipsis", "kb-card-menu-btn");
-        const meta = card.createDiv();
-        meta.createSpan({ cls: "kb-chip", text: (_d = task.frontmatter["priority"]) != null ? _d : "" });
-        const subtasksContainer = card.createDiv({ cls: "kb-subtasks" });
-        if (task.subtasks && task.subtasks.length > 0) {
-          const completedCount = task.subtasks.filter((st) => st.completed).length;
-          const totalCount = task.subtasks.length;
-          const subtaskSummary = subtasksContainer.createDiv({ cls: "kb-subtask-summary" });
-          subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
-          for (const subtask of task.subtasks) {
-            if (subtask.completed) continue;
-            const subtaskEl = subtasksContainer.createDiv({ cls: "kb-subtask" });
-            const checkbox = subtaskEl.createEl("input", { type: "checkbox" });
-            checkbox.checked = subtask.completed;
-            checkbox.onchange = async (e) => {
-              e.stopPropagation();
-              subtask.completed = checkbox.checked;
-              const file = this.app.vault.getAbstractFileByPath(task.filePath);
-              if (file instanceof import_obsidian5.TFile) {
-                const content = await this.app.vault.read(file);
-                const lines = content.split("\n");
-                const lineIndex = lines.findIndex((line) => {
-                  const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
-                  return match && match[2].trim() === subtask.text;
-                });
-                if (lineIndex !== -1) {
-                  lines[lineIndex] = ` - [${subtask.completed ? "x" : " "}] ${subtask.text}`;
-                  await this.app.vault.modify(file, lines.join("\n"));
-                  this.reloadCallback();
-                }
-              }
-            };
-            subtaskEl.createSpan({ text: subtask.text });
-          }
-        }
-        const footer = card.createDiv({ cls: "kb-card-footer" });
-        const createdAt = task.frontmatter["createdAt"] || "";
-        if (createdAt) footer.createSpan({ cls: "kb-card-ts", text: new Date(createdAt).toLocaleString() });
-        menuBtn2.onclick = (ev) => {
-          ev.stopPropagation();
-          const menu = new import_obsidian5.Menu();
-          menu.addItem((i) => i.setTitle("Open").onClick(async () => {
-            const file = this.app.vault.getAbstractFileByPath(task.filePath);
-            if (file instanceof import_obsidian5.TFile) await this.app.workspace.getLeaf(true).openFile(file);
-          }));
-          menu.addItem((i) => i.setTitle("Copy").onClick(async () => {
-            const modal = new CopyTaskModal(this.app, this.settings, task, async () => {
-              await this.reloadCallback();
-            });
-            modal.open();
-          }));
-          menu.addItem((i) => i.setTitle("Archive").onClick(async () => {
-            try {
-              await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(task.filePath), { archived: true });
-              new import_obsidian5.Notice("Task archived");
-              await this.reloadCallback();
-            } catch (e2) {
-              new import_obsidian5.Notice("Failed to archive task");
-            }
-          }));
-          menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
-            try {
-              await this.app.vault.delete(this.app.vault.getAbstractFileByPath(task.filePath));
-              new import_obsidian5.Notice("Task deleted");
-              await this.reloadCallback();
-            } catch (e2) {
-              new import_obsidian5.Notice("Failed to delete task");
-            }
-          }));
-          const e = ev;
-          menu.showAtPosition({ x: e.clientX, y: e.clientY });
-        };
-        card.onclick = async (e) => {
-          const file = this.app.vault.getAbstractFileByPath(task.filePath);
-          if (!(file instanceof import_obsidian5.TFile)) return;
-          const modal = new EditTaskModal(this.app, this.settings, task, async (patch) => {
-            try {
-              await updateTaskFrontmatter(this.app, file, patch);
-              new import_obsidian5.Notice("Task updated");
-              await this.reloadCallback();
-            } catch (err) {
-              new import_obsidian5.Notice("Failed to update task: " + err.message);
-            }
-          });
-          modal.open();
-        };
-      }
+      this.columnRegistry.set(status, { column: col, body, countEl, dropIndicator, removeIndicator });
+      this.renderColumnCards(status);
     });
     const addCol = board.createDiv({ cls: "kb-column kb-column-add" });
     const addBtn = addCol.createEl("button", { text: "+ Add column" });
     addBtn.classList.add("kb-button");
     addBtn.onclick = async () => {
-      var _a2, _b2;
-      const name = (_a2 = await this.promptText("New column", "Column name")) == null ? void 0 : _a2.trim();
+      var _a, _b;
+      const name = (_a = await this.promptText("New column", "Column name")) == null ? void 0 : _a.trim();
       if (!name) return;
       this.settings.statusConfig.statuses.push(name);
-      await ((_b2 = this.persistSettings) == null ? void 0 : _b2.call(this));
+      await ((_b = this.persistSettings) == null ? void 0 : _b.call(this));
       this.render(container);
     };
   }
@@ -35490,6 +35535,10 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
     this.tasks = [];
     this.filterQuery = "";
     this.filterState = {};
+    this.suppressReloadUntil = 0;
+    this.pendingReload = false;
+    this.suppressTimer = null;
+    this.ignorePendingReload = false;
     this.plugin = plugin;
     this.settings = settings;
     this.active = (_a = this.settings.lastActiveTab) != null ? _a : "grid";
@@ -35546,8 +35595,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
   async onOpen() {
     var _a;
     this.contentEl.addClass("kb-container");
-    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian6.debounce)(() => this.reload(), 300)));
-    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian6.debounce)(() => this.reload(), 300)));
+    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian6.debounce)(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian6.debounce)(() => this.handleDataChange(), 300)));
     (_a = this.scope) == null ? void 0 : _a.register([], "Esc", () => {
       return false;
     });
@@ -35558,6 +35607,37 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
     this.tasks = await readAllItems(this.app, this.settings);
     this.filterState = (_a = this.settings.filterState) != null ? _a : {};
     this.render();
+  }
+  handleDataChange() {
+    if (Date.now() < this.suppressReloadUntil) {
+      this.pendingReload = true;
+      return;
+    }
+    this.pendingReload = false;
+    this.ignorePendingReload = false;
+    this.reload();
+  }
+  suppressReloads(duration = 1e3, ignorePending = false) {
+    this.suppressReloadUntil = Date.now() + duration;
+    if (ignorePending) this.pendingReload = false;
+    this.ignorePendingReload = ignorePending;
+    if (this.suppressTimer) {
+      window.clearTimeout(this.suppressTimer);
+    }
+    this.suppressTimer = window.setTimeout(() => {
+      this.suppressTimer = null;
+      if (this.pendingReload && !this.ignorePendingReload) {
+        this.pendingReload = false;
+        this.ignorePendingReload = false;
+        this.reload();
+      } else {
+        this.pendingReload = false;
+        this.ignorePendingReload = false;
+      }
+    }, duration + 50);
+  }
+  suppressReloadsForLocalUpdate(duration = 1200) {
+    this.suppressReloads(duration, true);
   }
   render() {
     var _a;
@@ -35941,7 +36021,8 @@ var BoardTabsView = class extends import_obsidian6.ItemView {
       this.filterState,
       this.promptText.bind(this),
       this.reload.bind(this),
-      this.persistSettings
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
     );
     boardView.render(container);
   }

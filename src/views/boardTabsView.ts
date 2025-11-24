@@ -17,6 +17,10 @@ export class BoardTabsView extends ItemView {
   private active: ActiveTab;
   private persistSettings?: () => void | Promise<void>;
   private filterState: Record<string, any> = {};
+  private suppressReloadUntil = 0;
+  private pendingReload = false;
+  private suppressTimer: number | null = null;
+  private ignorePendingReload = false;
 
   private async promptText(title: string, placeholder = '', initial = ''): Promise<string | undefined> {
     return new Promise((resolve) => {
@@ -62,8 +66,8 @@ export class BoardTabsView extends ItemView {
 
   async onOpen() {
     this.contentEl.addClass('kb-container');
-    this.registerEvent(this.app.metadataCache.on('changed', debounce(() => this.reload(), 300)));
-    this.registerEvent(this.app.vault.on('modify', debounce(() => this.reload(), 300)));
+    this.registerEvent(this.app.metadataCache.on('changed', debounce(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.vault.on('modify', debounce(() => this.handleDataChange(), 300)));
 
     // Prevent Esc from navigating back
     this.scope?.register([], 'Esc', () => {
@@ -77,6 +81,40 @@ export class BoardTabsView extends ItemView {
     this.tasks = await readAllItems(this.app, this.settings);
     this.filterState = this.settings.filterState ?? {};
     this.render();
+  }
+
+  private handleDataChange() {
+    if (Date.now() < this.suppressReloadUntil) {
+      this.pendingReload = true;
+      return;
+    }
+    this.pendingReload = false;
+    this.ignorePendingReload = false;
+    this.reload();
+  }
+
+  private suppressReloads(duration = 1000, ignorePending = false) {
+    this.suppressReloadUntil = Date.now() + duration;
+    if (ignorePending) this.pendingReload = false;
+    this.ignorePendingReload = ignorePending;
+    if (this.suppressTimer) {
+      window.clearTimeout(this.suppressTimer);
+    }
+    this.suppressTimer = window.setTimeout(() => {
+      this.suppressTimer = null;
+      if (this.pendingReload && !this.ignorePendingReload) {
+        this.pendingReload = false;
+        this.ignorePendingReload = false;
+        this.reload();
+      } else {
+        this.pendingReload = false;
+        this.ignorePendingReload = false;
+      }
+    }, duration + 50);
+  }
+
+  public suppressReloadsForLocalUpdate(duration = 1200) {
+    this.suppressReloads(duration, true);
   }
 
   private render() {
@@ -528,7 +566,8 @@ export class BoardTabsView extends ItemView {
       this.filterState,
       this.promptText.bind(this),
       this.reload.bind(this),
-      this.persistSettings
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
     );
     boardView.render(container);
   }
