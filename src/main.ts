@@ -843,7 +843,7 @@ class TaskTemplateModal extends Modal {
 class CrTemplateModal extends Modal {
   private fields: TaskFieldDefinition[];
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
-  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>();
+  private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
   constructor(app: App, fields: TaskFieldDefinition[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
@@ -885,16 +885,15 @@ class CrTemplateModal extends Modal {
         textarea.style.width = '100%';
         this.inputs.set(field.key, textarea);
       } else if (field.type === 'status' && field.key === 'priority') {
-        // Render dropdown for priority, like in TaskTemplateModal
-        const select = control.createEl('select');
-        select.addClass('kb-input');
+        // Render dropdown for priority, using custom Dropdown component
         const options = ['Urgent', 'High', 'Medium', 'Low'];
-        for (const o of options) {
-          const opt = select.createEl('option', { text: o });
-          opt.value = o;
-        }
-        select.value = 'Medium';
-        this.inputs.set(field.key, select);
+        const dropdown = new Dropdown(
+          control,
+          options,
+          'Medium',
+          (val) => { /* no-op */ }
+        );
+        this.inputs.set(field.key, dropdown as any);
       } else {
         const input = control.createEl('input');
         input.addClass('kb-input');
@@ -917,7 +916,15 @@ class CrTemplateModal extends Modal {
     create.onclick = async () => {
       const data: Record<string, any> = {};
       for (const [key, input] of this.inputs.entries()) {
-        const val = (input as HTMLInputElement | HTMLSelectElement).value.trim();
+        // If input is a custom object with getValue(), use that
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyInput = input as any;
+        if (anyInput && typeof anyInput.getValue === 'function') {
+          data[key] = anyInput.getValue();
+          continue;
+        }
+        const element = input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        const val = element.value.trim();
         data[key] = val;
       }
       if (!data['title']) data['title'] = 'Untitled CR';

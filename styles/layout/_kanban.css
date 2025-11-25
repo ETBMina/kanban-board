@@ -23,7 +23,7 @@
     align-items: center;
     justify-content: space-between;
     box-sizing: border-box;
-    width: 100%;
+    width: auto;
     min-width: 120px;
     height: 40px;
     padding: 0 12px;
