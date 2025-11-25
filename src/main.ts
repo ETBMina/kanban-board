@@ -147,6 +147,9 @@ export default class KanbanPlugin extends Plugin {
         visibleColumns: [],
         showArchived: false
       };
+      if (!this.config.statusConfig.crStatuses) {
+        this.config.statusConfig.crStatuses = ['Backlog', 'In Progress', 'Completed'];
+      }
       if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: '^CR-\\d+$', taskNumberPattern: '^T-\\d+$' };
       if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
       if (!this.config.taskFilenameFormat) this.config.taskFilenameFormat = '{{crNumber}} {{taskNumber}} : {{title}} - {{service}}.md';
@@ -380,7 +383,7 @@ export default class KanbanPlugin extends Plugin {
       { key: 'solutionDesign', label: 'Solution design link', type: 'url' },
       { key: 'description', label: 'Description', type: 'text' }
     ];
-    const modal = new CrTemplateModal(this.app, fields, async (data) => {
+    const modal = new CrTemplateModal(this.app, this.config, fields, async (data) => {
       const folder = this.config.paths.crFolder || 'Change Requests';
       await ensureFolder(this.app, folder);
       let crNumber = (data['number'] || '').trim();
@@ -841,12 +844,14 @@ class TaskTemplateModal extends Modal {
 }
 
 class CrTemplateModal extends Modal {
+  private config: PluginConfiguration;
   private fields: TaskFieldDefinition[];
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
   private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-  constructor(app: App, fields: TaskFieldDefinition[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, config: PluginConfiguration, fields: TaskFieldDefinition[], onSubmit: (data: Record<string, any>) => void | Promise<void>) {
     super(app);
+    this.config = config;
     this.fields = fields;
     this.onSubmit = onSubmit;
   }
@@ -884,13 +889,26 @@ class CrTemplateModal extends Modal {
         textarea.style.minHeight = '80px';
         textarea.style.width = '100%';
         this.inputs.set(field.key, textarea);
-      } else if (field.type === 'status' && field.key === 'priority') {
-        // Render dropdown for priority, using custom Dropdown component
-        const options = ['Urgent', 'High', 'Medium', 'Low'];
+      } else if (field.type === 'status') {
+        // Render dropdown for status fields (priority, status, etc.)
+        let options: string[] = [];
+        let initialValue = '';
+
+        if (field.useValues === 'priorities') {
+          options = this.config.priorities;
+          initialValue = this.config.defaultPriority;
+        } else if (field.useValues === 'crStatuses') {
+          options = this.config.statusConfig.crStatuses || ['Backlog', 'In Progress', 'Completed'];
+          initialValue = options[0];
+        } else {
+          options = this.config.statusConfig.statuses;
+          initialValue = options[0];
+        }
+
         const dropdown = new Dropdown(
           control,
           options,
-          'Medium',
+          initialValue,
           (val) => { /* no-op */ }
         );
         this.inputs.set(field.key, dropdown as any);
@@ -928,7 +946,10 @@ class CrTemplateModal extends Modal {
         data[key] = val;
       }
       if (!data['title']) data['title'] = 'Untitled CR';
+      // Defaults for required fields if missing
       if (!data['priority']) data['priority'] = 'Medium';
+      if (!data['status'] && this.config.statusConfig.crStatuses) data['status'] = this.config.statusConfig.crStatuses[0];
+
       await this.onSubmit(data);
       this.close();
     };

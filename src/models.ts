@@ -17,6 +17,7 @@ export interface PathsConfig {
 
 export interface StatusConfig {
   statuses: string[];
+  crStatuses?: string[];
   completedPattern: string;
   autoSetStartDateStatuses: string[];
 }

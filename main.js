@@ -33730,9 +33730,7 @@ var FilterPanel = class {
       this.filterState = {};
       this.inputs.forEach((input) => {
         const anyInput = input;
-        if (anyInput instanceof Dropdown) {
-          anyInput.setValue("");
-        } else if (typeof anyInput.setValue === "function") {
+        if (typeof anyInput.setValue === "function") {
           anyInput.setValue([]);
         } else if (typeof anyInput.getValue === "function") {
           try {
@@ -33768,16 +33766,17 @@ var FilterPanel = class {
         input.value = (_c = this.filterState[field.key]) != null ? _c : "";
         this.inputs.set(field.key, input);
       } else if (field.type === "status") {
+        const select = control.createEl("select");
+        select.addClass("kb-input");
+        const emptyOpt = select.createEl("option", { text: "Any" });
+        emptyOpt.value = "";
         const options = field.useValues === "priorities" ? this.settings.priorities : this.settings.statusConfig.statuses;
-        const dropdownOptions = [{ label: "Any", value: "" }, ...options.map((o) => ({ label: o, value: o }))];
-        const dropdown = new Dropdown(
-          control,
-          dropdownOptions,
-          (_d = this.filterState[field.key]) != null ? _d : "",
-          (val) => {
-          }
-        );
-        this.inputs.set(field.key, dropdown);
+        for (const opt of options) {
+          const optEl = select.createEl("option", { text: opt });
+          optEl.value = opt;
+        }
+        select.value = (_d = this.filterState[field.key]) != null ? _d : "";
+        this.inputs.set(field.key, select);
       } else if (field.type === "tags") {
         const container = control.createDiv({ cls: "kb-filter-tags-container" });
         const input = container.createEl("input", { type: "text", placeholder: "Type to filter / press Enter to add" });
@@ -36257,6 +36256,9 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
         visibleColumns: [],
         showArchived: false
       };
+      if (!this.config.statusConfig.crStatuses) {
+        this.config.statusConfig.crStatuses = ["Backlog", "In Progress", "Completed"];
+      }
       if (!this.config.fieldPatterns) this.config.fieldPatterns = { crNumberPattern: "^CR-\\d+$", taskNumberPattern: "^T-\\d+$" };
       if (!this.config.templateConfig) this.config.templateConfig = { fields: [], crFields: [] };
       if (!this.config.taskFilenameFormat) this.config.taskFilenameFormat = "{{crNumber}} {{taskNumber}} : {{title}} - {{service}}.md";
@@ -36464,7 +36466,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
       { key: "solutionDesign", label: "Solution design link", type: "url" },
       { key: "description", label: "Description", type: "text" }
     ];
-    const modal = new CrTemplateModal(this.app, fields, async (data) => {
+    const modal = new CrTemplateModal(this.app, this.config, fields, async (data) => {
       const folder = this.config.paths.crFolder || "Change Requests";
       await ensureFolder(this.app, folder);
       let crNumber = (data["number"] || "").trim();
@@ -36838,9 +36840,10 @@ var TaskTemplateModal = class extends import_obsidian8.Modal {
   }
 };
 var CrTemplateModal = class extends import_obsidian8.Modal {
-  constructor(app, fields, onSubmit) {
+  constructor(app, config, fields, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
+    this.config = config;
     this.fields = fields;
     this.onSubmit = onSubmit;
   }
@@ -36870,16 +36873,27 @@ var CrTemplateModal = class extends import_obsidian8.Modal {
         textarea.style.minHeight = "80px";
         textarea.style.width = "100%";
         this.inputs.set(field.key, textarea);
-      } else if (field.type === "status" && field.key === "priority") {
-        const select = control.createEl("select");
-        select.addClass("kb-input");
-        const options = ["Urgent", "High", "Medium", "Low"];
-        for (const o of options) {
-          const opt = select.createEl("option", { text: o });
-          opt.value = o;
+      } else if (field.type === "status") {
+        let options = [];
+        let initialValue = "";
+        if (field.useValues === "priorities") {
+          options = this.config.priorities;
+          initialValue = this.config.defaultPriority;
+        } else if (field.useValues === "crStatuses") {
+          options = this.config.statusConfig.crStatuses || ["Backlog", "In Progress", "Completed"];
+          initialValue = options[0];
+        } else {
+          options = this.config.statusConfig.statuses;
+          initialValue = options[0];
         }
-        select.value = "Medium";
-        this.inputs.set(field.key, select);
+        const dropdown = new Dropdown(
+          control,
+          options,
+          initialValue,
+          (val) => {
+          }
+        );
+        this.inputs.set(field.key, dropdown);
       } else {
         const input = control.createEl("input");
         input.addClass("kb-input");
@@ -36900,11 +36914,18 @@ var CrTemplateModal = class extends import_obsidian8.Modal {
     create.onclick = async () => {
       const data = {};
       for (const [key, input] of this.inputs.entries()) {
-        const val = input.value.trim();
+        const anyInput = input;
+        if (anyInput && typeof anyInput.getValue === "function") {
+          data[key] = anyInput.getValue();
+          continue;
+        }
+        const element = input;
+        const val = element.value.trim();
         data[key] = val;
       }
       if (!data["title"]) data["title"] = "Untitled CR";
       if (!data["priority"]) data["priority"] = "Medium";
+      if (!data["status"] && this.config.statusConfig.crStatuses) data["status"] = this.config.statusConfig.crStatuses[0];
       await this.onSubmit(data);
       this.close();
     };
