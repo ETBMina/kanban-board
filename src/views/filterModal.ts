@@ -1,5 +1,4 @@
 import { App } from 'obsidian';
-import { Dropdown } from '../Dropdown';
 import { PluginConfiguration } from '../models';
 import { getAllExistingTags } from '../utils';
 
@@ -82,9 +81,7 @@ export class FilterPanel {
       this.filterState = {};
       this.inputs.forEach(input => {
         const anyInput = input as any;
-        if (anyInput instanceof Dropdown) {
-          anyInput.setValue('');
-        } else if (typeof anyInput.setValue === 'function') {
+        if (typeof anyInput.setValue === 'function') {
           anyInput.setValue([]);
         } else if (typeof anyInput.getValue === 'function') {
           // best-effort: try to clear if possible
@@ -124,19 +121,19 @@ export class FilterPanel {
         input.value = this.filterState[field.key] ?? '';
         this.inputs.set(field.key, input);
       } else if (field.type === 'status') {
+        const select = control.createEl('select');
+        select.addClass('kb-input');
+        const emptyOpt = select.createEl('option', { text: 'Any' });
+        emptyOpt.value = '';
         const options = field.useValues === 'priorities'
           ? this.settings.priorities
           : this.settings.statusConfig.statuses;
-
-        const dropdownOptions = [{ label: 'Any', value: '' }, ...options.map(o => ({ label: o, value: o }))];
-
-        const dropdown = new Dropdown(
-          control,
-          dropdownOptions,
-          this.filterState[field.key] ?? '',
-          (val) => { /* no-op */ }
-        );
-        this.inputs.set(field.key, dropdown as any);
+        for (const opt of options) {
+          const optEl = select.createEl('option', { text: opt });
+          optEl.value = opt;
+        }
+        select.value = this.filterState[field.key] ?? '';
+        this.inputs.set(field.key, select);
       } else if (field.type === 'tags') {
         const container = control.createDiv({ cls: 'kb-filter-tags-container' });
         const input = container.createEl('input', { type: 'text', placeholder: 'Type to filter / press Enter to add' });
