@@ -84,17 +84,18 @@ export class GridView {
             if (field.type === 'date') {
                 // Handle date range filters
                 if (fieldKey === 'startDate') {
-                    // Include tasks with startDate from filterValue to today, and empty startDates
-                    if (taskValue) {
-                        const taskDate = new Date(taskValue);
-                        taskDate.setHours(0, 0, 0, 0);
+                    // Logic: Show tasks whose end date is empty (in progress) OR end date >= selected date
+                    const endDateVal = fm['endDate'];
+                    if (endDateVal) {
+                        const taskEndDate = new Date(endDateVal);
+                        taskEndDate.setHours(0, 0, 0, 0);
                         const filterDate = new Date(filterValue);
                         filterDate.setHours(0, 0, 0, 0);
-                        if (taskDate < filterDate || taskDate > now) {
-                            return false; // Task doesn't match start date filter
+                        if (taskEndDate < filterDate) {
+                            return false;
                         }
                     }
-                    // Empty startDate is allowed
+                    // Empty endDate is allowed
                 } else if (fieldKey === 'endDate') {
                     // Include tasks with endDate until filterValue, and empty endDates
                     if (taskValue) {

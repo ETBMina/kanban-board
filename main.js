@@ -33975,12 +33975,13 @@ var GridView = class {
       const taskValue = fm[fieldKey];
       if (field.type === "date") {
         if (fieldKey === "startDate") {
-          if (taskValue) {
-            const taskDate = new Date(taskValue);
-            taskDate.setHours(0, 0, 0, 0);
+          const endDateVal = fm["endDate"];
+          if (endDateVal) {
+            const taskEndDate = new Date(endDateVal);
+            taskEndDate.setHours(0, 0, 0, 0);
             const filterDate = new Date(filterValue);
             filterDate.setHours(0, 0, 0, 0);
-            if (taskDate < filterDate || taskDate > now) {
+            if (taskEndDate < filterDate) {
               return false;
             }
           }
@@ -34710,12 +34711,13 @@ var BoardView = class {
       const taskValue = fm[fieldKey];
       if (field.type === "date") {
         if (fieldKey === "startDate") {
-          if (taskValue) {
-            const taskDate = new Date(taskValue);
-            taskDate.setHours(0, 0, 0, 0);
+          const endDateVal = fm["endDate"];
+          if (endDateVal) {
+            const taskEndDate = new Date(endDateVal);
+            taskEndDate.setHours(0, 0, 0, 0);
             const filterDate = new Date(filterValue);
             filterDate.setHours(0, 0, 0, 0);
-            if (taskDate < filterDate || taskDate > now) {
+            if (taskEndDate < filterDate) {
               return false;
             }
           }
