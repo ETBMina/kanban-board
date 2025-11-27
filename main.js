@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => KanbanPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/Dropdown.ts
 var import_obsidian = require("obsidian");
@@ -324,7 +324,7 @@ function sanitizeFileName(name) {
 }
 
 // src/views/boardTabsView.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // node_modules/xlsx/xlsx.mjs
 var XLSX = {};
@@ -35637,9 +35637,699 @@ var EditTaskModal = class extends import_obsidian6.Modal {
   }
 };
 
+// src/views/calendarView.ts
+var import_obsidian7 = require("obsidian");
+var CalendarView = class {
+  constructor(app, settings, tasks, reloadCallback, persistSettings, suppressReloads) {
+    this.tasks = [];
+    this.resizeObserver = null;
+    this.currentDate = /* @__PURE__ */ new Date();
+    this.viewMode = "month";
+    this.draggingCrPath = null;
+    this.app = app;
+    this.settings = settings;
+    this.tasks = tasks;
+    this.reloadCallback = reloadCallback;
+    this.persistSettings = persistSettings;
+    this.suppressReloads = suppressReloads;
+  }
+  render(container) {
+    this.container = container;
+    this.container.empty();
+    this.container.addClass("kb-calendar-view");
+    const splitContainer = this.container.createDiv({ cls: "kb-calendar-split" });
+    this.backlogEl = splitContainer.createDiv({ cls: "kb-calendar-backlog" });
+    this.renderBacklog();
+    this.calendarEl = splitContainer.createDiv({ cls: "kb-calendar-main" });
+    if (this.resizeObserver) this.resizeObserver.disconnect();
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.calendarEl.childElementCount > 0) {
+        this.renderCalendar();
+      }
+    });
+    this.resizeObserver.observe(this.calendarEl);
+    this.renderCalendar();
+  }
+  getBacklogCRs() {
+    const crFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder);
+    return this.tasks.filter((t) => t.filePath.startsWith(crFolder + "/")).filter((t) => {
+      const status = String(t.frontmatter["status"] || "Backlog");
+      return status === "Backlog";
+    }).sort((a, b) => {
+      const ca = a.frontmatter["createdAt"] ? new Date(String(a.frontmatter["createdAt"])).getTime() : 0;
+      const cb = b.frontmatter["createdAt"] ? new Date(String(b.frontmatter["createdAt"])).getTime() : 0;
+      return cb - ca;
+    });
+  }
+  renderBacklog() {
+    this.backlogEl.empty();
+    const header = this.backlogEl.createDiv({ cls: "kb-backlog-header" });
+    header.createEl("h3", { text: "Backlog CRs" });
+    const list = this.backlogEl.createDiv({ cls: "kb-backlog-list" });
+    const crs = this.getBacklogCRs();
+    crs.forEach((cr) => {
+      const card = list.createDiv({ cls: "kb-backlog-card", attr: { draggable: "true" } });
+      card.ondragstart = (e) => {
+        var _a, _b;
+        this.draggingCrPath = cr.filePath;
+        (_a = e.dataTransfer) == null ? void 0 : _a.setData("application/x-kb-cr", cr.filePath);
+        (_b = e.dataTransfer) == null ? void 0 : _b.setData("text/plain", cr.filePath);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        card.addClass("kb-dragging");
+      };
+      card.ondragend = () => {
+        this.draggingCrPath = null;
+        card.removeClass("kb-dragging");
+      };
+      const cardHeader = card.createDiv({ cls: "kb-card-header" });
+      cardHeader.createDiv({ cls: "kb-card-title", text: String(cr.frontmatter["title"] || cr.fileName) });
+      const menuBtn = cardHeader.createEl("button", { cls: "kb-ellipsis" });
+      menuBtn.setText("\u22EF");
+      menuBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.showCrMenu(e, cr);
+      };
+      const meta = card.createDiv({ cls: "kb-card-meta" });
+      if (cr.frontmatter["priority"]) {
+        meta.createSpan({ cls: "kb-chip", text: String(cr.frontmatter["priority"]) });
+      }
+      if (cr.frontmatter["plannedEnd"]) {
+        meta.createSpan({ cls: "kb-date", text: new Date(cr.frontmatter["plannedEnd"]).toLocaleDateString() });
+      }
+      card.onclick = () => {
+        this.openEditModal(cr);
+      };
+    });
+  }
+  showCrMenu(e, cr) {
+    const menu = new import_obsidian7.Menu();
+    menu.addItem((i) => i.setTitle("Open Markdown").onClick(async () => {
+      const file = this.app.vault.getAbstractFileByPath(cr.filePath);
+      if (file instanceof import_obsidian7.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+    }));
+    menu.addItem((i) => i.setTitle("Delete").onClick(async () => {
+      if (confirm(`Are you sure you want to delete "${cr.fileName}"?`)) {
+        const file = this.app.vault.getAbstractFileByPath(cr.filePath);
+        if (file instanceof import_obsidian7.TFile) await this.app.vault.delete(file);
+        await this.reloadCallback();
+      }
+    }));
+    menu.showAtPosition({ x: e.clientX, y: e.clientY });
+  }
+  renderCalendar() {
+    this.calendarEl.empty();
+    const toolbar = this.calendarEl.createDiv({ cls: "kb-calendar-toolbar" });
+    const nav = toolbar.createDiv({ cls: "kb-calendar-nav" });
+    const prevBtn = nav.createEl("button", { text: "<" });
+    prevBtn.onclick = () => this.navigateDate(-1);
+    const dateDisplay = nav.createEl("span", { cls: "kb-calendar-date-display" });
+    dateDisplay.textContent = this.getDateDisplayText();
+    const nextBtn = nav.createEl("button", { text: ">" });
+    nextBtn.onclick = () => this.navigateDate(1);
+    const viewSwitcher = toolbar.createDiv({ cls: "kb-calendar-view-switcher" });
+    const monthBtn = viewSwitcher.createEl("button", { text: "Month" });
+    if (this.viewMode === "month") monthBtn.addClass("is-active");
+    monthBtn.onclick = () => {
+      this.viewMode = "month";
+      this.renderCalendar();
+    };
+    const weekBtn = viewSwitcher.createEl("button", { text: "Week" });
+    if (this.viewMode === "week") weekBtn.addClass("is-active");
+    weekBtn.onclick = () => {
+      this.viewMode = "week";
+      this.renderCalendar();
+    };
+    const grid = this.calendarEl.createDiv({ cls: `kb-calendar-grid kb-view-${this.viewMode}` });
+    this.renderGrid(grid);
+  }
+  getDateDisplayText() {
+    if (this.viewMode === "month") {
+      return this.currentDate.toLocaleDateString(void 0, { month: "long", year: "numeric" });
+    } else {
+      const start = this.getWeekStart(this.currentDate);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 4);
+      return `${start.toLocaleDateString(void 0, { month: "short", day: "numeric" })} - ${end.toLocaleDateString(void 0, { month: "short", day: "numeric" })}`;
+    }
+  }
+  navigateDate(dir) {
+    if (this.viewMode === "month") {
+      this.currentDate.setMonth(this.currentDate.getMonth() + dir);
+    } else {
+      this.currentDate.setDate(this.currentDate.getDate() + dir * 7);
+    }
+    this.renderCalendar();
+  }
+  getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    d.setDate(diff);
+    return d;
+  }
+  renderGrid(container) {
+    const headerRow = container.createDiv({ cls: "kb-calendar-header-row" });
+    const headers = ["Sun", "Mon", "Tue", "Wed", "Thu"];
+    headers.forEach((h) => headerRow.createDiv({ cls: "kb-calendar-day-header", text: h }));
+    let startDate;
+    let endDate;
+    let numWeeks = 0;
+    if (this.viewMode === "month") {
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth();
+      const firstDayOfMonth = new Date(year, month, 1);
+      startDate = this.getWeekStart(firstDayOfMonth);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6 * 7);
+      numWeeks = 6;
+    } else {
+      startDate = this.getWeekStart(this.currentDate);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+      numWeeks = 1;
+    }
+    const totalHeight = this.calendarEl.clientHeight || 800;
+    const headerHeight = 45;
+    const availableTotalHeight = totalHeight - headerHeight;
+    const rowHeight = availableTotalHeight / numWeeks;
+    const dateHeaderHeight = 30;
+    const availableRowHeight = rowHeight - dateHeaderHeight;
+    let currentWeekStart = new Date(startDate);
+    while (currentWeekStart < endDate) {
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 5);
+      const weekRow = container.createDiv({ cls: "kb-calendar-week-row" });
+      const bgLayer = weekRow.createDiv({ cls: "kb-calendar-week-bg" });
+      const weekCRs = this.getCRsForWeek(currentWeekStart, weekEnd);
+      const slots = this.assignSlots(weekCRs, currentWeekStart);
+      let maxSlotUsed = -1;
+      for (const s of slots.values()) {
+        if (s > maxSlotUsed) maxSlotUsed = s;
+      }
+      const slotsNeeded = maxSlotUsed + 1;
+      const MIN_BAR_HEIGHT = 18;
+      const MAX_BAR_HEIGHT = 28;
+      let calculatedBarHeight = Math.floor(availableRowHeight / slotsNeeded);
+      if (calculatedBarHeight > MAX_BAR_HEIGHT) calculatedBarHeight = MAX_BAR_HEIGHT;
+      let maxVisibleSlots = slotsNeeded;
+      if (calculatedBarHeight < MIN_BAR_HEIGHT) {
+        calculatedBarHeight = MIN_BAR_HEIGHT;
+        maxVisibleSlots = Math.floor((availableRowHeight - MIN_BAR_HEIGHT) / MIN_BAR_HEIGHT);
+        if (maxVisibleSlots < 1) maxVisibleSlots = 1;
+      }
+      for (let i = 0; i < 5; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        this.renderDayCell(bgLayer, dayDate, weekCRs, maxVisibleSlots);
+      }
+      const weekStartForClosure = new Date(currentWeekStart);
+      const eventsLayer = weekRow.createDiv({ cls: "kb-calendar-week-events" });
+      eventsLayer.ondragover = (e) => {
+        var _a, _b;
+        if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+          e.preventDefault();
+          const bgLayer2 = weekRow.querySelector(".kb-calendar-week-bg");
+          if (bgLayer2) {
+            const bgRect = bgLayer2.getBoundingClientRect();
+            const mouseX = e.clientX - bgRect.left;
+            const cellWidth = bgRect.width / 5;
+            const cellIndex = Math.floor(mouseX / cellWidth);
+            if (cellIndex >= 0 && cellIndex < 5) {
+              const dayCells = bgLayer2.querySelectorAll(".kb-calendar-day-cell");
+              const targetCell = dayCells[cellIndex];
+              if (targetCell) {
+                targetCell.classList.add("kb-drag-over");
+              }
+            }
+          }
+        }
+      };
+      eventsLayer.ondragleave = () => {
+        const bgLayer2 = weekRow.querySelector(".kb-calendar-week-bg");
+        if (bgLayer2) {
+          const dayCells = bgLayer2.querySelectorAll(".kb-calendar-day-cell");
+          dayCells.forEach((cell) => cell.classList.remove("kb-drag-over"));
+        }
+      };
+      eventsLayer.ondrop = async (e) => {
+        var _a, _b;
+        if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+          e.preventDefault();
+          const bgLayer2 = weekRow.querySelector(".kb-calendar-week-bg");
+          if (bgLayer2) {
+            const dayCells = bgLayer2.querySelectorAll(".kb-calendar-day-cell");
+            dayCells.forEach((cell) => cell.classList.remove("kb-drag-over"));
+            const bgRect = bgLayer2.getBoundingClientRect();
+            const mouseX = e.clientX - bgRect.left;
+            const cellWidth = bgRect.width / 5;
+            const cellIndex = Math.floor(mouseX / cellWidth);
+            if (cellIndex >= 0 && cellIndex < 5) {
+              const dayCells2 = bgLayer2.querySelectorAll(".kb-calendar-day-cell");
+              const targetCell = dayCells2[cellIndex];
+              if (targetCell) {
+                const weekStart = new Date(weekStartForClosure);
+                const targetDate = new Date(weekStart);
+                targetDate.setDate(weekStart.getDate() + cellIndex);
+                const resizeData = e.dataTransfer.getData("application/x-kb-resize");
+                if (resizeData) {
+                  const { path, type } = JSON.parse(resizeData);
+                  await this.handleResizeDrop(path, type, targetDate);
+                } else {
+                  const path = e.dataTransfer.getData("application/x-kb-cr");
+                  if (path) {
+                    await this.handleDropFromBacklog(path, targetDate);
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+      this.renderWeekEvents(eventsLayer, weekCRs, slots, currentWeekStart, maxVisibleSlots, calculatedBarHeight);
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    }
+  }
+  renderDayCell(container, date, weekCRs, maxSlots) {
+    const cell = container.createDiv({ cls: "kb-calendar-day-cell" });
+    const dateNum = cell.createDiv({ cls: "kb-day-number", text: String(date.getDate()) });
+    if (date.toDateString() === (/* @__PURE__ */ new Date()).toDateString()) {
+      dateNum.addClass("is-today");
+    }
+    if (this.viewMode === "month" && date.getMonth() !== this.currentDate.getMonth()) {
+      dateNum.addClass("is-other-month");
+    }
+    cell.ondragover = (e) => {
+      var _a, _b;
+      if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+        e.preventDefault();
+        cell.addClass("kb-drag-over");
+      }
+    };
+    cell.ondragleave = () => cell.removeClass("kb-drag-over");
+    cell.ondrop = async (e) => {
+      var _a, _b;
+      e.preventDefault();
+      cell.removeClass("kb-drag-over");
+      const resizeData = (_a = e.dataTransfer) == null ? void 0 : _a.getData("application/x-kb-resize");
+      if (resizeData) {
+        const { path: path2, type } = JSON.parse(resizeData);
+        await this.handleResizeDrop(path2, type, date);
+        return;
+      }
+      const path = (_b = e.dataTransfer) == null ? void 0 : _b.getData("application/x-kb-cr");
+      if (path) {
+        await this.handleDropFromBacklog(path, date);
+      }
+    };
+    const dayCRs = this.getCRsForDate(date);
+    if (dayCRs.length > maxSlots) {
+      const moreCount = dayCRs.length - maxSlots;
+      const moreEl = cell.createDiv({ cls: "kb-more-indicator", text: `+${moreCount} more` });
+      moreEl.onclick = (e) => {
+        e.stopPropagation();
+        this.showDayPopup(date, dayCRs, cell);
+      };
+    }
+  }
+  showDayPopup(date, crs, cellEl) {
+    const backdrop = this.calendarEl.createDiv({ cls: "kb-popup-backdrop" });
+    const popup = this.calendarEl.createDiv({ cls: "kb-calendar-popup" });
+    const cellRect = cellEl.getBoundingClientRect();
+    const calendarRect = this.calendarEl.getBoundingClientRect();
+    const cellCenterX = cellRect.left - calendarRect.left + cellRect.width / 2;
+    const cellCenterY = cellRect.top - calendarRect.top + cellRect.height / 2;
+    const popupWidth = 300;
+    const popupHeight = 300;
+    let left = cellCenterX - popupWidth / 2;
+    let top = cellCenterY - popupHeight / 2;
+    if (left < 10) left = 10;
+    if (left + popupWidth > calendarRect.width - 10) left = calendarRect.width - popupWidth - 10;
+    if (top < 10) top = 10;
+    if (top + popupHeight > calendarRect.height - 10) top = calendarRect.height - popupHeight - 10;
+    popup.style.top = `${top}px`;
+    popup.style.left = `${left}px`;
+    const originX = cellCenterX - left;
+    const originY = cellCenterY - top;
+    popup.style.transformOrigin = `${originX}px ${originY}px`;
+    const header = popup.createDiv({ cls: "kb-popup-header" });
+    const closeBtn = header.createEl("button", { cls: "kb-popup-close", text: "\xD7" });
+    const dayName = header.createDiv({ cls: "kb-popup-day-name", text: date.toLocaleDateString(void 0, { weekday: "short" }).toUpperCase() });
+    const dayNum = header.createDiv({ cls: "kb-popup-day-num", text: String(date.getDate()) });
+    const list = popup.createDiv({ cls: "kb-popup-list" });
+    crs.forEach((cr) => {
+      const item = list.createDiv({ cls: "kb-popup-item" });
+      item.textContent = String(cr.frontmatter["title"] || cr.fileName);
+      const hue = Math.abs(this.hashCode(cr.fileName)) % 360;
+      item.style.backgroundColor = `hsl(${hue}, 70%, 80%)`;
+      item.style.color = `hsl(${hue}, 80%, 20%)`;
+      const status = String(cr.frontmatter["status"] || "");
+      if (status === "In Progress") item.addClass("status-in-progress");
+      if (status === "Completed") item.addClass("status-completed");
+      item.onclick = (e) => {
+        e.stopPropagation();
+        this.openEditModal(cr);
+        popup.remove();
+        backdrop.remove();
+      };
+    });
+    const close = () => {
+      popup.removeClass("is-open");
+      backdrop.removeClass("is-open");
+      setTimeout(() => {
+        popup.remove();
+        backdrop.remove();
+      }, 200);
+    };
+    backdrop.onclick = close;
+    closeBtn.onclick = close;
+    requestAnimationFrame(() => {
+      popup.addClass("is-open");
+      backdrop.addClass("is-open");
+    });
+  }
+  renderWeekEvents(container, crs, slots, weekStart, maxSlots, barHeight) {
+    crs.forEach((cr) => {
+      const slot = slots.get(cr.filePath);
+      if (slot === void 0 || slot >= maxSlots) return;
+      const start = new Date(cr.frontmatter["plannedStart"]);
+      const end = new Date(cr.frontmatter["plannedEnd"]);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      const wStart = new Date(weekStart);
+      wStart.setHours(0, 0, 0, 0);
+      let startCol = Math.floor((start.getTime() - wStart.getTime()) / (1e3 * 60 * 60 * 24));
+      let endCol = Math.floor((end.getTime() - wStart.getTime()) / (1e3 * 60 * 60 * 24));
+      const originalStartCol = startCol;
+      const originalEndCol = endCol;
+      startCol = Math.max(0, startCol);
+      endCol = Math.min(4, endCol);
+      if (startCol > 4 || endCol < 0) return;
+      const bar = container.createDiv({ cls: "kb-cr-bar" });
+      bar.textContent = String(cr.frontmatter["title"] || cr.fileName);
+      bar.style.left = `${startCol * 20}%`;
+      bar.style.width = `${(endCol - startCol + 1) * 20}%`;
+      bar.style.top = `${slot * barHeight}px`;
+      bar.style.height = `${barHeight - 4}px`;
+      bar.style.lineHeight = `${barHeight - 4}px`;
+      bar.style.fontSize = barHeight < 24 ? "0.75em" : "0.85em";
+      const hue = Math.abs(this.hashCode(cr.fileName)) % 360;
+      bar.style.backgroundColor = `hsl(${hue}, 70%, 80%)`;
+      bar.style.color = `hsl(${hue}, 80%, 20%)`;
+      const status = String(cr.frontmatter["status"] || "");
+      if (status === "In Progress") bar.addClass("status-in-progress");
+      if (status === "Completed") bar.addClass("status-completed");
+      bar.onclick = (e) => {
+        e.stopPropagation();
+        this.openEditModal(cr);
+      };
+      bar.ondragover = (e) => {
+        var _a, _b;
+        if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+          e.preventDefault();
+          const eventsLayer = container;
+          if (eventsLayer.ondragover) {
+            eventsLayer.ondragover(e);
+          }
+        }
+      };
+      bar.ondragleave = (e) => {
+        var _a, _b;
+        if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+          const eventsLayer = container;
+          if (eventsLayer.ondragleave) {
+            eventsLayer.ondragleave(e);
+          }
+        }
+      };
+      bar.ondrop = (e) => {
+        var _a, _b;
+        if (((_a = e.dataTransfer) == null ? void 0 : _a.types.includes("application/x-kb-cr")) || ((_b = e.dataTransfer) == null ? void 0 : _b.types.includes("application/x-kb-resize"))) {
+          e.preventDefault();
+          const eventsLayer = container;
+          if (eventsLayer.ondrop) {
+            eventsLayer.ondrop(e);
+          }
+        }
+      };
+      if (originalStartCol >= 0) {
+        const handleL = bar.createDiv({ cls: "kb-resize-handle kb-handle-l" });
+        this.setupResize(handleL, cr, "start");
+      }
+      if (originalEndCol <= 4) {
+        const handleR = bar.createDiv({ cls: "kb-resize-handle kb-handle-r" });
+        this.setupResize(handleR, cr, "end");
+      }
+    });
+  }
+  getCRsForWeek(start, end) {
+    const crFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder);
+    return this.tasks.filter((t) => t.filePath.startsWith(crFolder + "/")).filter((t) => {
+      const s = t.frontmatter["plannedStart"] ? new Date(t.frontmatter["plannedStart"]) : null;
+      const e = t.frontmatter["plannedEnd"] ? new Date(t.frontmatter["plannedEnd"]) : null;
+      if (!s || !e) return false;
+      s.setHours(0, 0, 0, 0);
+      e.setHours(0, 0, 0, 0);
+      const wStart = new Date(start);
+      wStart.setHours(0, 0, 0, 0);
+      const wEnd = new Date(end);
+      wEnd.setHours(0, 0, 0, 0);
+      return s <= wEnd && e >= wStart;
+    });
+  }
+  assignSlots(crs, weekStart) {
+    crs.sort((a, b) => {
+      const sa = new Date(a.frontmatter["plannedStart"]).getTime();
+      const sb = new Date(b.frontmatter["plannedStart"]).getTime();
+      const ea = new Date(a.frontmatter["plannedEnd"]).getTime();
+      const eb = new Date(b.frontmatter["plannedEnd"]).getTime();
+      const da = ea - sa;
+      const db = eb - sb;
+      if (da !== db) return db - da;
+      return sa - sb;
+    });
+    const slots = /* @__PURE__ */ new Map();
+    const occupied = new Array(20).fill(null).map(() => new Array(5).fill(false));
+    crs.forEach((cr) => {
+      const start = new Date(cr.frontmatter["plannedStart"]);
+      const end = new Date(cr.frontmatter["plannedEnd"]);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      const wStart = new Date(weekStart);
+      wStart.setHours(0, 0, 0, 0);
+      let startIdx = Math.floor((start.getTime() - wStart.getTime()) / (1e3 * 60 * 60 * 24));
+      let endIdx = Math.floor((end.getTime() - wStart.getTime()) / (1e3 * 60 * 60 * 24));
+      startIdx = Math.max(0, startIdx);
+      endIdx = Math.min(4, endIdx);
+      if (startIdx > 4 || endIdx < 0) return;
+      let slot = 0;
+      while (true) {
+        let fits = true;
+        for (let i = startIdx; i <= endIdx; i++) {
+          if (occupied[slot][i]) {
+            fits = false;
+            break;
+          }
+        }
+        if (fits) {
+          for (let i = startIdx; i <= endIdx; i++) {
+            occupied[slot][i] = true;
+          }
+          slots.set(cr.filePath, slot);
+          break;
+        }
+        slot++;
+      }
+    });
+    return slots;
+  }
+  getCRsForDate(date) {
+    const crFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder);
+    return this.tasks.filter((t) => t.filePath.startsWith(crFolder + "/")).filter((t) => {
+      const start = t.frontmatter["plannedStart"];
+      const end = t.frontmatter["plannedEnd"];
+      if (!start || !end) return false;
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      const s = new Date(start);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(end);
+      e.setHours(0, 0, 0, 0);
+      return d >= s && d <= e;
+    });
+  }
+  setupResize(handle, cr, type) {
+    handle.draggable = true;
+    handle.ondragstart = (e) => {
+      var _a, _b;
+      e.stopPropagation();
+      (_a = e.dataTransfer) == null ? void 0 : _a.setData("application/x-kb-resize", JSON.stringify({ path: cr.filePath, type }));
+      (_b = e.dataTransfer) == null ? void 0 : _b.setDragImage(new Image(), 0, 0);
+    };
+  }
+  // Helper for hash color
+  hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash |= 0;
+    }
+    return hash;
+  }
+  async handleDropFromBacklog(path, date) {
+    const cr = this.tasks.find((t) => t.filePath === path);
+    if (!cr) return;
+    const formatDate = (d) => {
+      const offset = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - offset * 60 * 1e3);
+      return local.toISOString().split("T")[0];
+    };
+    const dateStr = formatDate(date);
+    await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(path), {
+      status: "In Progress",
+      plannedStart: dateStr,
+      plannedEnd: dateStr
+    });
+    await this.reloadCallback();
+  }
+  async handleResizeDrop(path, type, newDate) {
+    var _a;
+    const cr = this.tasks.find((t) => t.filePath === path);
+    if (!cr) return;
+    const start = cr.frontmatter["plannedStart"] ? new Date(cr.frontmatter["plannedStart"]) : null;
+    const end = cr.frontmatter["plannedEnd"] ? new Date(cr.frontmatter["plannedEnd"]) : null;
+    if (!start || !end) return;
+    newDate.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    let newStart = start;
+    let newEnd = end;
+    if (type === "start") {
+      if (newDate > end) {
+        new import_obsidian7.Notice("Start date cannot be after end date");
+        return;
+      }
+      newStart = newDate;
+    } else {
+      if (newDate < start) {
+        new import_obsidian7.Notice("End date cannot be before start date");
+        return;
+      }
+      newEnd = newDate;
+    }
+    const formatDate = (d) => {
+      const offset = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - offset * 60 * 1e3);
+      return local.toISOString().split("T")[0];
+    };
+    (_a = this.suppressReloads) == null ? void 0 : _a.call(this, 1e3);
+    await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(path), {
+      plannedStart: formatDate(newStart),
+      plannedEnd: formatDate(newEnd)
+    });
+    await this.reloadCallback();
+  }
+  openEditModal(cr) {
+    const modal = new EditCRModal(this.app, this.settings, cr, async (result) => {
+      await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(cr.filePath), result);
+      await this.reloadCallback();
+    });
+    modal.open();
+  }
+};
+var EditCRModal = class extends import_obsidian7.Modal {
+  constructor(app, settings, cr, onSubmit) {
+    super(app);
+    this.inputs = /* @__PURE__ */ new Map();
+    this.settings = settings;
+    this.cr = cr;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("kb-container", "kb-modal-layout");
+    const header = contentEl.createDiv({ cls: "kb-modal-header" });
+    header.createEl("h2", { text: "Edit CR" });
+    const scrollableContent = contentEl.createDiv({ cls: "kb-modal-content" });
+    const patch = {};
+    const fields = this.settings.templateConfig.crFields;
+    fields.forEach((field) => {
+      const row = scrollableContent.createDiv({ cls: "setting-item" });
+      row.createDiv({ cls: "setting-item-name", text: field.label });
+      const control = row.createDiv({ cls: "setting-item-control" });
+      const initialValue = this.cr.frontmatter[field.key] || "";
+      if (field.type === "freetext") {
+        row.style.display = "block";
+        row.style.width = "100%";
+        const label = row.querySelector(".setting-item-name");
+        if (label) label.style.display = "block";
+        control.style.width = "100%";
+        control.style.marginTop = "8px";
+        const textarea = control.createEl("textarea");
+        textarea.addClass("kb-input");
+        textarea.placeholder = field.label;
+        textarea.rows = 4;
+        textarea.style.resize = "vertical";
+        textarea.style.minHeight = "80px";
+        textarea.style.width = "100%";
+        textarea.value = String(initialValue);
+        this.inputs.set(field.key, textarea);
+      } else if (field.type === "status") {
+        const options = field.useValues ? this.settings.statusConfig[field.useValues] || this.settings[field.useValues] || [] : [];
+        const dropdown = new Dropdown(
+          control,
+          options,
+          String(initialValue || options[0] || ""),
+          (val) => {
+          }
+        );
+        this.inputs.set(field.key, dropdown);
+      } else if (field.type === "date") {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.type = "date";
+        input.value = String(initialValue);
+        this.inputs.set(field.key, input);
+      } else {
+        const input = control.createEl("input");
+        input.addClass("kb-input");
+        input.type = "text";
+        input.placeholder = field.label;
+        input.value = String(initialValue);
+        this.inputs.set(field.key, input);
+      }
+    });
+    const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
+    const cancel = footer.createEl("button", { text: "Cancel" });
+    cancel.addClass("mod-warning");
+    cancel.onclick = () => this.close();
+    const save = footer.createEl("button", { text: "Save" });
+    save.addClass("mod-cta");
+    save.onclick = () => {
+      for (const [key, input] of this.inputs.entries()) {
+        const anyInput = input;
+        if (anyInput && typeof anyInput.getValue === "function") {
+          patch[key] = anyInput.getValue();
+          continue;
+        }
+        const el = input;
+        const val = el.tagName === "TEXTAREA" ? el.value : el.value.trim();
+        if (val !== "" && val != null) patch[key] = val;
+        else patch[key] = val === "" ? "" : void 0;
+      }
+      this.onSubmit(patch);
+      this.close();
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/views/boardTabsView.ts
 var BOARD_TABS_VIEW_TYPE = "kb-board-tabs-view";
-var BoardTabsView = class extends import_obsidian7.ItemView {
+var BoardTabsView = class extends import_obsidian8.ItemView {
   constructor(leaf, plugin, settings, persistSettings) {
     var _a;
     super(leaf);
@@ -35650,6 +36340,7 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
     this.pendingReload = false;
     this.suppressTimer = null;
     this.ignorePendingReload = false;
+    this.isSearchExpanded = false;
     this.plugin = plugin;
     this.settings = settings;
     this.active = (_a = this.settings.lastActiveTab) != null ? _a : "grid";
@@ -35659,7 +36350,7 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
   async promptText(title, placeholder = "", initial = "") {
     return new Promise((resolve) => {
       const self = this;
-      class TextPrompt extends import_obsidian7.Modal {
+      class TextPrompt extends import_obsidian8.Modal {
         constructor() {
           super(self.app);
           this.value = initial;
@@ -35706,8 +36397,8 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
   async onOpen() {
     var _a;
     this.contentEl.addClass("kb-container");
-    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian7.debounce)(() => this.handleDataChange(), 300)));
-    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian7.debounce)(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.metadataCache.on("changed", (0, import_obsidian8.debounce)(() => this.handleDataChange(), 300)));
+    this.registerEvent(this.app.vault.on("modify", (0, import_obsidian8.debounce)(() => this.handleDataChange(), 300)));
     (_a = this.scope) == null ? void 0 : _a.register([], "Esc", () => {
       return false;
     });
@@ -35754,7 +36445,12 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
     var _a;
     const c = this.contentEl;
     c.empty();
-    const tabs = c.createDiv({ cls: "kb-tabs" });
+    const header = c.createDiv({ cls: "kb-header-container" });
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.marginBottom = "var(--spacing-l)";
+    const tabs = header.createDiv({ cls: "kb-tabs" });
+    tabs.style.marginBottom = "0";
     const gridBtn = tabs.createEl("button", { text: "Grid" });
     gridBtn.addClass("kb-tab");
     if (this.active === "grid") gridBtn.addClass("is-active");
@@ -35775,31 +36471,56 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
       (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
       this.render();
     };
-    const menuBtn = tabs.createEl("button", { text: "\u22EF" });
-    menuBtn.addClass("kb-ellipsis");
-    menuBtn.onclick = (ev) => {
-      const menu = new import_obsidian7.Menu();
-      menu.addItem((i) => i.setTitle("Export to CSV").onClick(() => this.exportToCsv()));
-      menu.addItem((i) => i.setTitle("Export to Excel").onClick(() => this.exportToExcel()));
-      menu.addItem((i) => i.setTitle("Export to JSON").onClick(() => this.exportToJson()));
-      menu.addItem((i) => i.setTitle("Import from CSV").onClick(() => this.importFromCsv()));
-      menu.addItem((i) => i.setTitle("Import from Excel").onClick(() => this.importFromExcel()));
-      menu.addItem((i) => i.setTitle("Import from JSON").onClick(() => this.importFromJson()));
-      const e = ev;
-      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    const calendarBtn = tabs.createEl("button", { text: "Calendar" });
+    calendarBtn.addClass("kb-tab");
+    if (this.active === "calendar") calendarBtn.addClass("is-active");
+    calendarBtn.onclick = () => {
+      var _a2;
+      this.active = "calendar";
+      this.settings.lastActiveTab = "calendar";
+      (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
+      this.render();
     };
-    const bar = c.createDiv({ cls: "kb-toolbar" });
-    const search = bar.createEl("input", { type: "search" });
-    search.addClass("kb-input");
-    search.placeholder = "Filter...";
-    search.value = this.filterQuery;
-    search.oninput = (ev) => {
+    const searchContainer = header.createDiv({ cls: "kb-search-container" });
+    searchContainer.style.marginLeft = "8px";
+    searchContainer.style.position = "relative";
+    const searchBtn = searchContainer.createEl("button", { cls: "kb-search-icon-btn" });
+    searchBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+    const searchInput = searchContainer.createEl("input", { type: "text", cls: "kb-search-expanded" });
+    searchInput.placeholder = "Search...";
+    searchInput.value = this.filterQuery;
+    const toggleSearch = (show) => {
+      this.isSearchExpanded = show;
+      if (show) {
+        searchBtn.style.display = "none";
+        searchInput.style.display = "block";
+        searchInput.focus();
+      } else {
+        searchBtn.style.display = "flex";
+        searchInput.style.display = "none";
+      }
+    };
+    toggleSearch(this.isSearchExpanded || !!this.filterQuery);
+    searchBtn.onclick = () => toggleSearch(true);
+    searchInput.onblur = () => {
+      if (!this.filterQuery) {
+        toggleSearch(false);
+      }
+    };
+    searchInput.oninput = (ev) => {
       const target = ev.target;
       this.filterQuery = target.value.trim().toLowerCase();
-      if (this.active === "grid") this.renderGrid(c);
-      else this.renderBoard(c);
+      const viewContainer2 = c.querySelector(".kb-view-container");
+      if (viewContainer2) {
+        if (this.active === "grid") this.renderGrid(viewContainer2);
+        else if (this.active === "board") this.renderBoard(viewContainer2);
+      }
     };
-    const rightGroup = bar.createDiv({ cls: "kb-toolbar-right-group" });
+    const rightGroup = header.createDiv({ cls: "kb-header-right-group" });
+    rightGroup.style.marginLeft = "auto";
+    rightGroup.style.display = "flex";
+    rightGroup.style.alignItems = "center";
+    rightGroup.style.gap = "8px";
     if (this.active === "grid") {
       const archivedToggle = rightGroup.createEl("label");
       archivedToggle.addClass("kb-switch");
@@ -35834,8 +36555,27 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
       });
       panel.open();
     };
-    if (this.active === "grid") this.renderGrid(c);
-    else this.renderBoard(c);
+    const menuBtn = rightGroup.createEl("button", { text: "\u22EF" });
+    menuBtn.addClass("kb-ellipsis");
+    menuBtn.onclick = (ev) => {
+      const menu = new import_obsidian8.Menu();
+      menu.addItem((i) => i.setTitle("Export to CSV").onClick(() => this.exportToCsv()));
+      menu.addItem((i) => i.setTitle("Export to Excel").onClick(() => this.exportToExcel()));
+      menu.addItem((i) => i.setTitle("Export to JSON").onClick(() => this.exportToJson()));
+      menu.addItem((i) => i.setTitle("Import from CSV").onClick(() => this.importFromCsv()));
+      menu.addItem((i) => i.setTitle("Import from Excel").onClick(() => this.importFromExcel()));
+      menu.addItem((i) => i.setTitle("Import from JSON").onClick(() => this.importFromJson()));
+      const e = ev;
+      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    };
+    const viewContainer = c.createDiv({ cls: "kb-view-container" });
+    viewContainer.style.height = "calc(100% - 80px)";
+    viewContainer.style.display = "flex";
+    viewContainer.style.flexDirection = "column";
+    viewContainer.style.overflow = "hidden";
+    if (this.active === "grid") this.renderGrid(viewContainer);
+    else if (this.active === "board") this.renderBoard(viewContainer);
+    else this.renderCalendar(viewContainer);
   }
   async importFromJson() {
     const input = document.createElement("input");
@@ -35856,10 +36596,10 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
           if (data.crs) {
             await this.processImportData(data.crs, "cr");
           }
-          new import_obsidian7.Notice("Import complete");
+          new import_obsidian8.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian7.Notice("Failed to import file: " + error.message);
+          new import_obsidian8.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsText(file);
@@ -35868,8 +36608,8 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
   }
   async exportToJson() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian8.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian8.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => t.frontmatter);
     let crData = [];
     if (crFolder) {
@@ -35909,10 +36649,10 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
             const crData = utils.sheet_to_json(crSheet);
             await this.processImportData(crData, "cr");
           }
-          new import_obsidian7.Notice("Import complete");
+          new import_obsidian8.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian7.Notice("Failed to import file: " + error.message);
+          new import_obsidian8.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsText(file);
@@ -35943,10 +36683,10 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
             const taskData = utils.sheet_to_json(taskSheet);
             await this.processImportData(taskData, "task");
           }
-          new import_obsidian7.Notice("Import complete");
+          new import_obsidian8.Notice("Import complete");
           await this.reload();
         } catch (error) {
-          new import_obsidian7.Notice("Failed to import file: " + error.message);
+          new import_obsidian8.Notice("Failed to import file: " + error.message);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -35955,8 +36695,8 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
   }
   async exportToExcel() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian8.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian8.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -35990,8 +36730,8 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
   }
   async exportToCsv() {
     const allItems = await readAllItems(this.app, this.settings);
-    const taskFolder = (0, import_obsidian7.normalizePath)(this.settings.paths.taskFolder);
-    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian7.normalizePath)(this.settings.paths.crFolder) : null;
+    const taskFolder = (0, import_obsidian8.normalizePath)(this.settings.paths.taskFolder);
+    const crFolder = this.settings.paths.crFolder ? (0, import_obsidian8.normalizePath)(this.settings.paths.crFolder) : null;
     const tasksData = allItems.filter((t) => t.filePath.startsWith(taskFolder + "/")).map((t) => {
       const fm = Object.assign({}, t.frontmatter);
       if (fm && Array.isArray(fm.tags)) fm.tags = fm.tags.join(", ");
@@ -36027,7 +36767,7 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
     const allItems = await readAllItems(this.app, this.settings);
     const folder = type === "cr" ? this.settings.paths.crFolder : this.settings.paths.taskFolder;
     if (!folder) {
-      new import_obsidian7.Notice(`Folder for ${type}s is not configured.`);
+      new import_obsidian8.Notice(`Folder for ${type}s is not configured.`);
       return;
     }
     for (const item of data) {
@@ -36092,7 +36832,7 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
         try {
           await this.app.vault.create(fileName, content);
         } catch (error) {
-          new import_obsidian7.Notice(`Failed to create file: "${fileName}". Please check for unsupported characters.`);
+          new import_obsidian8.Notice(`Failed to create file: "${fileName}". Please check for unsupported characters.`);
         }
       }
     }
@@ -36138,10 +36878,22 @@ var BoardTabsView = class extends import_obsidian7.ItemView {
     );
     boardView.render(container);
   }
+  // CALENDAR
+  renderCalendar(container) {
+    const calendarView = new CalendarView(
+      this.app,
+      this.settings,
+      this.tasks,
+      this.reload.bind(this),
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
+    );
+    calendarView.render(container);
+  }
 };
 
 // src/main.ts
-var KanbanPlugin = class extends import_obsidian8.Plugin {
+var KanbanPlugin = class extends import_obsidian9.Plugin {
   async saveConfig() {
     await this.app.vault.adapter.write(
       `${this.manifest.dir}/configuration.json`,
@@ -36161,7 +36913,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
     }
   }
   async validateAndPromptForSettings() {
-    const modal = new import_obsidian8.Modal(this.app);
+    const modal = new import_obsidian9.Modal(this.app);
     modal.titleEl.setText("Configure Kanban Board");
     const { contentEl } = modal;
     const requiredSettings = [
@@ -36215,7 +36967,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
         for (const [label, path] of missing) {
           const value = (_a = inputs.get(label)) == null ? void 0 : _a.value.trim();
           if (!value) {
-            new import_obsidian8.Notice(`${label} is required`);
+            new import_obsidian9.Notice(`${label} is required`);
             return;
           }
           let current = this.config;
@@ -36278,7 +37030,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
       await this.loadConfiguration();
     } catch (err) {
       console.error("Failed to load configuration:", err);
-      new import_obsidian8.Notice("Failed to load configuration. Please check settings or recreate configuration.json. Error: " + err.message);
+      new import_obsidian9.Notice("Failed to load configuration. Please check settings or recreate configuration.json. Error: " + err.message);
       this.addSettingTab(new KanbanSettingTab(this.app, this));
       return;
     }
@@ -36313,7 +37065,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
     });
     this.registerEvent(this.app.metadataCache.on("changed", async (file) => {
       var _a;
-      if (!(file instanceof import_obsidian8.TFile)) return;
+      if (!(file instanceof import_obsidian9.TFile)) return;
       const folder = this.config.paths.taskFolder || "Tasks";
       if (!file.path.startsWith(folder + "/")) return;
       const fm = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -36455,7 +37207,7 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
       }
       await this.app.vault.create(path, content);
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian8.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      if (file instanceof import_obsidian9.TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
     modal.open();
   }
@@ -36509,12 +37261,12 @@ var KanbanPlugin = class extends import_obsidian8.Plugin {
 
 `);
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian8.TFile) await this.app.workspace.getLeaf(true).openFile(file);
+      if (file instanceof import_obsidian9.TFile) await this.app.workspace.getLeaf(true).openFile(file);
     });
     modal.open();
   }
 };
-var TaskTemplateModal = class extends import_obsidian8.Modal {
+var TaskTemplateModal = class extends import_obsidian9.Modal {
   constructor(app, plugin, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
@@ -36813,7 +37565,7 @@ var TaskTemplateModal = class extends import_obsidian8.Modal {
         const crFile = await findCrFileByNumber(this.app, this.plugin.config, crNumInput);
         if (!crFile) {
           const confirmed = await new Promise((resolve) => {
-            const confirmModal = new import_obsidian8.Modal(this.app);
+            const confirmModal = new import_obsidian9.Modal(this.app);
             confirmModal.titleEl.setText("CR Not Found");
             confirmModal.contentEl.createEl("p", {
               text: `The CR number "${crNumInput}" was not found. Do you want to continue creating this task anyway?`
@@ -36841,7 +37593,7 @@ var TaskTemplateModal = class extends import_obsidian8.Modal {
     };
   }
 };
-var CrTemplateModal = class extends import_obsidian8.Modal {
+var CrTemplateModal = class extends import_obsidian9.Modal {
   constructor(app, config, fields, onSubmit) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();

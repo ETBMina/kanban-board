@@ -6,6 +6,7 @@ import KanbanPlugin from '../main';
 import { FilterPanel } from './filterModal';
 import { GridView } from './gridView';
 import { BoardView } from './boardView';
+import { CalendarView } from './calendarView';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -21,6 +22,7 @@ export class BoardTabsView extends ItemView {
   private pendingReload = false;
   private suppressTimer: number | null = null;
   private ignorePendingReload = false;
+  private isSearchExpanded = false;
 
   private async promptText(title: string, placeholder = '', initial = ''): Promise<string | undefined> {
     return new Promise((resolve) => {
@@ -121,49 +123,86 @@ export class BoardTabsView extends ItemView {
     const c = this.contentEl;
     c.empty();
 
+    // Header Container (Tabs + Search + Right Group)
+    const header = c.createDiv({ cls: 'kb-header-container' });
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.marginBottom = 'var(--spacing-l)';
+
     // Tabs bar
-    const tabs = c.createDiv({ cls: 'kb-tabs' });
+    const tabs = header.createDiv({ cls: 'kb-tabs' });
+    tabs.style.marginBottom = '0'; // Override default margin
+
     const gridBtn = tabs.createEl('button', { text: 'Grid' });
     gridBtn.addClass('kb-tab');
     if (this.active === 'grid') gridBtn.addClass('is-active');
     gridBtn.onclick = () => { this.active = 'grid'; this.settings.lastActiveTab = 'grid'; this.persistSettings?.(); this.render(); };
+
     const boardBtn = tabs.createEl('button', { text: 'Board' });
     boardBtn.addClass('kb-tab');
     if (this.active === 'board') boardBtn.addClass('is-active');
     boardBtn.onclick = () => { this.active = 'board'; this.settings.lastActiveTab = 'board'; this.persistSettings?.(); this.render(); };
 
+    const calendarBtn = tabs.createEl('button', { text: 'Calendar' });
+    calendarBtn.addClass('kb-tab');
+    if (this.active === 'calendar') calendarBtn.addClass('is-active');
+    calendarBtn.onclick = () => { this.active = 'calendar'; this.settings.lastActiveTab = 'calendar'; this.persistSettings?.(); this.render(); };
 
-    const menuBtn = tabs.createEl('button', { text: '⋯' });
-    menuBtn.addClass('kb-ellipsis');
-    menuBtn.onclick = (ev) => {
-      const menu = new Menu();
-      menu.addItem((i) => i.setTitle('Export to CSV').onClick(() => this.exportToCsv()));
-      menu.addItem((i) => i.setTitle('Export to Excel').onClick(() => this.exportToExcel()));
-      menu.addItem((i) => i.setTitle('Export to JSON').onClick(() => this.exportToJson()));
-      menu.addItem((i) => i.setTitle('Import from CSV').onClick(() => this.importFromCsv()));
-      menu.addItem((i) => i.setTitle('Import from Excel').onClick(() => this.importFromExcel()));
-      menu.addItem((i) => i.setTitle('Import from JSON').onClick(() => this.importFromJson()));
-      const e = ev as MouseEvent;
-      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    // Expandable Search (Outside tabs)
+    const searchContainer = header.createDiv({ cls: 'kb-search-container' });
+    searchContainer.style.marginLeft = '8px';
+    searchContainer.style.position = 'relative';
+
+    const searchBtn = searchContainer.createEl('button', { cls: 'kb-search-icon-btn' });
+    searchBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+
+    const searchInput = searchContainer.createEl('input', { type: 'text', cls: 'kb-search-expanded' });
+    searchInput.placeholder = 'Search...';
+    searchInput.value = this.filterQuery;
+
+    // Toggle Logic
+    const toggleSearch = (show: boolean) => {
+      this.isSearchExpanded = show;
+      if (show) {
+        searchBtn.style.display = 'none';
+        searchInput.style.display = 'block';
+        searchInput.focus();
+      } else {
+        searchBtn.style.display = 'flex';
+        searchInput.style.display = 'none';
+      }
     };
 
-    // Toolbar
-    const bar = c.createDiv({ cls: 'kb-toolbar' });
-    const search = bar.createEl('input', { type: 'search' });
-    search.addClass('kb-input');
-    search.placeholder = 'Filter...';
-    search.value = this.filterQuery;
-    search.oninput = (ev: Event) => {
+    // Initialize state
+    toggleSearch(this.isSearchExpanded || !!this.filterQuery);
+
+    searchBtn.onclick = () => toggleSearch(true);
+
+    searchInput.onblur = () => {
+      if (!this.filterQuery) {
+        toggleSearch(false);
+      }
+    };
+
+    searchInput.oninput = (ev: Event) => {
       const target = ev.target as HTMLInputElement;
       this.filterQuery = target.value.trim().toLowerCase();
-      if (this.active === 'grid') this.renderGrid(c);
-      else this.renderBoard(c);
+      const viewContainer = c.querySelector('.kb-view-container') as HTMLElement;
+      if (viewContainer) {
+        if (this.active === 'grid') this.renderGrid(viewContainer);
+        else if (this.active === 'board') this.renderBoard(viewContainer);
+      }
     };
 
-    const rightGroup = bar.createDiv({ cls: 'kb-toolbar-right-group' });
+    // Right Group (Archived Toggle + Filter + Menu)
+    const rightGroup = header.createDiv({ cls: 'kb-header-right-group' });
+    rightGroup.style.marginLeft = 'auto'; // Push to right
+    rightGroup.style.display = 'flex';
+    rightGroup.style.alignItems = 'center';
+    rightGroup.style.gap = '8px';
 
     if (this.active === 'grid') {
-      // Archived toggle (left of filter button)
+      // Archived toggle
       const archivedToggle = rightGroup.createEl('label');
       archivedToggle.addClass('kb-switch');
       archivedToggle.createSpan({ text: 'Show archived', cls: 'kb-switch-text' });
@@ -178,7 +217,7 @@ export class BoardTabsView extends ItemView {
       archivedToggle.createSpan({ cls: 'kb-slider round' });
     }
 
-    // Filter button (right side)
+    // Filter button
     const filterBtn = rightGroup.createEl('button');
     filterBtn.addClass('kb-filter-btn');
     // Icon (funnel-like)
@@ -200,8 +239,30 @@ export class BoardTabsView extends ItemView {
       panel.open();
     };
 
+    const menuBtn = rightGroup.createEl('button', { text: '⋯' });
+    menuBtn.addClass('kb-ellipsis');
+    menuBtn.onclick = (ev) => {
+      const menu = new Menu();
+      menu.addItem((i) => i.setTitle('Export to CSV').onClick(() => this.exportToCsv()));
+      menu.addItem((i) => i.setTitle('Export to Excel').onClick(() => this.exportToExcel()));
+      menu.addItem((i) => i.setTitle('Export to JSON').onClick(() => this.exportToJson()));
+      menu.addItem((i) => i.setTitle('Import from CSV').onClick(() => this.importFromCsv()));
+      menu.addItem((i) => i.setTitle('Import from Excel').onClick(() => this.importFromExcel()));
+      menu.addItem((i) => i.setTitle('Import from JSON').onClick(() => this.importFromJson()));
+      const e = ev as MouseEvent;
+      menu.showAtPosition({ x: e.clientX, y: e.clientY });
+    };
 
-    if (this.active === 'grid') this.renderGrid(c); else this.renderBoard(c);
+    // View Container
+    const viewContainer = c.createDiv({ cls: 'kb-view-container' });
+    viewContainer.style.height = 'calc(100% - 80px)';
+    viewContainer.style.display = 'flex';
+    viewContainer.style.flexDirection = 'column';
+    viewContainer.style.overflow = 'hidden';
+
+    if (this.active === 'grid') this.renderGrid(viewContainer);
+    else if (this.active === 'board') this.renderBoard(viewContainer);
+    else this.renderCalendar(viewContainer);
   }
 
   public async importFromJson() {
@@ -571,5 +632,18 @@ export class BoardTabsView extends ItemView {
       this.suppressReloadsForLocalUpdate.bind(this)
     );
     boardView.render(container);
+  }
+
+  // CALENDAR
+  private renderCalendar(container: HTMLElement) {
+    const calendarView = new CalendarView(
+      this.app,
+      this.settings,
+      this.tasks,
+      this.reload.bind(this),
+      this.persistSettings,
+      this.suppressReloadsForLocalUpdate.bind(this)
+    );
+    calendarView.render(container);
   }
 }
