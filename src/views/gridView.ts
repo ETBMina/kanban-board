@@ -249,9 +249,26 @@ export class GridView {
         const tbody = table.createEl('tbody');
         for (const t of this.getFilteredTasks()) {
             const tr = tbody.createEl('tr');
+            // Add unique file path as data attribute for reliable file opening
+            tr.setAttribute('data-file-path', t.filePath);
             // Add archived styling
             const isArchived = Boolean(t.frontmatter['archived']);
             if (isArchived) tr.addClass('kb-row-archived');
+
+            // Add row click handler for Ctrl+click to open file
+            tr.addEventListener('mousedown', async (e: MouseEvent) => {
+                if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Ctrl/Cmd + click
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const filePath = tr.getAttribute('data-file-path');
+                    if (filePath) {
+                        const file = this.app.vault.getAbstractFileByPath(filePath);
+                        if (file instanceof TFile) {
+                            await this.app.workspace.getLeaf(true).openFile(file);
+                        }
+                    }
+                }
+            });
             for (const key of this.settings.gridConfig.visibleColumns) {
                 const fieldDef = this.settings.templateConfig.fields.find((f: TaskFieldDefinition) => f.key === key) || { key, label: key, type: 'text' as FieldType };
                 const val = t.frontmatter[key];
@@ -292,8 +309,23 @@ export class GridView {
                     link.classList.add(numKey === 'crNumber' ? 'kb-cr-link' : 'kb-task-link');
 
                     const openFile = async () => {
-                        const file = await findFunc(this.app, this.settings, numVal);
-                        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+                        // For CR numbers, find the CR file. For task numbers, use the row's file path
+                        if (numKey === 'crNumber') {
+                            const file = await findFunc(this.app, this.settings, numVal);
+                            if (file instanceof TFile) {
+                                await this.app.workspace.getLeaf(true).openFile(file);
+                            }
+                        } else {
+                            // For task numbers, use the file path from the row data attribute
+                            const row = link.closest('tr');
+                            const filePath = row?.getAttribute('data-file-path');
+                            if (filePath) {
+                                const file = this.app.vault.getAbstractFileByPath(filePath);
+                                if (file instanceof TFile) {
+                                    await this.app.workspace.getLeaf(true).openFile(file);
+                                }
+                            }
+                        }
                     };
 
                     const openEditor = () => {
@@ -340,6 +372,7 @@ export class GridView {
                     // Use registerDomEvent equivalent or direct binding
                     link.addEventListener('mousedown', (e: MouseEvent) => {
                         e.preventDefault();
+                        e.stopPropagation(); // Prevent row click handler from also firing
                         if (e.button === 0 && (e.ctrlKey || e.metaKey)) { // Primary button + ctrl/meta
                             openFile();
                         } else if (e.button === 0) { // Primary button only
