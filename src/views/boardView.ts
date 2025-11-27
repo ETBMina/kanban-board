@@ -743,6 +743,14 @@ export class BoardView {
                                 draggedTask.frontmatter['status'] = status;
                                 if (isCompleted) draggedTask.frontmatter['endDate'] = today;
                                 if (isInProgress && !draggedTask.frontmatter['startDate']) draggedTask.frontmatter['startDate'] = today;
+
+                                // Update the shared tasks array to ensure all views see the change
+                                const sharedTask = this.tasks.find(t => t.filePath === draggedTask.filePath);
+                                if (sharedTask) {
+                                    sharedTask.frontmatter['status'] = status;
+                                    if (isCompleted) sharedTask.frontmatter['endDate'] = today;
+                                    if (isInProgress && !sharedTask.frontmatter['startDate']) sharedTask.frontmatter['startDate'] = today;
+                                }
                             }
                             this.applyLocalOrder(status, true);
                             if (fromStatus !== status) this.applyLocalOrder(fromStatus);

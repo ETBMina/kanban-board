@@ -413,6 +413,12 @@ export class GridView {
                             }
 
                             await updateTaskFrontmatter(this.app, fileObj as TFile, payload);
+
+                            // Update the shared tasks array to ensure all views see the change
+                            const sharedTask = this.tasks.find(task => task.filePath === t.filePath);
+                            if (sharedTask) {
+                                Object.assign(sharedTask.frontmatter, payload);
+                            }
                         } else {
                             // freetext in body: replace or append under heading
                             const label = fieldDef.label || key;

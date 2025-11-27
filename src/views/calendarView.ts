@@ -743,12 +743,21 @@ export class CalendarView {
 
         const dateStr = formatDate(date);
 
+        // Suppress reloads during the update
+        this.suppressReloads?.();
+
         // Automatically set start and end to the dropped date
         await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(path) as TFile, {
             status: 'In Progress',
             plannedStart: dateStr,
             plannedEnd: dateStr
         });
+
+        // Update the shared tasks array
+        cr.frontmatter['status'] = 'In Progress';
+        cr.frontmatter['plannedStart'] = dateStr;
+        cr.frontmatter['plannedEnd'] = dateStr;
+
         await this.reloadCallback();
     }
 
@@ -795,12 +804,28 @@ export class CalendarView {
             plannedStart: formatDate(newStart),
             plannedEnd: formatDate(newEnd)
         });
+
+        // Update the shared tasks array
+        const sharedTask = this.tasks.find(t => t.filePath === path);
+        if (sharedTask) {
+            sharedTask.frontmatter['plannedStart'] = formatDate(newStart);
+            sharedTask.frontmatter['plannedEnd'] = formatDate(newEnd);
+        }
+
         await this.reloadCallback();
     }
 
     private openEditModal(cr: TaskNoteMeta) {
         const modal = new EditCRModal(this.app, this.settings, cr, async (result) => {
+            this.suppressReloads?.();
             await updateTaskFrontmatter(this.app, this.app.vault.getAbstractFileByPath(cr.filePath) as TFile, result);
+
+            // Update the shared tasks array
+            const sharedTask = this.tasks.find(t => t.filePath === cr.filePath);
+            if (sharedTask) {
+                Object.assign(sharedTask.frontmatter, result);
+            }
+
             await this.reloadCallback();
         });
         modal.open();
