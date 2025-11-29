@@ -185,8 +185,8 @@
 }
 
 .kb-view-btn.is-active {
-    background-color: var(--background-primary);
-    color: var(--text-normal);
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
