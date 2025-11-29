@@ -178,12 +178,12 @@ export class CalendarView {
         dateDisplay.textContent = this.getDateDisplayText();
 
         // Right: View Switcher
-        const viewSwitcher = toolbar.createDiv({ cls: 'kb-view-switcher' });
-        const monthBtn = viewSwitcher.createEl('button', { cls: 'kb-view-btn', text: 'Month' });
+        const viewSwitcher = toolbar.createDiv({ cls: 'kb-tabs' });
+        const monthBtn = viewSwitcher.createEl('button', { cls: 'kb-tab', text: 'Month' });
         if (this.viewMode === 'month') monthBtn.addClass('is-active');
         monthBtn.onclick = () => { this.viewMode = 'month'; this.renderCalendar(); };
 
-        const weekBtn = viewSwitcher.createEl('button', { cls: 'kb-view-btn', text: 'Week' });
+        const weekBtn = viewSwitcher.createEl('button', { cls: 'kb-tab', text: 'Week' });
         if (this.viewMode === 'week') weekBtn.addClass('is-active');
         weekBtn.onclick = () => { this.viewMode = 'week'; this.renderCalendar(); };
 
