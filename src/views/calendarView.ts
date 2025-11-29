@@ -98,7 +98,7 @@ export class CalendarView {
         const crs = this.getBacklogCRs();
 
         crs.forEach(cr => {
-            const card = list.createDiv({ cls: 'kb-backlog-card', attr: { draggable: 'true' } });
+            const card = list.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
 
             // Drag Start
             card.ondragstart = (e) => {
@@ -117,21 +117,26 @@ export class CalendarView {
             const cardHeader = card.createDiv({ cls: 'kb-card-header' });
             cardHeader.createDiv({ cls: 'kb-card-title', text: this.formatCRDisplayText(cr) });
 
-            const menuBtn = cardHeader.createEl('button', { cls: 'kb-ellipsis' });
-            menuBtn.setText('⋯');
+            const menuBtn = cardHeader.createEl('button', { cls: 'kb-ellipsis', text: '⋯' });
+            menuBtn.classList.add('kb-card-menu-btn');
             menuBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.showCrMenu(e, cr);
             };
 
-            // Meta
-            const meta = card.createDiv({ cls: 'kb-card-meta' });
+            // Meta/Chips
+            const meta = card.createDiv();
             if (cr.frontmatter['priority']) {
                 meta.createSpan({ cls: 'kb-chip', text: String(cr.frontmatter['priority']) });
             }
             if (cr.frontmatter['plannedEnd']) { // Using plannedEnd as due date
-                meta.createSpan({ cls: 'kb-date', text: new Date(cr.frontmatter['plannedEnd']).toLocaleDateString() });
+                meta.createSpan({ cls: 'kb-chip', text: new Date(cr.frontmatter['plannedEnd']).toLocaleDateString() });
             }
+
+            // Footer with timestamp
+            const footer = card.createDiv({ cls: 'kb-card-footer' });
+            const createdAt = (cr.frontmatter['createdAt'] || '') as string;
+            if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
 
             // Click to edit
             card.onclick = () => {
