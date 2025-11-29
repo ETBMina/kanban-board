@@ -79,8 +79,9 @@ export class CalendarView {
         return this.tasks
             .filter(t => t.filePath.startsWith(crFolder + '/'))
             .filter(t => {
-                const status = String(t.frontmatter['status'] || 'Backlog');
-                return status === 'Backlog';
+                const status = t.frontmatter['status'];
+                // Exclude CRs with empty status, only show those explicitly set to 'Backlog'
+                return status && String(status).trim() === 'Backlog';
             })
             .sort((a, b) => {
                 const ca = a.frontmatter['createdAt'] ? new Date(String(a.frontmatter['createdAt'])).getTime() : 0;
@@ -99,11 +100,22 @@ export class CalendarView {
         icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
         titleContainer.createEl('h3', { text: 'Backlog CRs' });
 
-        const list = this.backlogEl.createDiv({ cls: 'kb-backlog-list' });
         const crs = this.getBacklogCRs();
 
         // Set CR count for status indicator
         header.setAttribute('data-count', String(crs.length));
+
+        if (crs.length === 0) {
+            // Empty state
+            const emptyState = this.backlogEl.createDiv({ cls: 'kb-backlog-empty' });
+            const iconContainer = emptyState.createDiv({ cls: 'kb-empty-icon' });
+            iconContainer.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/></svg>';
+            emptyState.createEl('h4', { text: 'No Backlog CRs' });
+            emptyState.createEl('p', { text: 'CRs with status "Backlog" will appear here.' });
+            return;
+        }
+
+        const list = this.backlogEl.createDiv({ cls: 'kb-backlog-list' });
 
         crs.forEach(cr => {
             // Create a modified CR object with display title instead of filename
