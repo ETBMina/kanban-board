@@ -20,6 +20,15 @@ export class CalendarView {
     private viewMode: 'month' | 'week' = 'month';
     private draggingCrPath: string | null = null;
 
+    private formatCRDisplayText(cr: TaskNoteMeta): string {
+        const number = cr.frontmatter['number'];
+        const title = cr.frontmatter['title'];
+        if (number && title) {
+            return `${number} - ${title}`;
+        }
+        return String(title || cr.fileName);
+    }
+
     constructor(
         app: App,
         settings: PluginConfiguration,
@@ -106,7 +115,7 @@ export class CalendarView {
 
             // Header
             const cardHeader = card.createDiv({ cls: 'kb-card-header' });
-            cardHeader.createDiv({ cls: 'kb-card-title', text: String(cr.frontmatter['title'] || cr.fileName) });
+            cardHeader.createDiv({ cls: 'kb-card-title', text: this.formatCRDisplayText(cr) });
 
             const menuBtn = cardHeader.createEl('button', { cls: 'kb-ellipsis' });
             menuBtn.setText('⋯');
@@ -476,7 +485,7 @@ export class CalendarView {
         const list = popup.createDiv({ cls: 'kb-popup-list' });
         crs.forEach(cr => {
             const item = list.createDiv({ cls: 'kb-popup-item' });
-            item.textContent = String(cr.frontmatter['title'] || cr.fileName);
+            item.textContent = this.formatCRDisplayText(cr);
 
             // Styling to match bars
             const hue = Math.abs(this.hashCode(cr.fileName)) % 360;
@@ -540,7 +549,7 @@ export class CalendarView {
             if (startCol > 4 || endCol < 0) return;
 
             const bar = container.createDiv({ cls: 'kb-cr-bar' });
-            bar.textContent = String(cr.frontmatter['title'] || cr.fileName);
+            bar.textContent = this.formatCRDisplayText(cr);
 
             // Position
             bar.style.left = `${startCol * 20}%`;
