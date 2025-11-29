@@ -164,22 +164,26 @@ export class CalendarView {
 
         // Left: Date Picker / Navigation
         const nav = toolbar.createDiv({ cls: 'kb-calendar-nav' });
-        const prevBtn = nav.createEl('button', { text: '<' });
+
+        // Button container
+        const buttonContainer = nav.createDiv({ cls: 'kb-calendar-nav-buttons' });
+        const prevBtn = buttonContainer.createEl('button', { cls: 'kb-nav-btn', text: '<' });
         prevBtn.onclick = () => this.navigateDate(-1);
 
+        const nextBtn = buttonContainer.createEl('button', { cls: 'kb-nav-btn', text: '>' });
+        nextBtn.onclick = () => this.navigateDate(1);
+
+        // Date display
         const dateDisplay = nav.createEl('span', { cls: 'kb-calendar-date-display' });
         dateDisplay.textContent = this.getDateDisplayText();
 
-        const nextBtn = nav.createEl('button', { text: '>' });
-        nextBtn.onclick = () => this.navigateDate(1);
-
         // Right: View Switcher
-        const viewSwitcher = toolbar.createDiv({ cls: 'kb-calendar-view-switcher' });
-        const monthBtn = viewSwitcher.createEl('button', { text: 'Month' });
+        const viewSwitcher = toolbar.createDiv({ cls: 'kb-view-switcher' });
+        const monthBtn = viewSwitcher.createEl('button', { cls: 'kb-view-btn', text: 'Month' });
         if (this.viewMode === 'month') monthBtn.addClass('is-active');
         monthBtn.onclick = () => { this.viewMode = 'month'; this.renderCalendar(); };
 
-        const weekBtn = viewSwitcher.createEl('button', { text: 'Week' });
+        const weekBtn = viewSwitcher.createEl('button', { cls: 'kb-view-btn', text: 'Week' });
         if (this.viewMode === 'week') weekBtn.addClass('is-active');
         weekBtn.onclick = () => { this.viewMode = 'week'; this.renderCalendar(); };
 
