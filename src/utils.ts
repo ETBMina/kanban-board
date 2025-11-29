@@ -232,3 +232,96 @@ export function sanitizeFileName(name: string): string {
   return sanitized;
 }
 
+export function createTaskCard(
+  app: App,
+  container: HTMLElement,
+  task: TaskNoteMeta,
+  options: {
+    showSubtasks?: boolean;
+    showCreatedAt?: boolean;
+    showDueDate?: boolean;
+    onClick?: () => void;
+    onDragStart?: (e: DragEvent) => void;
+    onDragEnd?: () => void;
+    menuItems?: Array<{ title: string; onClick: () => void }>;
+  } = {}
+): HTMLElement {
+  const {
+    showSubtasks = true,
+    showCreatedAt = true,
+    showDueDate = false,
+    onClick,
+    onDragStart,
+    onDragEnd,
+    menuItems = []
+  } = options;
+
+  const card = container.createDiv({ cls: 'kb-card', attr: { draggable: 'true' } });
+
+  // Set up drag functionality
+  if (onDragStart) {
+    card.ondragstart = onDragStart;
+  }
+  if (onDragEnd) {
+    card.ondragend = onDragEnd;
+  }
+
+  // Header
+  const cardHeader = card.createDiv({ cls: 'kb-card-header' });
+  cardHeader.createDiv({ cls: 'kb-card-title', text: task.fileName });
+
+  const menuBtn = cardHeader.createEl('button', { text: '⋯' });
+  menuBtn.classList.add('kb-ellipsis', 'kb-card-menu-btn');
+
+  // Meta information
+  const meta = card.createDiv();
+  if (task.frontmatter['priority']) {
+    meta.createSpan({ cls: 'kb-chip', text: String(task.frontmatter['priority']) });
+  }
+  if (showDueDate && task.frontmatter['plannedEnd']) {
+    meta.createSpan({ cls: 'kb-date', text: new Date(task.frontmatter['plannedEnd']).toLocaleDateString() });
+  }
+
+  // Subtasks
+  if (showSubtasks && task.subtasks && task.subtasks.length > 0) {
+    const subtasksContainer = card.createDiv({ cls: 'kb-subtasks' });
+    const completedCount = task.subtasks.filter(st => st.completed).length;
+    const totalCount = task.subtasks.length;
+    const subtaskSummary = subtasksContainer.createDiv({ cls: 'kb-subtask-summary' });
+    subtaskSummary.setText(`${completedCount}/${totalCount} completed`);
+
+    for (const subtask of task.subtasks) {
+      if (subtask.completed) continue;
+      const subtaskEl = subtasksContainer.createDiv({ cls: 'kb-subtask' });
+      const checkbox = subtaskEl.createEl('input', { type: 'checkbox' });
+      checkbox.checked = subtask.completed;
+      subtaskEl.createSpan({ text: subtask.text });
+    }
+  }
+
+  // Footer with creation timestamp
+  if (showCreatedAt) {
+    const footer = card.createDiv({ cls: 'kb-card-footer' });
+    const createdAt = (task.frontmatter['createdAt'] || '') as string;
+    if (createdAt) footer.createSpan({ cls: 'kb-card-ts', text: new Date(createdAt).toLocaleString() });
+  }
+
+  // Menu functionality
+  if (menuItems.length > 0) {
+    menuBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      // This will be handled by the caller if they override
+    };
+  } else {
+    // Hide menu button if no menu items
+    menuBtn.style.display = 'none';
+  }
+
+  // Click handler
+  if (onClick) {
+    card.onclick = onClick;
+  }
+
+  return card;
+}
+

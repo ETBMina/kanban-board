@@ -1,7 +1,7 @@
 import { App, Menu, Modal, Notice, TFile, normalizePath, setIcon } from 'obsidian';
 import { PluginConfiguration, TaskNoteMeta, Subtask } from '../models';
 import { Dropdown } from '../Dropdown';
-import { updateTaskFrontmatter } from '../utils';
+import { updateTaskFrontmatter, createTaskCard } from '../utils';
 
 export class CalendarView {
     private app: App;
@@ -98,45 +98,50 @@ export class CalendarView {
         const crs = this.getBacklogCRs();
 
         crs.forEach(cr => {
-            const card = list.createDiv({ cls: 'kb-backlog-card', attr: { draggable: 'true' } });
+            // Create a modified CR object with display title instead of filename
+            const displayCr = { ...cr, fileName: this.formatCRDisplayText(cr) };
 
-            // Drag Start
-            card.ondragstart = (e) => {
-                this.draggingCrPath = cr.filePath;
-                e.dataTransfer?.setData('application/x-kb-cr', cr.filePath);
-                e.dataTransfer?.setData('text/plain', cr.filePath);
-                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-                card.addClass('kb-dragging');
-            };
-            card.ondragend = () => {
-                this.draggingCrPath = null;
-                card.removeClass('kb-dragging');
-            };
+            const card = createTaskCard(this.app, list, displayCr, {
+                showSubtasks: false, // CRs don't have subtasks like tasks
+                showCreatedAt: false, // Don't show created timestamp for CRs
+                showDueDate: true, // Show planned end date
+                onClick: () => {
+                    this.openEditModal(cr);
+                },
+                onDragStart: (e) => {
+                    this.draggingCrPath = cr.filePath;
+                    e.dataTransfer?.setData('application/x-kb-cr', cr.filePath);
+                    e.dataTransfer?.setData('text/plain', cr.filePath);
+                    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+                    card.classList.add('kb-dragging');
+                },
+                onDragEnd: () => {
+                    this.draggingCrPath = null;
+                    card.classList.remove('kb-dragging');
+                },
+                menuItems: [
+                    { title: 'Open Markdown', onClick: async () => {
+                        const file = this.app.vault.getAbstractFileByPath(cr.filePath);
+                        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
+                    }},
+                    { title: 'Delete', onClick: async () => {
+                        const confirmed = await this.confirmDelete(cr);
+                        if (confirmed) {
+                            await this.app.vault.trash(this.app.vault.getAbstractFileByPath(cr.filePath) as TFile, false);
+                            this.reloadCallback();
+                        }
+                    }}
+                ]
+            });
 
-            // Header
-            const cardHeader = card.createDiv({ cls: 'kb-card-header' });
-            cardHeader.createDiv({ cls: 'kb-card-title', text: this.formatCRDisplayText(cr) });
-
-            const menuBtn = cardHeader.createEl('button', { cls: 'kb-ellipsis' });
-            menuBtn.setText('⋯');
-            menuBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.showCrMenu(e, cr);
-            };
-
-            // Meta
-            const meta = card.createDiv({ cls: 'kb-card-meta' });
-            if (cr.frontmatter['priority']) {
-                meta.createSpan({ cls: 'kb-chip', text: String(cr.frontmatter['priority']) });
+            // Set up menu button click handler
+            const menuBtn = card.querySelector('.kb-card-menu-btn') as HTMLElement;
+            if (menuBtn) {
+                menuBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.showCrMenu(e as MouseEvent, cr);
+                };
             }
-            if (cr.frontmatter['plannedEnd']) { // Using plannedEnd as due date
-                meta.createSpan({ cls: 'kb-date', text: new Date(cr.frontmatter['plannedEnd']).toLocaleDateString() });
-            }
-
-            // Click to edit
-            card.onclick = () => {
-                this.openEditModal(cr);
-            };
         });
     }
 
