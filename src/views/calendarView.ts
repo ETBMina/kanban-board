@@ -92,10 +92,18 @@ export class CalendarView {
     private renderBacklog() {
         this.backlogEl.empty();
         const header = this.backlogEl.createDiv({ cls: 'kb-backlog-header' });
-        header.createEl('h3', { text: 'Backlog CRs' });
+
+        // Add icon and title
+        const titleContainer = header.createDiv({ cls: 'kb-backlog-title-container' });
+        const icon = titleContainer.createEl('span', { cls: 'kb-backlog-icon' });
+        icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
+        titleContainer.createEl('h3', { text: 'Backlog CRs' });
 
         const list = this.backlogEl.createDiv({ cls: 'kb-backlog-list' });
         const crs = this.getBacklogCRs();
+
+        // Set CR count for status indicator
+        header.setAttribute('data-count', String(crs.length));
 
         crs.forEach(cr => {
             // Create a modified CR object with display title instead of filename
