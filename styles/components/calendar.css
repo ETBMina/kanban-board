@@ -183,9 +183,9 @@
 }
 
 .kb-view-btn.is-active {
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
 }
 
@@ -214,7 +214,7 @@
 .kb-calendar-header-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary) 100%);
+    background-color: var(--background-primary);
     border-bottom: 1px solid var(--background-modifier-border);
     border-radius: 10px 10px 0 0;
     overflow: hidden;
@@ -242,7 +242,7 @@
 .kb-calendar-week-row {
     flex: 1;
     position: relative;
-    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary-alt) 100%);
+    background-color: var(--background-primary);
     min-height: 0;
     /* Allow shrinking */
     border-bottom: 1px solid var(--background-modifier-border);
@@ -319,8 +319,18 @@
     transform: scale(1.1);
 }
 
+.kb-calendar-day-cell.is-other-month {
+    opacity: 0.6;
+}
+
+.kb-calendar-day-cell.is-other-month:hover {
+    background-color: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
 .kb-day-number.is-other-month {
-    opacity: 0.3;
+    opacity: 0.7;
 }
 
 /* Week Events Layer */
@@ -419,9 +429,9 @@ transition: all 0.2s ease;
 }
 
 .kb-view-btn.is-active {
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
 }
 
@@ -442,7 +452,7 @@ transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     overflow-y: hidden;
-    background: linear-gradient(180deg, var(--background-modifier-border) 0%, rgba(var(--background-modifier-border-rgb), 0.8) 100%);
+    background-color: var(--background-modifier-border);
     gap: 2px;
     border-radius: 12px;
     margin: 20px 32px;
@@ -454,7 +464,7 @@ transition: all 0.2s ease;
 .kb-calendar-header-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary) 100%);
+    background-color: var(--background-primary);
     border-bottom: 1px solid var(--background-modifier-border);
     border-radius: 10px 10px 0 0;
     overflow: hidden;
@@ -482,7 +492,7 @@ transition: all 0.2s ease;
 .kb-calendar-week-row {
     flex: 1;
     position: relative;
-    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary-alt) 100%);
+    background-color: var(--background-primary);
     min-height: 0;
     /* Allow shrinking */
     border-bottom: 1px solid var(--background-modifier-border);
@@ -559,8 +569,18 @@ transition: all 0.2s ease;
     transform: scale(1.1);
 }
 
+.kb-calendar-day-cell.is-other-month {
+    opacity: 0.6;
+}
+
+.kb-calendar-day-cell.is-other-month:hover {
+    background-color: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
 .kb-day-number.is-other-month {
-    opacity: 0.3;
+    opacity: 0.7;
 }
 
 /* Week Events Layer */

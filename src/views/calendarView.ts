@@ -403,7 +403,7 @@ export class CalendarView {
             dateNum.addClass('is-today');
         }
         if (this.viewMode === 'month' && date.getMonth() !== this.currentDate.getMonth()) {
-            dateNum.addClass('is-other-month');
+            cell.addClass('is-other-month');
         }
 
         // Drop Zone
