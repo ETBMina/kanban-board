@@ -140,17 +140,20 @@ export class CalendarView {
                     card.classList.remove('kb-dragging');
                 },
                 menuItems: [
-                    { title: 'Open Markdown', onClick: async () => {
-                        const file = this.app.vault.getAbstractFileByPath(cr.filePath);
-                        if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-                    }},
-                    { title: 'Delete', onClick: async () => {
-                        const confirmed = await this.confirmDelete(cr);
-                        if (confirmed) {
-                            await this.app.vault.trash(this.app.vault.getAbstractFileByPath(cr.filePath) as TFile, false);
-                            this.reloadCallback();
+                    {
+                        title: 'Open Markdown', onClick: async () => {
+                            const file = this.app.vault.getAbstractFileByPath(cr.filePath);
+                            if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
                         }
-                    }}
+                    },
+                    {
+                        title: 'Delete', onClick: async () => {
+                            if (confirm(`Are you sure you want to delete "${cr.fileName}"?`)) {
+                                await this.app.vault.trash(this.app.vault.getAbstractFileByPath(cr.filePath) as TFile, false);
+                                this.reloadCallback();
+                            }
+                        }
+                    }
                 ]
             });
 
