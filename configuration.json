@@ -60,7 +60,7 @@
       "notes",
       "tags"
     ],
-    "showArchived": true
+    "showArchived": false
   },
   "filterFields": [
     "crNumber",
@@ -207,7 +207,7 @@
   },
   "taskFilenameFormat": "{{crNumber}} {{taskNumber}} - {{title}} - {{service}}.md",
   "crFilenameFormat": "{{number}} - {{title}}.md",
-  "lastActiveTab": "calendar",
+  "lastActiveTab": "grid",
   "people": [
     "Mina Talaat Hakim",
     "Ahmed Mohamed Hussien Abdelaal",

@@ -122,12 +122,17 @@ export class BoardTabsView extends ItemView {
   private render() {
     const c = this.contentEl;
     c.empty();
+    c.style.display = 'flex';
+    c.style.flexDirection = 'column';
+    c.style.height = '100%';
+    c.style.overflow = 'hidden';
 
     // Header Container (Tabs + Search + Right Group)
     const header = c.createDiv({ cls: 'kb-header-container' });
     header.style.display = 'flex';
     header.style.alignItems = 'center';
     header.style.marginBottom = 'var(--spacing-l)';
+    header.style.flexShrink = '0';
 
     // Tabs bar
     const tabs = header.createDiv({ cls: 'kb-tabs' });
@@ -255,7 +260,8 @@ export class BoardTabsView extends ItemView {
 
     // View Container
     const viewContainer = c.createDiv({ cls: 'kb-view-container' });
-    viewContainer.style.height = 'calc(100% - 80px)';
+    viewContainer.style.flex = '1';
+    viewContainer.style.minHeight = '0'; // Crucial for nested scrolling
     viewContainer.style.display = 'flex';
     viewContainer.style.flexDirection = 'column';
     viewContainer.style.overflow = 'hidden';

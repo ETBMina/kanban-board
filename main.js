@@ -36618,10 +36618,15 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
     var _a;
     const c = this.contentEl;
     c.empty();
+    c.style.display = "flex";
+    c.style.flexDirection = "column";
+    c.style.height = "100%";
+    c.style.overflow = "hidden";
     const header = c.createDiv({ cls: "kb-header-container" });
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.marginBottom = "var(--spacing-l)";
+    header.style.flexShrink = "0";
     const tabs = header.createDiv({ cls: "kb-tabs" });
     tabs.style.marginBottom = "0";
     const gridBtn = tabs.createEl("button", { text: "Grid" });
@@ -36742,7 +36747,8 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
       menu.showAtPosition({ x: e.clientX, y: e.clientY });
     };
     const viewContainer = c.createDiv({ cls: "kb-view-container" });
-    viewContainer.style.height = "calc(100% - 80px)";
+    viewContainer.style.flex = "1";
+    viewContainer.style.minHeight = "0";
     viewContainer.style.display = "flex";
     viewContainer.style.flexDirection = "column";
     viewContainer.style.overflow = "hidden";
