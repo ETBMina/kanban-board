@@ -34755,7 +34755,7 @@ var CopyTaskModal = class extends import_obsidian5.Modal {
 
 // src/views/boardView.ts
 var BoardView = class {
-  constructor(app, settings, tasks, filterQuery, filterState, promptText, reloadCallback, persistSettings, suppressReloads) {
+  constructor(app, settings, tasks, filterQuery, filterState, promptText, reloadCallback, persistSettings, suppressReloads, onCreateTask) {
     this.tasks = [];
     this.filterQuery = "";
     this.filterState = {};
@@ -34771,6 +34771,7 @@ var BoardView = class {
     this.reloadCallback = reloadCallback;
     this.persistSettings = persistSettings;
     this.suppressReloads = suppressReloads;
+    this.onCreateTask = onCreateTask;
   }
   getFilteredTasks() {
     const taskFolder = (0, import_obsidian6.normalizePath)(this.settings.paths.taskFolder);
@@ -35162,6 +35163,10 @@ var BoardView = class {
       menuBtn.classList.add("kb-ellipsis");
       menuBtn.onclick = (ev) => {
         const menu = new import_obsidian6.Menu();
+        menu.addItem((i) => i.setTitle("Create task").onClick(() => {
+          var _a2;
+          (_a2 = this.onCreateTask) == null ? void 0 : _a2.call(this, { status });
+        }));
         menu.addItem((i) => i.setTitle("Rename").onClick(async () => {
           var _a2, _b2, _c;
           const newName = (_a2 = await this.promptText("Rename column", "Column name", status)) == null ? void 0 : _a2.trim();
@@ -37031,7 +37036,8 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
       this.promptText.bind(this),
       this.reload.bind(this),
       this.persistSettings,
-      this.suppressReloadsForLocalUpdate.bind(this)
+      this.suppressReloadsForLocalUpdate.bind(this),
+      (initialData) => this.plugin.createTaskFromTemplate(initialData)
     );
     boardView.render(container);
   }
@@ -37434,7 +37440,7 @@ var TaskTemplateModal = class extends import_obsidian9.Modal {
     this.initialData = initialData;
   }
   onOpen() {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("kb-container", "kb-modal-layout");
@@ -37447,7 +37453,7 @@ var TaskTemplateModal = class extends import_obsidian9.Modal {
     const statusDropdown = new Dropdown(
       statusControl,
       this.plugin.config.statusConfig.statuses,
-      (_a = this.plugin.config.statusConfig.statuses[0]) != null ? _a : "",
+      (_c = (_b = (_a = this.initialData) == null ? void 0 : _a["status"]) != null ? _b : this.plugin.config.statusConfig.statuses[0]) != null ? _c : "",
       (val) => {
       }
     );
@@ -37486,7 +37492,7 @@ var TaskTemplateModal = class extends import_obsidian9.Modal {
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
         const options = field.useValues === "priorities" ? this.plugin.config.priorities : this.plugin.config.statusConfig.statuses;
-        let initialValue = (_b = options[0]) != null ? _b : "";
+        let initialValue = (_d = options[0]) != null ? _d : "";
         if (field.useValues === "priorities") {
           initialValue = this.plugin.config.defaultPriority;
         }

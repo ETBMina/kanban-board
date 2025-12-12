@@ -629,7 +629,8 @@ export class BoardTabsView extends ItemView {
       this.promptText.bind(this),
       this.reload.bind(this),
       this.persistSettings,
-      this.suppressReloadsForLocalUpdate.bind(this)
+      this.suppressReloadsForLocalUpdate.bind(this),
+      (initialData) => this.plugin.createTaskFromTemplate(initialData)
     );
     boardView.render(container);
   }

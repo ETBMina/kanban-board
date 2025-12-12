@@ -472,7 +472,7 @@ class TaskTemplateModal extends Modal {
     const statusDropdown = new Dropdown(
       statusControl,
       this.plugin.config.statusConfig.statuses,
-      this.plugin.config.statusConfig.statuses[0] ?? '',
+      this.initialData?.['status'] ?? this.plugin.config.statusConfig.statuses[0] ?? '',
       (val) => { /* no-op */ }
     );
     this.inputs.set('status', statusDropdown as any);

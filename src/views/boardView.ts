@@ -25,6 +25,7 @@ export class BoardView {
     private promptText: (title: string, placeholder?: string, initial?: string) => Promise<string | undefined>;
     private reloadCallback: () => Promise<void>;
     private suppressReloads?: (duration?: number) => void;
+    private onCreateTask?: (initialData?: Record<string, any>) => void;
     private columnRegistry = new Map<string, ColumnRegistryEntry>();
     private byStatus = new Map<string, TaskNoteMeta[]>();
     private boardEl?: HTMLElement;
@@ -39,7 +40,8 @@ export class BoardView {
         promptText: (title: string, placeholder?: string, initial?: string) => Promise<string | undefined>,
         reloadCallback: () => Promise<void>,
         persistSettings?: () => void | Promise<void>,
-        suppressReloads?: (duration?: number) => void
+        suppressReloads?: (duration?: number) => void,
+        onCreateTask?: (initialData?: Record<string, any>) => void
     ) {
         this.app = app;
         this.settings = settings;
@@ -50,6 +52,7 @@ export class BoardView {
         this.reloadCallback = reloadCallback;
         this.persistSettings = persistSettings;
         this.suppressReloads = suppressReloads;
+        this.onCreateTask = onCreateTask;
     }
 
     private getFilteredTasks(): TaskNoteMeta[] {
@@ -491,10 +494,14 @@ export class BoardView {
             header.ondragstart = (e) => handleColumnDrag.onDragStart(idx, e);
             header.createSpan({ text: status, cls: 'kb-column-title' });
             const countEl = header.createSpan({ text: String(this.byStatus.get(status)?.length ?? 0), cls: 'kb-column-count' });
+
             const menuBtn = header.createEl('button', { text: '⋯' });
             menuBtn.classList.add('kb-ellipsis');
             menuBtn.onclick = (ev) => {
                 const menu = new Menu();
+                menu.addItem((i) => i.setTitle('Create task').onClick(() => {
+                    this.onCreateTask?.({ status });
+                }));
                 menu.addItem((i) => i.setTitle('Rename').onClick(async () => {
                     const newName = (await this.promptText('Rename column', 'Column name', status))?.trim();
                     if (!newName || newName === status) return;
