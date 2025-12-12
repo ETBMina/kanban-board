@@ -67,17 +67,19 @@
     display: none;
 }
 
-.kb-backlog-header::after {
-    content: attr(data-count);
+.kb-backlog-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.kb-backlog-count {
     background: var(--interactive-accent);
     color: var(--text-on-accent);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 500;
-    position: absolute;
-    top: 16px;
-    right: 20px;
     min-width: 20px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);

@@ -35742,7 +35742,7 @@ var EditTaskModal = class extends import_obsidian6.Modal {
 // src/views/calendarView.ts
 var import_obsidian7 = require("obsidian");
 var CalendarView = class {
-  constructor(app, settings, tasks, reloadCallback, persistSettings, suppressReloads, onCreateTask) {
+  constructor(app, settings, tasks, reloadCallback, persistSettings, suppressReloads, onCreateTask, onCreateCr) {
     this.tasks = [];
     this.resizeObserver = null;
     this.currentDate = /* @__PURE__ */ new Date();
@@ -35755,6 +35755,7 @@ var CalendarView = class {
     this.persistSettings = persistSettings;
     this.suppressReloads = suppressReloads;
     this.onCreateTask = onCreateTask;
+    this.onCreateCr = onCreateCr;
   }
   formatCRDisplayText(cr) {
     const number = cr.frontmatter["number"];
@@ -35799,8 +35800,18 @@ var CalendarView = class {
     const icon = titleContainer.createEl("span", { cls: "kb-backlog-icon" });
     icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
     titleContainer.createEl("h3", { text: "Backlog CRs" });
+    const controls = header.createDiv({ cls: "kb-backlog-controls" });
     const crs = this.getBacklogCRs();
-    header.setAttribute("data-count", String(crs.length));
+    if (crs.length > 0) {
+      controls.createSpan({ cls: "kb-backlog-count", text: String(crs.length) });
+    }
+    const addBtn = controls.createEl("button", { cls: "kb-add-card-btn" });
+    addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    addBtn.onclick = (e) => {
+      var _a;
+      e.stopPropagation();
+      (_a = this.onCreateCr) == null ? void 0 : _a.call(this);
+    };
     if (crs.length === 0) {
       const emptyState = this.backlogEl.createDiv({ cls: "kb-backlog-empty" });
       const iconContainer = emptyState.createDiv({ cls: "kb-empty-icon" });
@@ -37050,7 +37061,8 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
       this.reload.bind(this),
       this.persistSettings,
       this.suppressReloadsForLocalUpdate.bind(this),
-      (initialData) => this.plugin.createTaskFromTemplate(initialData)
+      (initialData) => this.plugin.createTaskFromTemplate(initialData),
+      () => this.plugin.createCrFromTemplate()
     );
     calendarView.render(container);
   }

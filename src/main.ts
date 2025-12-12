@@ -375,7 +375,7 @@ export default class KanbanPlugin extends Plugin {
     modal.open();
   }
 
-  private async createCrFromTemplate() {
+  public async createCrFromTemplate() {
     const fields = this.config.templateConfig.crFields ?? [
       { key: 'number', label: 'CR Number', type: 'text' },
       { key: 'title', label: 'Title', type: 'text' },

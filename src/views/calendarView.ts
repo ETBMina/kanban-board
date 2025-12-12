@@ -11,6 +11,7 @@ export class CalendarView {
     private persistSettings?: () => void | Promise<void>;
     private suppressReloads?: (duration?: number) => void;
     private onCreateTask?: (initialData?: Record<string, any>) => void;
+    private onCreateCr?: () => void;
 
     private container!: HTMLElement;
     private backlogEl!: HTMLElement;
@@ -37,7 +38,8 @@ export class CalendarView {
         reloadCallback: () => Promise<void>,
         persistSettings?: () => void | Promise<void>,
         suppressReloads?: (duration?: number) => void,
-        onCreateTask?: (initialData?: Record<string, any>) => void
+        onCreateTask?: (initialData?: Record<string, any>) => void,
+        onCreateCr?: () => void
     ) {
         this.app = app;
         this.settings = settings;
@@ -46,6 +48,7 @@ export class CalendarView {
         this.persistSettings = persistSettings;
         this.suppressReloads = suppressReloads;
         this.onCreateTask = onCreateTask;
+        this.onCreateCr = onCreateCr;
     }
 
     public render(container: HTMLElement) {
@@ -103,10 +106,21 @@ export class CalendarView {
         icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
         titleContainer.createEl('h3', { text: 'Backlog CRs' });
 
+        const controls = header.createDiv({ cls: 'kb-backlog-controls' });
+
         const crs = this.getBacklogCRs();
 
-        // Set CR count for status indicator
-        header.setAttribute('data-count', String(crs.length));
+        // Count indicator
+        if (crs.length > 0) {
+            controls.createSpan({ cls: 'kb-backlog-count', text: String(crs.length) });
+        }
+
+        const addBtn = controls.createEl('button', { cls: 'kb-add-card-btn' });
+        addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.onCreateCr?.();
+        };
 
         if (crs.length === 0) {
             // Empty state
