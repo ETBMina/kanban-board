@@ -642,7 +642,8 @@ export class BoardTabsView extends ItemView {
       this.tasks,
       this.reload.bind(this),
       this.persistSettings,
-      this.suppressReloadsForLocalUpdate.bind(this)
+      this.suppressReloadsForLocalUpdate.bind(this),
+      (initialData) => this.plugin.createTaskFromTemplate(initialData)
     );
     calendarView.render(container);
   }

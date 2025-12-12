@@ -10,6 +10,7 @@ export class CalendarView {
     private reloadCallback: () => Promise<void>;
     private persistSettings?: () => void | Promise<void>;
     private suppressReloads?: (duration?: number) => void;
+    private onCreateTask?: (initialData?: Record<string, any>) => void;
 
     private container!: HTMLElement;
     private backlogEl!: HTMLElement;
@@ -35,7 +36,8 @@ export class CalendarView {
         tasks: TaskNoteMeta[],
         reloadCallback: () => Promise<void>,
         persistSettings?: () => void | Promise<void>,
-        suppressReloads?: (duration?: number) => void
+        suppressReloads?: (duration?: number) => void,
+        onCreateTask?: (initialData?: Record<string, any>) => void
     ) {
         this.app = app;
         this.settings = settings;
@@ -43,6 +45,7 @@ export class CalendarView {
         this.reloadCallback = reloadCallback;
         this.persistSettings = persistSettings;
         this.suppressReloads = suppressReloads;
+        this.onCreateTask = onCreateTask;
     }
 
     public render(container: HTMLElement) {
@@ -170,6 +173,10 @@ export class CalendarView {
 
     private showCrMenu(e: MouseEvent, cr: TaskNoteMeta) {
         const menu = new Menu();
+        menu.addItem(i => i.setTitle('Create task').onClick(() => {
+            const crNumber = cr.frontmatter['number'];
+            if (this.onCreateTask) this.onCreateTask({ crNumber });
+        }));
         menu.addItem(i => i.setTitle('Open Markdown').onClick(async () => {
             const file = this.app.vault.getAbstractFileByPath(cr.filePath);
             if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);

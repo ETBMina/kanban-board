@@ -288,7 +288,7 @@ export default class KanbanPlugin extends Plugin {
     return this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf(true);
   }
 
-  private async createTaskFromTemplate() {
+  public async createTaskFromTemplate(initialData?: Record<string, any>) {
     const modal = new TaskTemplateModal(this.app, this, async (data: Record<string, any>) => {
       const folder = this.config.paths.taskFolder || 'Tasks';
       await ensureFolder(this.app, folder);
@@ -371,7 +371,7 @@ export default class KanbanPlugin extends Plugin {
       await this.app.vault.create(path, content);
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) await this.app.workspace.getLeaf(true).openFile(file);
-    });
+    }, initialData);
     modal.open();
   }
 
@@ -443,12 +443,14 @@ class TaskTemplateModal extends Modal {
   private plugin: KanbanPlugin;
   private onSubmit: (data: Record<string, any>) => void | Promise<void>;
   private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
+  private initialData?: Record<string, any>;
 
-  constructor(app: App, plugin: KanbanPlugin, onSubmit: (data: Record<string, any>) => void | Promise<void>) {
+  constructor(app: App, plugin: KanbanPlugin, onSubmit: (data: Record<string, any>) => void | Promise<void>, initialData?: Record<string, any>) {
     super(app);
     this.fields = plugin.config.templateConfig.fields;
     this.plugin = plugin;
     this.onSubmit = onSubmit;
+    this.initialData = initialData;
   }
 
   onOpen() {
@@ -483,6 +485,9 @@ class TaskTemplateModal extends Modal {
     crInput.addClass('kb-input');
     crInput.placeholder = 'e.g. CR-6485';
     crInput.type = 'text';
+    if (this.initialData && this.initialData['crNumber']) {
+      crInput.value = this.initialData['crNumber'];
+    }
     this.inputs.set('crNumber', crInput);
 
     // Task Number
