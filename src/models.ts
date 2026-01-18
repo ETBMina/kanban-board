@@ -1,5 +1,5 @@
 export type FieldType = 'text' | 'number' | 'date' | 'status' | 'tags' | 'url' | 'people' | 'freetext';
-export type ActiveTab = 'grid' | 'board' | 'calendar';
+export type ActiveTab = 'grid' | 'board' | 'calendar' | 'tasks';
 
 export interface TaskFieldDefinition {
   key: string;

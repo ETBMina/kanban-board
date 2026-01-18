@@ -7,6 +7,7 @@ import { FilterPanel } from './filterModal';
 import { GridView } from './gridView';
 import { BoardView } from './boardView';
 import { CalendarView } from './calendarView';
+import { TasksView } from './tasksView';
 
 export const BOARD_TABS_VIEW_TYPE = 'kb-board-tabs-view';
 
@@ -153,6 +154,11 @@ export class BoardTabsView extends ItemView {
     if (this.active === 'calendar') calendarBtn.addClass('is-active');
     calendarBtn.onclick = () => { this.active = 'calendar'; this.settings.lastActiveTab = 'calendar'; this.persistSettings?.(); this.render(); };
 
+    const tasksBtn = tabs.createEl('button', { text: 'Tasks' });
+    tasksBtn.addClass('kb-tab');
+    if (this.active === 'tasks') tasksBtn.addClass('is-active');
+    tasksBtn.onclick = () => { this.active = 'tasks'; this.settings.lastActiveTab = 'tasks'; this.persistSettings?.(); this.render(); };
+
     // Expandable Search (Outside tabs)
     const searchContainer = header.createDiv({ cls: 'kb-search-container' });
     searchContainer.style.marginLeft = '8px';
@@ -268,7 +274,8 @@ export class BoardTabsView extends ItemView {
 
     if (this.active === 'grid') this.renderGrid(viewContainer);
     else if (this.active === 'board') this.renderBoard(viewContainer);
-    else this.renderCalendar(viewContainer);
+    else if (this.active === 'calendar') this.renderCalendar(viewContainer);
+    else this.renderTasks(viewContainer);
   }
 
   public async importFromJson() {
@@ -654,5 +661,16 @@ export class BoardTabsView extends ItemView {
       () => this.plugin.createCrFromTemplate()
     );
     calendarView.render(container);
+  }
+
+  // TASKS
+  private renderTasks(container: HTMLElement) {
+    const tasksView = new TasksView(
+      this.app,
+      this.settings,
+      this.tasks,
+      this.reload.bind(this)
+    );
+    tasksView.render(container);
   }
 }

@@ -2018,6 +2018,121 @@ input:focus+.kb-slider {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* --- PAGES --- */
+/* _tasks.css */
+.kb-tasks-view {
+    padding: var(--spacing-l);
+    overflow-y: auto;
+    height: 100%;
+}
+
+.kb-tasks-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.kb-tasks-section h3 {
+    margin-bottom: var(--spacing-m);
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+.kb-task-file-group {
+    margin-bottom: var(--spacing-l);
+    background-color: var(--background-secondary);
+    border-radius: var(--radius-m);
+    padding: var(--spacing-m);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.kb-file-header {
+    margin-bottom: var(--spacing-s);
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.kb-add-task-row {
+    margin-bottom: var(--spacing-s);
+}
+
+.kb-add-task-row input {
+    width: 100%;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.kb-task-row {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    gap: var(--spacing-s);
+}
+
+.kb-task-row input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.kb-task-done {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.kb-completed-section {
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: var(--spacing-l);
+}
+
+.kb-section-header {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    gap: var(--spacing-s);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.kb-section-header:hover {
+    color: var(--text-normal);
+}
+
+.kb-collapse-icon {
+    display: flex;
+    transition: transform 0.2s ease;
+}
+
+.kb-task-file-group-completed {
+    margin-top: var(--spacing-m);
+    padding-left: var(--spacing-m);
+    border-left: 2px solid var(--background-modifier-border);
+}
+
+.kb-completed-file-title {
+    font-size: var(--font-ui-small);
+    color: var(--text-faint);
+    margin-bottom: var(--spacing-xs);
+    display: block;
+}
+
+.kb-task-text {
+    cursor: text;
+    padding: 2px 4px;
+    border-radius: 4px;
+    flex: 1;
+}
+
+.kb-task-text:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.kb-task-edit-input {
+    flex: 1;
+    padding: 0 4px;
+    border: 1px solid var(--interactive-accent);
+    border-radius: 4px;
+    background: var(--background-primary);
+    height: auto;
+    line-height: inherit;
+}
+
 /* --- TRUMPS --- */
 /* _utilities.css */
 /* CR and Task number link styling */

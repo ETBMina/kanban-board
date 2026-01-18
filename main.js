@@ -36500,6 +36500,192 @@ var EditCRModal = class extends import_obsidian7.Modal {
   }
 };
 
+// src/views/tasksView.ts
+var TasksView = class {
+  constructor(app, settings, tasks, reloadParent) {
+    this.tasks = [];
+    this.app = app;
+    this.settings = settings;
+    this.container = createDiv({ cls: "kb-tasks-view" });
+    this.tasks = tasks;
+    this.reloadParent = reloadParent;
+  }
+  render(container) {
+    container.empty();
+    container.appendChild(this.container);
+    this.refresh();
+  }
+  async refresh() {
+    this.container.empty();
+    const generalTaskFile = await this.ensureGeneralTaskFile();
+    const activeSection = this.container.createDiv({ cls: "kb-tasks-section" });
+    activeSection.createEl("h3", { text: "Active Tasks" });
+    await this.renderFileTasks(activeSection, generalTaskFile, "General");
+    for (const task of this.tasks) {
+      const incomplete = task.subtasks.filter((t) => !t.completed);
+      if (incomplete.length > 0) {
+        await this.renderFileTasks(activeSection, task.file, task.fileName);
+      }
+    }
+    const completedSection = this.container.createDiv({ cls: "kb-tasks-section kb-completed-section" });
+    const completedHeader = completedSection.createDiv({ cls: "kb-section-header" });
+    const collapseIcon = completedHeader.createSpan({ cls: "kb-collapse-icon" });
+    collapseIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    completedHeader.createSpan({ text: "Completed" });
+    const completedList = completedSection.createDiv({ cls: "kb-task-list" });
+    completedList.style.display = "none";
+    completedHeader.onclick = () => {
+      if (completedList.style.display === "none") {
+        completedList.style.display = "block";
+        collapseIcon.style.transform = "rotate(180deg)";
+      } else {
+        completedList.style.display = "none";
+        collapseIcon.style.transform = "rotate(0deg)";
+      }
+    };
+    await this.renderCompletedTasks(completedList, generalTaskFile, "General");
+    for (const task of this.tasks) {
+      const completed = task.subtasks.filter((t) => t.completed);
+      if (completed.length > 0) {
+        await this.renderCompletedTasks(completedList, task.file, task.fileName);
+      }
+    }
+  }
+  async ensureGeneralTaskFile() {
+    const folderPath = "General";
+    await ensureFolder(this.app, folderPath);
+    const filePath = `${folderPath}/Tasks.md`;
+    let file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!file) {
+      file = await this.app.vault.create(filePath, "# General Tasks\n\n");
+    }
+    return file;
+  }
+  async renderFileTasks(container, file, title) {
+    const content = await this.app.vault.read(file);
+    const lines = content.split("\n");
+    const fileContainer = container.createDiv({ cls: "kb-task-file-group" });
+    const header = fileContainer.createDiv({ cls: "kb-file-header" });
+    header.createEl("strong", { text: title });
+    const inputContainer = fileContainer.createDiv({ cls: "kb-add-task-row" });
+    const input = inputContainer.createEl("input", { type: "text", placeholder: "Add a to-do..." });
+    input.onkeydown = async (e) => {
+      if (e.key === "Enter" && input.value.trim()) {
+        await this.addTaskToFile(file, input.value.trim());
+        input.value = "";
+        await this.reloadParent();
+      }
+    };
+    const list = fileContainer.createDiv({ cls: "kb-file-task-list" });
+    let lineIndex = 0;
+    for (const line of lines) {
+      const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+      if (match) {
+        const isCompleted = match[1].trim() !== "";
+        if (!isCompleted) {
+          this.createTaskItem(list, file, lineIndex, match[2], isCompleted);
+        }
+      }
+      lineIndex++;
+    }
+  }
+  async renderCompletedTasks(container, file, title) {
+    const content = await this.app.vault.read(file);
+    const lines = content.split("\n");
+    let hasCompleted = false;
+    for (const line of lines) {
+      if (/^\s*-\s*\[[xX]\]/.test(line)) {
+        hasCompleted = true;
+        break;
+      }
+    }
+    if (!hasCompleted) return;
+    const group = container.createDiv({ cls: "kb-task-file-group-completed" });
+    group.createEl("span", { text: title, cls: "kb-completed-file-title" });
+    let lineIndex = 0;
+    for (const line of lines) {
+      const match = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
+      if (match) {
+        const isCompleted = match[1].trim() !== "";
+        if (isCompleted) {
+          this.createTaskItem(group, file, lineIndex, match[2], isCompleted);
+        }
+      }
+      lineIndex++;
+    }
+  }
+  createTaskItem(container, file, lineIndex, text, completed) {
+    const row = container.createDiv({ cls: "kb-task-row" });
+    const checkbox = row.createEl("input", { type: "checkbox" });
+    checkbox.checked = completed;
+    checkbox.onchange = async () => {
+      await this.toggleTaskStatus(file, lineIndex, !completed);
+      await this.reloadParent();
+    };
+    const span = row.createSpan({ text });
+    span.addClass("kb-task-text");
+    if (completed) span.addClass("kb-task-done");
+    span.onclick = (e) => {
+      e.preventDefault();
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = text;
+      input.className = "kb-task-edit-input";
+      span.replaceWith(input);
+      input.focus();
+      let saved = false;
+      const save = async () => {
+        if (saved) return;
+        saved = true;
+        const newVal = input.value;
+        if (newVal !== text) {
+          await this.updateTaskText(file, lineIndex, newVal);
+          await this.reloadParent();
+        } else {
+          input.replaceWith(span);
+        }
+      };
+      input.onblur = () => save();
+      input.onkeydown = (ev) => {
+        if (ev.key === "Enter") {
+          input.blur();
+        }
+      };
+    };
+  }
+  async updateTaskText(file, lineIndex, newText) {
+    const content = await this.app.vault.read(file);
+    const lines = content.split("\n");
+    if (lines[lineIndex] !== void 0) {
+      const match = lines[lineIndex].match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+      if (match) {
+        if (!newText.trim()) {
+          lines.splice(lineIndex, 1);
+        } else {
+          lines[lineIndex] = `${match[1]}${newText}`;
+        }
+        await this.app.vault.modify(file, lines.join("\n"));
+      }
+    }
+  }
+  async addTaskToFile(file, text) {
+    const content = await this.app.vault.read(file);
+    const newContent = content.endsWith("\n") ? `${content}- [ ] ${text}
+` : `${content}
+- [ ] ${text}
+`;
+    await this.app.vault.modify(file, newContent);
+  }
+  async toggleTaskStatus(file, lineIndex, newStatus) {
+    const content = await this.app.vault.read(file);
+    const lines = content.split("\n");
+    if (lines[lineIndex]) {
+      lines[lineIndex] = lines[lineIndex].replace(/^(\s*-\s*\[)[ xX](\])/, `$1${newStatus ? "x" : " "}$2`);
+      await this.app.vault.modify(file, lines.join("\n"));
+    }
+  }
+};
+
 // src/views/boardTabsView.ts
 var BOARD_TABS_VIEW_TYPE = "kb-board-tabs-view";
 var BoardTabsView = class extends import_obsidian8.ItemView {
@@ -36659,6 +36845,16 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
       (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
       this.render();
     };
+    const tasksBtn = tabs.createEl("button", { text: "Tasks" });
+    tasksBtn.addClass("kb-tab");
+    if (this.active === "tasks") tasksBtn.addClass("is-active");
+    tasksBtn.onclick = () => {
+      var _a2;
+      this.active = "tasks";
+      this.settings.lastActiveTab = "tasks";
+      (_a2 = this.persistSettings) == null ? void 0 : _a2.call(this);
+      this.render();
+    };
     const searchContainer = header.createDiv({ cls: "kb-search-container" });
     searchContainer.style.marginLeft = "8px";
     searchContainer.style.position = "relative";
@@ -36754,7 +36950,8 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
     viewContainer.style.overflow = "hidden";
     if (this.active === "grid") this.renderGrid(viewContainer);
     else if (this.active === "board") this.renderBoard(viewContainer);
-    else this.renderCalendar(viewContainer);
+    else if (this.active === "calendar") this.renderCalendar(viewContainer);
+    else this.renderTasks(viewContainer);
   }
   async importFromJson() {
     const input = document.createElement("input");
@@ -37071,6 +37268,16 @@ var BoardTabsView = class extends import_obsidian8.ItemView {
       () => this.plugin.createCrFromTemplate()
     );
     calendarView.render(container);
+  }
+  // TASKS
+  renderTasks(container) {
+    const tasksView = new TasksView(
+      this.app,
+      this.settings,
+      this.tasks,
+      this.reload.bind(this)
+    );
+    tasksView.render(container);
   }
 };
 
