@@ -36406,17 +36406,18 @@ var CalendarView = class {
         Object.assign(sharedTask.frontmatter, result);
       }
       await this.reloadCallback();
-    });
+    }, this.onCreateTask);
     modal.open();
   }
 };
 var EditCRModal = class extends import_obsidian7.Modal {
-  constructor(app, settings, cr, onSubmit) {
+  constructor(app, settings, cr, onSubmit, onCreateTask) {
     super(app);
     this.inputs = /* @__PURE__ */ new Map();
     this.settings = settings;
     this.cr = cr;
     this.onSubmit = onSubmit;
+    this.onCreateTask = onCreateTask;
   }
   onOpen() {
     const { contentEl } = this;
@@ -36474,6 +36475,16 @@ var EditCRModal = class extends import_obsidian7.Modal {
       }
     });
     const footer = contentEl.createDiv({ cls: "kb-modal-footer" });
+    if (this.onCreateTask) {
+      const createTaskBtn = footer.createEl("button", { text: "Create Task" });
+      createTaskBtn.style.marginRight = "auto";
+      createTaskBtn.onclick = () => {
+        var _a;
+        const crNumber = this.cr.frontmatter["number"];
+        (_a = this.onCreateTask) == null ? void 0 : _a.call(this, { crNumber });
+        this.close();
+      };
+    }
     const cancel = footer.createEl("button", { text: "Cancel" });
     cancel.addClass("mod-warning");
     cancel.onclick = () => this.close();

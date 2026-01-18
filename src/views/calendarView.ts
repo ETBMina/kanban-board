@@ -889,7 +889,7 @@ export class CalendarView {
             }
 
             await this.reloadCallback();
-        });
+        }, this.onCreateTask);
         modal.open();
     }
 }
@@ -898,13 +898,15 @@ class EditCRModal extends Modal {
     private settings: PluginConfiguration;
     private cr: TaskNoteMeta;
     private onSubmit: (patch: Record<string, any>) => void;
+    private onCreateTask?: (initialData?: Record<string, any>) => void;
     private inputs = new Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | { getValue: () => any }>();
 
-    constructor(app: App, settings: PluginConfiguration, cr: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void) {
+    constructor(app: App, settings: PluginConfiguration, cr: TaskNoteMeta, onSubmit: (patch: Record<string, any>) => void, onCreateTask?: (initialData?: Record<string, any>) => void) {
         super(app);
         this.settings = settings;
         this.cr = cr;
         this.onSubmit = onSubmit;
+        this.onCreateTask = onCreateTask;
     }
 
     onOpen() {
@@ -974,6 +976,17 @@ class EditCRModal extends Modal {
 
         // Fixed footer
         const footer = contentEl.createDiv({ cls: 'kb-modal-footer' });
+
+        if (this.onCreateTask) {
+            const createTaskBtn = footer.createEl('button', { text: 'Create Task' });
+            createTaskBtn.style.marginRight = 'auto'; // Push to left
+            createTaskBtn.onclick = () => {
+                const crNumber = this.cr.frontmatter['number'];
+                this.onCreateTask?.({ crNumber });
+                this.close();
+            };
+        }
+
         const cancel = footer.createEl('button', { text: 'Cancel' });
         cancel.addClass('mod-warning');
         cancel.onclick = () => this.close();
