@@ -518,13 +518,22 @@ class TaskTemplateModal extends Modal {
       const control = row.createDiv({ cls: 'setting-item-control' });
       // Render selects for true status fields or for the special 'priority' key
       if (field.type === 'status') {
-        const options = field.useValues === 'priorities'
-          ? this.plugin.config.priorities
-          : this.plugin.config.statusConfig.statuses;
+        let options: string[] = [];
+        let initialValue = '';
 
-        let initialValue = options[0] ?? '';
-        if (field.useValues === 'priorities') {
-          initialValue = this.plugin.config.defaultPriority;
+        if (field.useValues) {
+          options = (this.plugin.config.statusConfig as any)[field.useValues] || (this.plugin.config as any)[field.useValues] || [];
+
+          if (field.useValues === 'priorities') {
+            initialValue = this.plugin.config.defaultPriority;
+          } else {
+            initialValue = options[0] || '';
+          }
+        }
+
+        if (options.length === 0) {
+          options = this.plugin.config.statusConfig.statuses;
+          initialValue = options[0] || '';
         }
 
         const dropdown = new Dropdown(
@@ -899,15 +908,19 @@ class CrTemplateModal extends Modal {
         let options: string[] = [];
         let initialValue = '';
 
-        if (field.useValues === 'priorities') {
-          options = this.config.priorities;
-          initialValue = this.config.defaultPriority;
-        } else if (field.useValues === 'crStatuses') {
-          options = this.config.statusConfig.crStatuses || ['Backlog', 'In Progress', 'Completed'];
-          initialValue = options[0];
-        } else {
+        if (field.useValues) {
+          options = (this.config.statusConfig as any)[field.useValues] || (this.config as any)[field.useValues] || [];
+
+          if (field.useValues === 'priorities') {
+            initialValue = this.config.defaultPriority;
+          } else {
+            initialValue = options[0] || '';
+          }
+        }
+
+        if (options.length === 0) {
           options = this.config.statusConfig.statuses;
-          initialValue = options[0];
+          initialValue = options[0] || '';
         }
 
         const dropdown = new Dropdown(

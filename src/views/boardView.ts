@@ -877,9 +877,8 @@ class EditTaskModal extends Modal {
             const control = row.createDiv({ cls: 'setting-item-control' });
 
             if (field.type === 'status') {
-                const options = field.useValues === 'priorities'
-                    ? this.settings.priorities
-                    : this.settings.statusConfig.statuses;
+                let options: string[] = field.useValues ? (this.settings.statusConfig as any)[field.useValues] || (this.settings as any)[field.useValues] || [] : [];
+                if (options.length === 0) options = this.settings.statusConfig.statuses;
 
                 const dropdown = new Dropdown(
                     control,

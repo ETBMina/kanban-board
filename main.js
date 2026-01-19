@@ -35494,7 +35494,8 @@ var EditTaskModal = class extends import_obsidian6.Modal {
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
-        const options = field.useValues === "priorities" ? this.settings.priorities : this.settings.statusConfig.statuses;
+        let options = field.useValues ? this.settings.statusConfig[field.useValues] || this.settings[field.useValues] || [] : [];
+        if (options.length === 0) options = this.settings.statusConfig.statuses;
         const dropdown = new Dropdown(
           control,
           options,
@@ -37676,7 +37677,7 @@ var TaskTemplateModal = class extends import_obsidian9.Modal {
     this.initialData = initialData;
   }
   onOpen() {
-    var _a, _b, _c, _d;
+    var _a, _b, _c;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("kb-container", "kb-modal-layout");
@@ -37727,10 +37728,19 @@ var TaskTemplateModal = class extends import_obsidian9.Modal {
       row.createDiv({ cls: "setting-item-name", text: field.label });
       const control = row.createDiv({ cls: "setting-item-control" });
       if (field.type === "status") {
-        const options = field.useValues === "priorities" ? this.plugin.config.priorities : this.plugin.config.statusConfig.statuses;
-        let initialValue = (_d = options[0]) != null ? _d : "";
-        if (field.useValues === "priorities") {
-          initialValue = this.plugin.config.defaultPriority;
+        let options = [];
+        let initialValue = "";
+        if (field.useValues) {
+          options = this.plugin.config.statusConfig[field.useValues] || this.plugin.config[field.useValues] || [];
+          if (field.useValues === "priorities") {
+            initialValue = this.plugin.config.defaultPriority;
+          } else {
+            initialValue = options[0] || "";
+          }
+        }
+        if (options.length === 0) {
+          options = this.plugin.config.statusConfig.statuses;
+          initialValue = options[0] || "";
         }
         const dropdown = new Dropdown(
           control,
@@ -38034,15 +38044,17 @@ var CrTemplateModal = class extends import_obsidian9.Modal {
       } else if (field.type === "status") {
         let options = [];
         let initialValue = "";
-        if (field.useValues === "priorities") {
-          options = this.config.priorities;
-          initialValue = this.config.defaultPriority;
-        } else if (field.useValues === "crStatuses") {
-          options = this.config.statusConfig.crStatuses || ["Backlog", "In Progress", "Completed"];
-          initialValue = options[0];
-        } else {
+        if (field.useValues) {
+          options = this.config.statusConfig[field.useValues] || this.config[field.useValues] || [];
+          if (field.useValues === "priorities") {
+            initialValue = this.config.defaultPriority;
+          } else {
+            initialValue = options[0] || "";
+          }
+        }
+        if (options.length === 0) {
           options = this.config.statusConfig.statuses;
-          initialValue = options[0];
+          initialValue = options[0] || "";
         }
         const dropdown = new Dropdown(
           control,

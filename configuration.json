@@ -81,6 +81,11 @@
     "Medium",
     "Low"
   ],
+  "squads": [
+    "Unset",
+    "Retail Finance",
+    "Retail Cards"
+  ],
   "defaultPriority": "Medium",
   "fieldPatterns": {
     "crNumberPattern": "^CR-\\d+$",
@@ -167,6 +172,12 @@
         "type": "text"
       },
       {
+        "key": "squad",
+        "label": "Squad",
+        "type": "status",
+        "useValues": "squads"
+      },
+      {
         "key": "status",
         "label": "Status",
         "type": "status",
@@ -207,7 +218,7 @@
   },
   "taskFilenameFormat": "{{crNumber}} {{taskNumber}} - {{title}} - {{service}}.md",
   "crFilenameFormat": "{{number}} - {{title}}.md",
-  "lastActiveTab": "tasks",
+  "lastActiveTab": "calendar",
   "people": [
     "Mina Talaat Hakim",
     "Ahmed Mohamed Hussien Abdelaal",

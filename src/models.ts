@@ -59,6 +59,7 @@ export interface PluginConfiguration {
   taskFilenameFormat?: string;
   crFilenameFormat?: string;
   filterState?: FilterState;
+  squads?: string[];
 }
 
 export interface Subtask {
